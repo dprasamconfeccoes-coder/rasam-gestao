@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.local
+.DS_Store
+coverage/
+# Dados pessoais extraídos da ficha nunca entram no repositório.
+data/
+/tmp/
+*.tsbuildinfo
+app.config.js
+app.config.d.ts
+vite.config.js
+vite.config.d.ts
