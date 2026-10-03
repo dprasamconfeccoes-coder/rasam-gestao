@@ -14,9 +14,9 @@ export function PageHeading({ eyebrow, title, description, action }: { eyebrow: 
   )
 }
 
-export function MetricCard({ label, value, detail, tone = 'gold' }: { label: string; value: string | number; detail: string; tone?: 'gold' | 'pink' | 'green' | 'blue' }) {
+export function MetricCard({ label, value, detail, tone = 'gold', onClick }: { label: string; value: string | number; detail: string; tone?: 'gold' | 'pink' | 'green' | 'blue'; onClick?: () => void }) {
   return (
-    <article className={`metric-card metric-${tone}`}>
+    <article className={`metric-card metric-${tone}${onClick ? ' is-clickable' : ''}`} onClick={onClick} role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined} onKeyDown={(event) => { if (onClick && (event.key === 'Enter' || event.key === ' ')) onClick() }}>
       <div className="metric-top"><span>{label}</span><span className="metric-dot" /></div>
       <strong>{value}</strong>
       <small>{detail}</small>

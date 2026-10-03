@@ -289,8 +289,10 @@ export interface ProntuarioResponse {
   justificativas: Array<Record<string, unknown>>
   ponto: Array<Record<string, unknown>>
   holerites: Array<Record<string, unknown>>
+  ferias: Array<Record<string, unknown>>
+  afastamentos: Array<Record<string, unknown>>
 }
 
 export interface FechamentoResult { sucesso: boolean; erro?: string; fechamento_id?: string; competencia?: string }
 export interface FechamentoReport { sucesso: boolean; erro?: string; competencia?: string; tipo?: string; linhas?: Array<Record<string, unknown>> }
-export interface FinanceiroWorkspace { sucesso: boolean; erro?: string; contas: Array<Record<string, unknown>>; recorrencias: Array<Record<string, unknown>>; parcelas: Array<Record<string, unknown>> }
+export interface FinanceiroWorkspace { sucesso: boolean; erro?: string; contas: Array<Record<string, unknown>>; dividas: Array<Record<string, unknown>>; recorrencias: Array<Record<string, unknown>>; parcelas: Array<Record<string, unknown>> }

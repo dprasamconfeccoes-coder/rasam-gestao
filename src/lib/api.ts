@@ -258,3 +258,7 @@ export function adminCriarRecorrencia(token: string, payload: { descricao: strin
 export function adminCriarParcelamento(token: string, payload: { tipo: string; credor: string; descricao: string; entrada: number; quantidade: number; valorPadrao: number; primeiroVencimento: string; valores: number[] }) {
   return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_criar_parcelamento', { p_token: token, p_tipo: payload.tipo, p_credor: payload.credor, p_descricao: payload.descricao, p_valor_entrada: payload.entrada, p_quantidade: payload.quantidade, p_valor_padrao: payload.valorPadrao, p_primeiro_vencimento: payload.primeiroVencimento, p_valores: payload.valores })
 }
+
+export function adminCriarOrdem(token: string, payload: { numero: string; descricao: string; prioridade: string; prazo: string; quantidade: number; valor: number; observacoes: string }) {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_criar_ordem', { p_token: token, p_numero: payload.numero, p_descricao: payload.descricao, p_prioridade: payload.prioridade, p_prazo: payload.prazo || null, p_quantidade: payload.quantidade, p_valor: payload.valor, p_observacoes: payload.observacoes || null })
+}
