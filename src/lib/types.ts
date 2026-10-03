@@ -276,3 +276,21 @@ export interface AdminLotRow {
   quantidade: number
   responsavel: string | null
 }
+
+
+export interface ProntuarioResponse {
+  sucesso: boolean
+  erro?: string
+  funcionario?: Record<string, unknown> & { id: string; nome: string; cpf: string; tipo_vinculo?: string; registrado?: boolean }
+  documentos: Array<Record<string, unknown>>
+  advertencias: Array<Record<string, unknown>>
+  timeline: Array<Record<string, unknown>>
+  atestados: Array<Record<string, unknown>>
+  justificativas: Array<Record<string, unknown>>
+  ponto: Array<Record<string, unknown>>
+  holerites: Array<Record<string, unknown>>
+}
+
+export interface FechamentoResult { sucesso: boolean; erro?: string; fechamento_id?: string; competencia?: string }
+export interface FechamentoReport { sucesso: boolean; erro?: string; competencia?: string; tipo?: string; linhas?: Array<Record<string, unknown>> }
+export interface FinanceiroWorkspace { sucesso: boolean; erro?: string; contas: Array<Record<string, unknown>>; recorrencias: Array<Record<string, unknown>>; parcelas: Array<Record<string, unknown>> }

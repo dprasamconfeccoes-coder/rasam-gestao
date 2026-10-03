@@ -83,7 +83,7 @@ import type {
   PointImportSummary,
 } from './lib/types'
 import { regimentoSections } from './data/regimento'
-import { AdminCenter } from './features/AdminCenter'
+import { AdminCenterV2 as AdminCenter } from './features/AdminCenterV2'
 import {
   EmptyState,
   ErrorState,

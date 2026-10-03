@@ -222,3 +222,39 @@ export function updateOrder(token: string, id: string, status: string) {
 export function updateLot(token: string, id: string, status: string) {
   return rpc<{ sucesso: boolean; erro?: string }>('app_admin_atualizar_lote', { p_token: token, p_id: id, p_status: status })
 }
+
+
+export function adminProntuario(token: string, funcionarioId: string) {
+  return rpc<import('./types').ProntuarioResponse>('app_admin_prontuario', { p_token: token, p_funcionario_id: funcionarioId })
+}
+
+export function adminCadastrarFuncionario(token: string, payload: { nome: string; cpf: string; dataNascimento: string; tipoVinculo: string; cargo: string; telefone: string; endereco: string; valorMensal: number | null; valorDiaria: number | null; liberarAcesso: boolean }) {
+  return rpc<{ sucesso: boolean; erro?: string; funcionario_id?: string }>('app_admin_cadastrar_funcionario', {
+    p_token: token, p_nome: payload.nome, p_cpf: payload.cpf, p_data_nascimento: payload.dataNascimento, p_tipo_vinculo: payload.tipoVinculo,
+    p_cargo: payload.cargo, p_telefone: payload.telefone, p_endereco: payload.endereco, p_valor_mensal: payload.valorMensal,
+    p_valor_diaria: payload.valorDiaria, p_liberar_acesso: payload.liberarAcesso,
+  })
+}
+
+export function adminCalcularFechamento(token: string, competencia: string, incluirInformaisVale: boolean) {
+  return rpc<import('./types').FechamentoResult>('app_admin_calcular_fechamento', { p_token: token, p_competencia: competencia, p_incluir_informais_vale: incluirInformaisVale })
+}
+
+export function adminRelatorioFechamento(token: string, competencia: string, tipo: 'escritorio' | 'vale', incluirInformaisVale = false) {
+  return rpc<import('./types').FechamentoReport>('app_admin_relatorio_fechamento', { p_token: token, p_competencia: competencia, p_tipo: tipo, p_incluir_informais_vale: incluirInformaisVale })
+}
+
+export function adminFinanceiroWorkspace(token: string) {
+  return rpc<import('./types').FinanceiroWorkspace>('app_admin_financeiro', { p_token: token })
+}
+
+export function adminQuitarParcela(token: string, id: string, comprovanteUrl?: string, comprovanteNome?: string) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_quitar_parcela', { p_token: token, p_id: id, p_comprovante_url: comprovanteUrl || null, p_comprovante_nome: comprovanteNome || null })
+}
+
+export function adminCriarRecorrencia(token: string, payload: { descricao: string; categoria: string; fornecedor: string; valor: number; periodicidade: string; proximoVencimento: string }) {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_criar_recorrencia', { p_token: token, p_descricao: payload.descricao, p_categoria: payload.categoria, p_fornecedor: payload.fornecedor, p_valor: payload.valor, p_periodicidade: payload.periodicidade, p_proximo_vencimento: payload.proximoVencimento })
+}
+export function adminCriarParcelamento(token: string, payload: { tipo: string; credor: string; descricao: string; entrada: number; quantidade: number; valorPadrao: number; primeiroVencimento: string; valores: number[] }) {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_criar_parcelamento', { p_token: token, p_tipo: payload.tipo, p_credor: payload.credor, p_descricao: payload.descricao, p_valor_entrada: payload.entrada, p_quantidade: payload.quantidade, p_valor_padrao: payload.valorPadrao, p_primeiro_vencimento: payload.primeiroVencimento, p_valores: payload.valores })
+}
