@@ -16,9 +16,16 @@ O frontend usa as RPCs `app_*` do projeto Supabase configurado no ambiente. O cl
 
 O login usa CPF. Para as contas importadas da ficha de empregado, a senha inicial é a data de nascimento no formato `DDMMAAAA`. O primeiro acesso exige troca para uma senha com pelo menos oito caracteres.
 
+## Tipos de cadastro de funcionário
+
+- **Completo:** usado para os empregados da ficha trabalhista, com os dados de registro disponíveis como CBO, CTPS, FGTS, salário, admissão e demais documentos.
+- **Básico:** usado para funcionários administrativos, gestores ou pessoas em período de teste, mantendo apenas os dados necessários para identificação, acesso e operação — nome, CPF, nascimento, telefone, endereço e documentos disponíveis.
+
+A coluna `funcionarios.cadastro_tipo` diferencia os dois cenários (`completo` ou `basico`). O cadastro básico não exige o preenchimento artificial de campos trabalhistas que ainda não existem.
+
 ## Supabase
 
-A migração versionada está em `supabase/migrations/0001_unified_rasam_gestao.sql`. A carga real da ficha foi executada diretamente no projeto Supabase e não é armazenada neste repositório.
+As migrações versionadas estão em `supabase/migrations/0001_unified_rasam_gestao.sql`, `0002_private_documents_scope.sql` e `0003_employee_registration_types.sql`. A carga real da ficha foi executada diretamente no projeto Supabase e não é armazenada neste repositório.
 
 ## Publicação
 

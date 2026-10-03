@@ -5,6 +5,7 @@
 - [ ] **Sistema administrativo unificado:** reunir dashboard, ordens de serviço, produção, materiais, expedição, financeiro, contábil, dívidas, RH, folha, qualidade, relatórios e configurações sem depender de mocks, timers ou armazenamento temporário como banco.
 - [ ] **Aplicativo do gestor incorporado:** entregar indicadores, alertas, filtros, ordens, lotes, produção, financeiro e RH dentro do mesmo login e banco.
 - [ ] **Portal do funcionário incorporado:** entregar perfil, ponto, holerites, documentos, atestados, avisos, benefícios e solicitações ao RH com dados reais e registros persistidos.
+- [ ] **Tipos de cadastro de funcionário:** o sistema deve aceitar cadastro completo para empregados com ficha trabalhista e cadastro básico para funcionários administrativos ou em teste de três meses, sem exigir CBO ou outros campos de registro ainda inexistentes; ambos devem poder acessar o aplicativo conforme o perfil.
 - [ ] **Carga real da ficha de empregado:** extrair e inserir os empregados da ficha no Supabase, criar as contas iniciais e preservar os dados pessoais fora do repositório público.
 - [ ] **Responsividade e PWA:** interface usável em celular, tablet e desktop, com manifesto, ícones, service worker e cache restrito ao shell público.
 - [ ] **Publicação no GitHub Pages:** criar o repositório novo, configurar build reproduzível e publicar o frontend com fallback SPA, sem incluir chaves privadas ou dados pessoais.
