@@ -1,13 +1,13 @@
 {
-  "name": "Rasam Gestão",
-  "short_name": "Rasam Gestão",
-  "description": "Central de operação da Raça Confecções.",
+  "name": "RF Gestão",
+  "short_name": "RF Gestão",
+  "description": "Central de operação da Rafaela Fernandes.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0b0d11",
   "theme_color": "#d7a84a",
   "lang": "pt-BR",
   "icons": [
-    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "./brand/rf-logo.png", "sizes": "183x134", "type": "image/png", "purpose": "any maskable" }
   ]
 }

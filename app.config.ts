@@ -1,3 +1,3 @@
 export default {
-  logoUrl: "https://github.com/dprasamconfeccoes-coder.png",
+  logoUrl: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663996652618/luxMzAVvFwXuOYtp.png",
 }

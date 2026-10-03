@@ -1,6 +1,6 @@
-# Rasam Gestão
+# RF Gestão
 
-Sistema unificado da Raça Confecções: gestão administrativa, visão do gestor e portal do funcionário em uma aplicação responsiva e instalável.
+Sistema unificado da Rafaela Fernandes: gestão administrativa, visão do gestor e portal do funcionário em uma aplicação responsiva e instalável.
 
 ## Desenvolvimento
 

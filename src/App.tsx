@@ -32,6 +32,7 @@ import {
   WalletCards,
   X,
 } from 'lucide-react'
+import rfLogo from './assets/rf-logo.png'
 import {
   clearToken,
   createRequest,
@@ -150,18 +151,18 @@ function LoginScreen({ onLoggedIn }: { onLoggedIn: (response: LoginResponse) => 
     <main className="auth-page">
       <div className="auth-grid" />
       <section className="auth-panel">
-        <div className="brand-lockup"><span className="brand-mark">R</span><div><strong>Rasam</strong><span>Gestão</span></div></div>
-        <div className="auth-copy"><span className="eyebrow">Raça Confecções · acesso único</span><h1>Operação clara.<br /><em>Decisões no tempo certo.</em></h1><p>Gestão, liderança e portal do funcionário em um só ambiente protegido.</p></div>
+        <div className="brand-lockup"><img className="brand-logo" src={rfLogo} alt="RF — Rafaela Fernandes" /><div><strong>RF</strong><span>Rafaela Fernandes</span></div></div>
+        <div className="auth-copy"><span className="eyebrow">Rafaela Fernandes · acesso único</span><h1>Operação clara.<br /><em>Decisões no tempo certo.</em></h1><p>Gestão, liderança e portal do funcionário em um só ambiente protegido.</p></div>
         <div className="auth-feature"><ShieldCheck size={18} /><span>Seu perfil libera somente o que você precisa acessar.</span></div>
       </section>
       <section className="auth-card">
-        <div className="auth-card-head"><div className="mobile-brand"><span className="brand-mark">R</span><strong>Rasam Gestão</strong></div><span className="eyebrow">Entrar no sistema</span><h2>Acesso da equipe</h2><p>Use seu CPF e sua senha para continuar.</p></div>
+        <div className="auth-card-head"><div className="mobile-brand"><img className="brand-logo compact" src={rfLogo} alt="RF — Rafaela Fernandes" /><strong>RF Gestão</strong></div><span className="eyebrow">Entrar no sistema</span><h2>Acesso da equipe</h2><p>Use seu CPF e sua senha para continuar.</p></div>
         <form onSubmit={submit} className="form-stack">
           <label>CPF<input value={cpf} onChange={(event) => setCpf(normalizeCpf(event.target.value))} inputMode="numeric" autoComplete="username" placeholder="00000000000" maxLength={11} /></label>
           <label>Senha<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="Sua senha" /></label>
           <div className="form-hint"><Fingerprint size={15} /> Na primeira entrada, use sua data de nascimento no formato DDMMAAAA.</div>
           {error && <div className="form-error"><AlertCircle size={16} />{error}</div>}
-          <button className="primary-button" type="submit" disabled={loading}>{loading ? <><RefreshCw className="spin" size={17} /> Conferindo acesso…</> : <>Entrar no Rasam <ArrowRight size={17} /></>}</button>
+          <button className="primary-button" type="submit" disabled={loading}>{loading ? <><RefreshCw className="spin" size={17} /> Conferindo acesso…</> : <>Entrar na RF Gestão <ArrowRight size={17} /></>}</button>
         </form>
         <div className="auth-footer"><span>Ambiente protegido por Supabase</span><span className="live-dot">● online</span></div>
       </section>
@@ -191,7 +192,7 @@ function FirstAccessScreen({ token, user, onDone, onLogout }: { token: string; u
   return (
     <main className="auth-page first-access-page">
       <section className="first-access-card">
-        <div className="brand-lockup"><span className="brand-mark">R</span><div><strong>Rasam</strong><span>Gestão</span></div></div>
+        <div className="brand-lockup"><img className="brand-logo" src={rfLogo} alt="RF — Rafaela Fernandes" /><div><strong>RF</strong><span>Rafaela Fernandes</span></div></div>
         <span className="eyebrow">Primeiro acesso · {profileLabel(user.perfil)}</span>
         <h1>Vamos proteger<br /><em>seu acesso.</em></h1>
         <p>Olá, <strong>{user.nome.split(' ')[0]}</strong>. A senha temporária da ficha já foi reconhecida. Defina uma senha pessoal para continuar.</p>
@@ -216,7 +217,7 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
   const isEmployee = user.perfil === 'funcionario'
   return <>
     <PageHeading eyebrow="Pulso da operação" title="Visão geral" description={`Bom dia, ${user.nome.split(' ')[0]}. Aqui está o que merece atenção.`} action={<span className="date-chip"><CalendarDays size={15} /> {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}</span>} />
-    <div className="welcome-strip"><div><span className="eyebrow">Acesso liberado</span><h2>{profileLabel(user.perfil)} <span className="gold-text">· {user.cargo || 'Rasam Gestão'}</span></h2><p>As informações abaixo vêm do ambiente operacional em tempo real.</p></div><div className="welcome-symbol"><Gauge size={34} /></div></div>
+    <div className="welcome-strip"><div><span className="eyebrow">Acesso liberado</span><h2>{profileLabel(user.perfil)} <span className="gold-text">· {user.cargo || 'RF Gestão'}</span></h2><p>As informações abaixo vêm do ambiente operacional em tempo real.</p></div><div className="welcome-symbol"><Gauge size={34} /></div></div>
     <div className="metric-grid">
       {isEmployee ? <>
         <MetricCard label="Meu ponto" value="Consultar" detail="Jornada registrada" tone="gold" />
@@ -379,7 +380,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'solicitacoes') return <RequestsView token={token} />
     return <ControlModuleView token={token} module={active} />
   }
-  return <div className="app-shell"><aside className={`sidebar ${mobileMenu ? 'is-open' : ''}`}><div className="sidebar-brand"><span className="brand-mark">R</span><div><strong>Rasam</strong><span>Gestão</span></div><button className="close-mobile" onClick={() => setMobileMenu(false)}><X size={18} /></button></div><div className="sidebar-user"><div className="avatar">{user.nome.split(' ').slice(0, 2).map((part) => part[0]).join('')}</div><div><strong>{user.nome.split(' ').slice(0, 2).join(' ')}</strong><span>{profileLabel(user.perfil)}</span></div></div><nav>{groups.map((group) => <div className="nav-group" key={group}><span className="nav-label">{group}</span>{allowedItems.filter((item) => item.group === group).map((item) => { const Icon = item.icon; return <button key={item.key} className={`nav-item ${active === item.key ? 'active' : ''}`} onClick={() => navigate(item.key)}><Icon size={17} /><span>{item.label}</span>{active === item.key && <ChevronRight className="nav-arrow" size={14} />}</button> })}</div>)}</nav><button className="logout-button" onClick={onLogout}><LogOut size={17} /> Sair da sessão</button></aside><div className={`shell-backdrop ${mobileMenu ? 'visible' : ''}`} onClick={() => setMobileMenu(false)} /><main className="main-area"><header className="topbar"><button className="mobile-menu-button" onClick={() => setMobileMenu(true)}><Menu size={20} /></button><div className="breadcrumbs"><span>Rasam Gestão</span><ChevronRight size={14} /><strong>{activeItem.label}</strong></div><div className="topbar-actions"><span className="connection-status"><span className="live-dot">●</span> Supabase conectado</span><div className="topbar-avatar">{user.nome[0]}</div></div></header><div className="content-wrap">{renderPage()}</div><footer className="app-footer"><span>Rasam Gestão · {new Date().getFullYear()}</span><span>Perfil: {profileLabel(user.perfil)} · sessão segura</span></footer></main></div>
+  return <div className="app-shell"><aside className={`sidebar ${mobileMenu ? 'is-open' : ''}`}><div className="sidebar-brand"><img className="brand-logo" src={rfLogo} alt="RF — Rafaela Fernandes" /><div><strong>RF</strong><span>Rafaela Fernandes</span></div><button className="close-mobile" onClick={() => setMobileMenu(false)}><X size={18} /></button></div><div className="sidebar-user"><div className="avatar">{user.nome.split(' ').slice(0, 2).map((part) => part[0]).join('')}</div><div><strong>{user.nome.split(' ').slice(0, 2).join(' ')}</strong><span>{profileLabel(user.perfil)}</span></div></div><nav>{groups.map((group) => <div className="nav-group" key={group}><span className="nav-label">{group}</span>{allowedItems.filter((item) => item.group === group).map((item) => { const Icon = item.icon; return <button key={item.key} className={`nav-item ${active === item.key ? 'active' : ''}`} onClick={() => navigate(item.key)}><Icon size={17} /><span>{item.label}</span>{active === item.key && <ChevronRight className="nav-arrow" size={14} />}</button> })}</div>)}</nav><button className="logout-button" onClick={onLogout}><LogOut size={17} /> Sair da sessão</button></aside><div className={`shell-backdrop ${mobileMenu ? 'visible' : ''}`} onClick={() => setMobileMenu(false)} /><main className="main-area"><header className="topbar"><button className="mobile-menu-button" onClick={() => setMobileMenu(true)}><Menu size={20} /></button><div className="breadcrumbs"><span>RF Gestão</span><ChevronRight size={14} /><strong>{activeItem.label}</strong></div><div className="topbar-actions"><span className="connection-status"><span className="live-dot">●</span> Supabase conectado</span><div className="topbar-avatar">{user.nome[0]}</div></div></header><div className="content-wrap">{renderPage()}</div><footer className="app-footer"><span>RF Gestão · {new Date().getFullYear()}</span><span>Perfil: {profileLabel(user.perfil)} · sessão segura</span></footer></main></div>
 }
 
 export default function App() {
@@ -390,7 +391,7 @@ export default function App() {
   useEffect(() => { const currentToken = getToken(); if (!currentToken) { setBooting(false); return } getSession(currentToken).then((data) => { if (data.valido) { setUser(data); setSessionToken(currentToken) } else clearToken() }).catch(() => clearToken()).finally(() => setBooting(false)) }, [])
   function loggedIn(response: LoginResponse) { if (!response.token) return; setSessionToken(response.token); setUser({ usuario_id: response.usuario_id, funcionario_id: response.funcionario_id, perfil: response.perfil, nome: response.nome, cargo: response.cargo, cpf: response.cpf }); setFirstAccess(Boolean(response.primeiro_acesso)) }
   async function signOut() { const currentToken = token || getToken(); if (currentToken) await logout(currentToken).catch(() => undefined); clearToken(); setUser(null); setSessionToken(null); setFirstAccess(false) }
-  if (booting) return <main className="boot-screen"><div className="brand-lockup"><span className="brand-mark">R</span><div><strong>Rasam</strong><span>Gestão</span></div></div><RefreshCw className="spin" size={20} /><span>Carregando seu ambiente…</span></main>
+  if (booting) return <main className="boot-screen"><div className="brand-lockup"><img className="brand-logo" src={rfLogo} alt="RF — Rafaela Fernandes" /><div><strong>RF</strong><span>Rafaela Fernandes</span></div></div><RefreshCw className="spin" size={20} /><span>Carregando seu ambiente…</span></main>
   if (!user || !token) return <LoginScreen onLoggedIn={loggedIn} />
   if (firstAccess) return <FirstAccessScreen token={token} user={user} onDone={() => setFirstAccess(false)} onLogout={signOut} />
   return <Shell user={user} token={token} onLogout={signOut} />
