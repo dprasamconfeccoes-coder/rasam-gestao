@@ -83,6 +83,7 @@ import type {
   PointImportSummary,
 } from './lib/types'
 import { regimentoSections } from './data/regimento'
+import { AdminCenter } from './features/AdminCenter'
 import {
   EmptyState,
   ErrorState,
@@ -119,6 +120,7 @@ const navItems: NavItem[] = [
   { key: 'importacoes', label: 'Importar ponto', description: 'CSV diário e mensal', icon: FileSpreadsheet, group: 'Administração', profiles: managerProfiles },
   { key: 'acordos', label: 'Acordos e parcelas', description: 'Pagamentos trabalhistas', icon: Scale, group: 'Administração', profiles: adminProfiles },
   { key: 'documentos', label: 'Documentos internos', description: 'Regimento e CCT', icon: BookOpen, group: 'Administração', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
+  { key: 'central', label: 'Central operacional', description: 'RH, ponto, holerites e gestão total', icon: ShieldCheck, group: 'Administração', profiles: adminProfiles },
 ]
 
 function profileLabel(profile: Profile) {
@@ -435,6 +437,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'importacoes') return <PointImportsView token={token} />
     if (active === 'acordos') return <AgreementsView token={token} />
     if (active === 'documentos') return <DocumentsView token={token} />
+    if (active === 'central') return <AdminCenter token={token} />
     return <ControlModuleView token={token} module={active} />
   }
   return <div className="app-shell"><aside className={`sidebar ${mobileMenu ? 'is-open' : ''}`}><div className="sidebar-brand"><img className="brand-logo" src={rfLogo} alt="RF — Rafaela Fernandes" /><div><strong>RF</strong><span>Rafaela Fernandes</span></div><button className="close-mobile" onClick={() => setMobileMenu(false)}><X size={18} /></button></div><div className="sidebar-user"><div className="avatar">{user.nome.split(' ').slice(0, 2).map((part) => part[0]).join('')}</div><div><strong>{user.nome.split(' ').slice(0, 2).join(' ')}</strong><span>{profileLabel(user.perfil)}</span></div></div><nav>{groups.map((group) => <div className="nav-group" key={group}><span className="nav-label">{group}</span>{allowedItems.filter((item) => item.group === group).map((item) => { const Icon = item.icon; return <button key={item.key} className={`nav-item ${active === item.key ? 'active' : ''}`} onClick={() => navigate(item.key)}><Icon size={17} /><span>{item.label}</span>{active === item.key && <ChevronRight className="nav-arrow" size={14} />}</button> })}</div>)}</nav><button className="logout-button" onClick={onLogout}><LogOut size={17} /> Sair da sessão</button></aside><div className={`shell-backdrop ${mobileMenu ? 'visible' : ''}`} onClick={() => setMobileMenu(false)} /><main className="main-area"><header className="topbar"><button className="mobile-menu-button" onClick={() => setMobileMenu(true)}><Menu size={20} /></button><div className="breadcrumbs"><span>RF Gestão</span><ChevronRight size={14} /><strong>{activeItem.label}</strong></div><div className="topbar-actions"><span className="connection-status"><span className="live-dot">●</span> Supabase conectado</span><div className="topbar-avatar">{user.nome[0]}</div></div></header><div className="content-wrap">{renderPage()}</div><footer className="app-footer"><span>RF Gestão · {new Date().getFullYear()}</span><span>Perfil: {profileLabel(user.perfil)} · sessão segura</span></footer></main></div>

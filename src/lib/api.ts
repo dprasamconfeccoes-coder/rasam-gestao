@@ -3,6 +3,14 @@ import { config } from './config'
 import type {
   DashboardResponse,
   AgreementInstallment,
+  AdminDebtRow,
+  AdminJustificationRow,
+  AdminLotRow,
+  AdminMedicalLeaveRow,
+  AdminOrderRow,
+  AdminPayslipRow,
+  AdminPointRow,
+  AdminRequestRow,
   CompanyDocument,
   EmployeeProfile,
   EmployeeRow,
@@ -157,4 +165,60 @@ export function listAgreements(token: string) {
 
 export function listCompanyDocuments(token: string) {
   return rpc<{ sucesso: boolean; erro?: string; documentos: CompanyDocument[] }>('app_listar_documentos', { p_token: token })
+}
+
+export function adminPoint(token: string) {
+  return rpc<{ sucesso: boolean; erro?: string; registros: AdminPointRow[] }>('app_admin_ponto', { p_token: token })
+}
+
+export function adminJustifications(token: string) {
+  return rpc<{ sucesso: boolean; erro?: string; justificativas: AdminJustificationRow[] }>('app_admin_justificativas', { p_token: token })
+}
+
+export function decideJustification(token: string, id: string, status: string, resposta: string) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_decidir_justificativa', { p_token: token, p_id: id, p_status: status, p_resposta: resposta })
+}
+
+export function adminMedicalLeaves(token: string) {
+  return rpc<{ sucesso: boolean; erro?: string; atestados: AdminMedicalLeaveRow[] }>('app_admin_atestados', { p_token: token })
+}
+
+export function decideMedicalLeave(token: string, id: string, status: string, observacao: string) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_decidir_atestado', { p_token: token, p_id: id, p_status: status, p_observacao: observacao })
+}
+
+export function adminRequests(token: string) {
+  return rpc<{ sucesso: boolean; erro?: string; solicitacoes: AdminRequestRow[] }>('app_admin_solicitacoes', { p_token: token })
+}
+
+export function answerRequest(token: string, id: string, status: string, resposta: string) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_responder_solicitacao', { p_token: token, p_id: id, p_status: status, p_resposta: resposta })
+}
+
+export function publishNotice(token: string, titulo: string, conteudo: string, prioridade: string) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_publicar_aviso', { p_token: token, p_titulo: titulo, p_conteudo: conteudo, p_prioridade: prioridade })
+}
+
+export function adminPayslips(token: string) {
+  return rpc<{ sucesso: boolean; erro?: string; holerites: AdminPayslipRow[] }>('app_admin_holerites', { p_token: token })
+}
+
+export function registerPayslip(token: string, funcionarioId: string, mes: number, ano: number, arquivoNome: string, arquivoUrl: string) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_registrar_holerite', { p_token: token, p_funcionario_id: funcionarioId, p_mes: mes, p_ano: ano, p_arquivo_nome: arquivoNome, p_arquivo_url: arquivoUrl })
+}
+
+export function adminRights(token: string) {
+  return rpc<{ sucesso: boolean; erro?: string; dividas: AdminDebtRow[]; ordens: AdminOrderRow[]; producao: AdminLotRow[] }>('app_admin_direitos', { p_token: token })
+}
+
+export function updateDebt(token: string, id: string, status: string, saldo: number) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_atualizar_divida', { p_token: token, p_id: id, p_status: status, p_saldo: saldo })
+}
+
+export function updateOrder(token: string, id: string, status: string) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_atualizar_ordem', { p_token: token, p_id: id, p_status: status })
+}
+
+export function updateLot(token: string, id: string, status: string) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_atualizar_lote', { p_token: token, p_id: id, p_status: status })
 }

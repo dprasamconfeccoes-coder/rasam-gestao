@@ -18,6 +18,7 @@ export type ModuleKey =
   | 'importacoes'
   | 'acordos'
   | 'documentos'
+  | 'central'
 
 export interface SessionUser {
   usuario_id: string
@@ -203,4 +204,75 @@ export interface CompanyDocument {
   conteudo_texto: string | null
   disponivel_funcionarios: boolean
   created_at: string
+}
+
+export interface AdminPointRow extends PointRow {
+  funcionario_id: string
+  nome: string
+  cpf: string
+  cargo: string | null
+}
+
+export interface AdminJustificationRow {
+  id: string
+  funcionario_id: string
+  data_registro: string
+  tipo: string
+  motivo: string
+  arquivo_nome: string | null
+  status: string
+  resposta_rh: string | null
+  analisado_em: string | null
+  nome: string
+  cpf: string
+}
+
+export interface AdminMedicalLeaveRow extends MedicalLeaveRow {
+  funcionario_id: string
+  nome: string
+  cpf: string
+}
+
+export interface AdminRequestRow extends RequestRow {
+  funcionario_id: string
+  analisado_em: string | null
+  nome: string
+  cpf: string
+}
+
+export interface AdminPayslipRow extends PayslipRow {
+  funcionario_id: string
+  nome: string
+  cpf: string
+}
+
+export interface AdminDebtRow {
+  id: string
+  credor: string
+  descricao: string
+  valor_original: number
+  saldo_devedor: number
+  vencimento: string | null
+  status: string
+  observacoes: string | null
+}
+
+export interface AdminOrderRow {
+  id: string
+  numero: string
+  descricao: string
+  status: string
+  prioridade: string
+  prazo: string | null
+  quantidade: number
+  valor_total: number
+}
+
+export interface AdminLotRow {
+  id: string
+  nome: string
+  status: string
+  prazo: string | null
+  quantidade: number
+  responsavel: string | null
 }

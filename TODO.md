@@ -15,3 +15,6 @@
 - [x] **Relatórios operacionais:** gerar impressão em PDF do ponto e conferência de vale-alimentação sem inventar elegibilidade.
 - [x] **Acordos e financeiro:** persistir os quatro processos do relatório de pagamentos, oito parcelas com status quitada/pendente e os resumos financeiros do diagnóstico.
 - [x] **Documentos internos:** disponibilizar regimento pesquisável e CCT 2025/2026 no módulo de documentos, com acesso conforme perfil.
+
+- [x] **Administrador operacional Renan Ricardo:** o CPF 07056527930 deve identificar Renan Ricardo, permanecer com perfil admin e acessar todos os módulos administrativos e operacionais.
+- [x] **Central operacional total:** visualizar ponto geral, decidir justificativas e atestados, responder RH, publicar avisos, consultar/publicar holerites, atualizar dívidas e conduzir produção e ordens.

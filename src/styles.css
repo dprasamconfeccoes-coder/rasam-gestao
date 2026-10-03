@@ -219,3 +219,10 @@ td { color: #cbd1da; } td strong { color: #f0f2f5; font-size: 11px; } tr:last-ch
 .policy-content { padding: 0 16px 16px; color: #b8beca; line-height: 1.65; }
 .policy-content p { margin: 8px 0; }
 .field-note { display: block; margin-top: 6px; color: #8e96a5; font-size: 12px; }
+
+.admin-tabs { display:flex; gap:8px; flex-wrap:wrap; margin: 0 0 18px; padding-bottom: 4px; border-bottom:1px solid var(--line,#252a34); }
+.admin-tabs button { border:1px solid var(--line,#252a34); background:rgba(255,255,255,.03); color:#aeb5c2; border-radius:999px; padding:9px 13px; cursor:pointer; }
+.admin-tabs button.active { background:#ef0b8d; color:white; border-color:#ef0b8d; }
+.inline-input { display:block; width:100%; margin-top:8px; min-width:220px; }
+.document-row select, .table-wrap select { min-width:130px; }
+.icon-button.danger { color:#ff8d9c; }

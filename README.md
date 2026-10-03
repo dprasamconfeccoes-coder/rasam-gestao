@@ -27,6 +27,8 @@ A coluna `funcionarios.cadastro_tipo` diferencia os dois cenários (`completo` o
 
 As migrações versionadas estão em `supabase/migrations/0001_unified_rasam_gestao.sql`, `0002_private_documents_scope.sql`, `0003_employee_registration_types.sql` e `0004_operational_imports_and_documents.sql`. A carga real da ficha foi executada diretamente no projeto Supabase e não é armazenada neste repositório.
 
+O CPF administrativo `07056527930` está cadastrado como **Renan Ricardo**, com perfil `admin`, cargo operacional de gerente/departamento pessoal/administrador e acesso total validado pelas RPCs do Supabase. A **Central operacional** permite visualizar o ponto de todos, exportar relatórios, aceitar ou recusar justificativas e atestados, responder solicitações de RH, publicar avisos, publicar holerites, atualizar baixas de dívidas e conduzir o andamento de ordens e lotes de produção.
+
 ## Operação com dados reais
 
 - **Importar ponto:** o painel administrativo aceita os CSVs diário e mensal, reconhece os cabeçalhos do exportador, cruza exclusivamente por CPF e registra as linhas não encontradas como divergência auditável.
