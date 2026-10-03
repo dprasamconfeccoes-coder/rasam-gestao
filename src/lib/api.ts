@@ -51,7 +51,7 @@ export function login(cpf: string, senha: string) {
 }
 
 export function getSession(token: string) {
-  return rpc<{ valido: boolean } & SessionUser>('app_sessao', { p_token: token })
+  return rpc<{ valido: boolean; primeiro_acesso?: boolean } & SessionUser>('app_sessao', { p_token: token })
 }
 
 export function setPassword(token: string, password: string) {

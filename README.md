@@ -29,6 +29,8 @@ As migrações versionadas estão em `supabase/migrations/0001_unified_rasam_ges
 
 O CPF administrativo `07056527930` está cadastrado como **Renan Ricardo**, com perfil `admin`, cargo operacional de gerente/departamento pessoal/administrador e acesso total validado pelas RPCs do Supabase. A **Central operacional** permite visualizar o ponto de todos, exportar relatórios, aceitar ou recusar justificativas e atestados, responder solicitações de RH, publicar avisos, publicar holerites, atualizar baixas de dívidas e conduzir o andamento de ordens e lotes de produção.
 
+O primeiro acesso é verificado também ao restaurar uma sessão existente; recarregar a página não libera o portal antes da troca da senha temporária. O portal do funcionário não recebe módulos financeiros, dívidas ou administração.
+
 ## Operação com dados reais
 
 - **Importar ponto:** o painel administrativo aceita os CSVs diário e mensal, reconhece os cabeçalhos do exportador, cruza exclusivamente por CPF e registra as linhas não encontradas como divergência auditável.
