@@ -4,6 +4,11 @@ import {
   AlertCircle,
   ArrowRight,
   BarChart3,
+  BookOpen,
+  Download,
+  FileSpreadsheet,
+  Scale,
+  Upload,
   Bell,
   BriefcaseBusiness,
   CalendarDays,
@@ -35,6 +40,11 @@ import {
 import rfLogo from './assets/rf-logo.png'
 import {
   clearToken,
+  importPoint,
+  listAgreements,
+  listCompanyDocuments,
+  listImportedPoint,
+  listPointImports,
   createRequest,
   dashboard,
   getSession,
@@ -67,7 +77,12 @@ import type {
   Profile,
   RequestRow,
   SessionUser,
+  AgreementInstallment,
+  CompanyDocument,
+  PointImportRow,
+  PointImportSummary,
 } from './lib/types'
+import { regimentoSections } from './data/regimento'
 import {
   EmptyState,
   ErrorState,
@@ -101,6 +116,9 @@ const navItems: NavItem[] = [
   { key: 'atestados', label: 'Atestados', description: 'Histórico e conferência', icon: HeartPulse, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'solicitacoes', label: 'Solicitações ao RH', description: 'Acompanhe seus pedidos', icon: FileCheck2, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'avisos', label: 'Avisos', description: 'Comunicados da empresa', icon: Bell, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
+  { key: 'importacoes', label: 'Importar ponto', description: 'CSV diário e mensal', icon: FileSpreadsheet, group: 'Administração', profiles: managerProfiles },
+  { key: 'acordos', label: 'Acordos e parcelas', description: 'Pagamentos trabalhistas', icon: Scale, group: 'Administração', profiles: adminProfiles },
+  { key: 'documentos', label: 'Documentos internos', description: 'Regimento e CCT', icon: BookOpen, group: 'Administração', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
 ]
 
 function profileLabel(profile: Profile) {
@@ -346,6 +364,42 @@ function RequestsView({ token }: { token: string }) {
   return <><PageHeading eyebrow="Minha área · relacionamento" title="Solicitações ao RH" description="Abra um pedido e acompanhe o retorno do departamento pessoal." /><div className="two-column"><SectionCard title="Nova solicitação" caption="O registro será associado ao seu funcionário"><form className="form-stack" onSubmit={submit}><label>Tipo<select value={type} onChange={(event) => setType(event.target.value)}><option>Dúvida ao RH</option><option>Correção cadastral</option><option>Férias</option><option>Documento</option><option>Benefício</option></select></label><label>Descrição<textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Descreva o que você precisa…" rows={6} /></label>{error && <div className="form-error"><AlertCircle size={16} />{error}</div>}{success && <div className="form-success"><Check size={16} />{success}</div>}<button className="primary-button" type="submit" disabled={saving}>{saving ? <><RefreshCw className="spin" size={16} /> Enviando…</> : <>Registrar solicitação <ArrowRight size={16} /></>}</button></form></SectionCard><SectionCard title="Meus pedidos" caption="Status atualizado pelo RH">{loading ? <LoadingState /> : rows.length === 0 ? <EmptyState title="Nenhuma solicitação aberta" description="Seu histórico de pedidos aparecerá aqui." /> : <div className="request-list">{rows.map((row) => <div className="request-row" key={row.id}><div><div className="row-kicker">{row.tipo} · {formatDate(row.created_at)}</div><strong>{row.descricao}</strong>{row.resposta && <p>Resposta: {row.resposta}</p>}</div><StatusPill value={row.status} /></div>)}</div>}</SectionCard></div></>
 }
 
+
+function csvPointRows(text: string) {
+  const lines = text.replace(/\r/g, '').split('\n').filter(Boolean)
+  if (lines.length < 2) return []
+  const headers = lines[0].replace(/^\uFEFF/, '').split(';').map((value) => value.trim())
+  const index = (name: string) => headers.findIndex((header) => header.toLowerCase() === name.toLowerCase())
+  const get = (cells: string[], name: string) => { const i = index(name); return i >= 0 ? (cells[i] || '').trim() : '' }
+  const fallback = (cells: string[], starts: string) => { const i = headers.findIndex((header) => header.toLowerCase().startsWith(starts.toLowerCase())); return i >= 0 ? (cells[i] || '').trim() : '' }
+  return lines.slice(1).map((line) => {
+    const cells = line.split(';')
+    const rawDate = fallback(cells, 'Dia').split(' ')[0]
+    const parts = rawDate.split('/')
+    const data = parts.length === 3 ? `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}` : ''
+    return { cpf: get(cells, 'CPF do funcionário'), nome: get(cells, 'Nome do funcionário'), data, previsto: fallback(cells, 'Previsto'), entrada_1: get(cells, 'Entrada 1'), saida_1: get(cells, 'Saída 1'), entrada_2: get(cells, 'Entrada 2'), saida_2: get(cells, 'Saída 2'), total_normais: fallback(cells, 'Total Normais'), total_noturno: fallback(cells, 'Total Noturno'), dia_falta: fallback(cells, 'Dia Falta'), horas_atraso: fallback(cells, 'Horas Atraso'), abono: fallback(cells, 'Abono'), extra_50: fallback(cells, 'Extra   50%D'), extra_100: fallback(cells, 'Extra   100%D'), desconta_dsr: fallback(cells, 'Desconta DSR'), justificativas: fallback(cells, 'Justificativas') }
+  }).filter((row) => row.cpf && row.data)
+}
+
+function printReport(title: string, columns: string[], rows: string[][]) {
+  const escape = (value: string) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] || char))
+  const html = `<html><head><title>${escape(title)}</title><style>body{font:12px Arial;color:#151821;padding:24px}h1{font-size:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccd0d8;padding:6px;text-align:left}th{background:#f0f2f5}</style></head><body><h1>${escape(title)}</h1><p>RF Gestão · gerado em ${new Date().toLocaleString('pt-BR')}</p><table><thead><tr>${columns.map((x) => `<th>${escape(x)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((x) => `<td>${escape(x || '—')}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=()=>window.print()</script></body></html>`
+  const popup = window.open('', '_blank'); if (!popup) return; popup.document.write(html); popup.document.close()
+}
+
+function PointImportsView({ token }: { token: string }) {
+  const [tipo, setTipo] = useState<'diario' | 'mensal'>('mensal'); const [competencia, setCompetencia] = useState('09/2026'); const [file, setFile] = useState<File | null>(null); const [imports, setImports] = useState<PointImportSummary[]>([]); const [rows, setRows] = useState<PointImportRow[]>([]); const [loading, setLoading] = useState(false); const [error, setError] = useState(''); const [message, setMessage] = useState('')
+  async function reload() { const data = await listPointImports(token); if (data.sucesso) setImports(data.importacoes || []) }
+  useEffect(() => { reload().catch(() => undefined) }, [token])
+  async function submit(event: FormEvent) { event.preventDefault(); if (!file) { setError('Selecione um CSV de ponto.'); return }; setLoading(true); setError(''); setMessage(''); try { const linhas = csvPointRows(await file.text()); if (!linhas.length) throw new Error('Não foi possível reconhecer as linhas do CSV.'); const result = await importPoint(token, { tipo, competencia, arquivoNome: file.name, linhas }); if (!result.sucesso) throw new Error(result.erro || 'Falha na importação'); setMessage(`${result.total_linhas} linhas processadas; ${result.linhas_encontradas} cruzadas por CPF e ${result.linhas_nao_encontradas} não encontradas.`); setFile(null); await reload(); const listed = await listImportedPoint(token, tipo); if (listed.sucesso) setRows(listed.registros || []) } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao importar o arquivo.') } finally { setLoading(false) } }
+  async function loadRows() { const listed = await listImportedPoint(token, tipo); if (listed.sucesso) { setRows(listed.registros || []); printReport(`Ponto ${tipo} · ${competencia}`, ['Data','Funcionário','CPF','Entrada','Saída','Horas normais','Atraso/Falta'], (listed.registros || []).map((row) => [formatDate(row.data), row.nome_csv, maskCpf(row.cpf), row.entrada_1 || '', row.saida_1 || '', row.total_normais || '', row.horas_atraso || row.dia_falta || ''])) } }
+  return <><PageHeading eyebrow="Administração · dados reais" title="Importar ponto" description="Importe CSV diário ou mensal, cruzando cada linha exclusivamente pelo CPF e preservando divergências para conferência." action={<button className="secondary-button" onClick={loadRows}><Download size={16} /> Gerar PDF do ponto</button>} /><div className="two-column"><SectionCard title="Nova importação" caption="Nenhum CPF é inventado ou aproximado"><form className="form-stack" onSubmit={submit}><div className="form-row"><label>Tipo<select value={tipo} onChange={(event) => setTipo(event.target.value as 'diario' | 'mensal')}><option value="mensal">Ponto mensal / fechamento</option><option value="diario">Ponto diário</option></select></label><label>Competência<input value={competencia} onChange={(event) => setCompetencia(event.target.value)} placeholder="09/2026" /></label></div><label>Arquivo CSV<input type="file" accept=".csv,text/csv" onChange={(event) => setFile(event.target.files?.[0] || null)} required /><span className="field-note">O sistema identifica os cabeçalhos do exportador e cruza pelo CPF.</span></label>{error && <div className="form-error"><AlertCircle size={16} />{error}</div>}{message && <div className="form-success"><Check size={16} />{message}</div>}<button className="primary-button" type="submit" disabled={loading}>{loading ? <><RefreshCw className="spin" size={16} /> Processando…</> : <><Upload size={16} /> Importar e cruzar por CPF</>}</button></form></SectionCard><SectionCard title="Relatório de vale-alimentação" caption="A elegibilidade fica explícita para conferência do RH"><button className="secondary-button" onClick={async () => { const data = await listEmployees(token); printReport(`Conferência de vale-alimentação · ${competencia}`, ['Funcionário','CPF','Status'], (data || []).map((row) => [row.nome, maskCpf(row.cpf), 'A confirmar pelo RH'])) }}><Download size={16} /> Gerar PDF de conferência</button><div className="security-note"><div className="security-icon"><ShieldCheck size={20} /></div><div><strong>Sem regras inventadas</strong><p>O relatório não concede benefício automaticamente; sinaliza cada cadastro para validação administrativa.</p></div></div></SectionCard></div><SectionCard title="Histórico de importações" caption="Importações e divergências ficam auditáveis">{imports.length === 0 ? <EmptyState title="Nenhuma importação ainda" description="Envie o primeiro CSV diário ou mensal para começar." /> : <div className="document-list">{imports.map((item) => <div className="document-row" key={item.id}><span className="document-icon"><FileSpreadsheet size={18} /></span><div><strong>{item.tipo === 'mensal' ? 'Mensal' : 'Diário'} · {item.competencia || 'sem competência'}</strong><small>{item.arquivo_nome} · {item.linhas_encontradas}/{item.total_linhas} CPFs encontrados · {formatDate(item.created_at)}</small></div><StatusPill value={item.linhas_nao_encontradas ? `${item.linhas_nao_encontradas} divergências` : 'Conferido'} /></div>)}</div>}</SectionCard>{rows.length > 0 && <SectionCard title="Prévia cruzada" caption="Últimas linhas carregadas"><div className="table-wrap"><table><thead><tr><th>Data</th><th>Funcionário</th><th>CPF</th><th>Entrada</th><th>Saída</th><th>Match</th></tr></thead><tbody>{rows.slice(0, 20).map((row) => <tr key={row.id}><td>{formatDate(row.data)}</td><td>{row.nome_csv}</td><td className="mono">{maskCpf(row.cpf)}</td><td>{row.entrada_1 || '—'}</td><td>{row.saida_1 || '—'}</td><td><StatusPill value={row.encontrado ? 'Encontrado' : 'Divergência'} /></td></tr>)}</tbody></table></div></SectionCard>}</>
+}
+
+function AgreementsView({ token }: { token: string }) { const [rows, setRows] = useState<AgreementInstallment[]>([]); const [error, setError] = useState(''); useEffect(() => { listAgreements(token).then((data) => { if (!data.sucesso) throw new Error(data.erro || 'Acesso negado'); setRows(data.parcelas || []) }).catch((err) => setError(err instanceof Error ? err.message : 'Falha de consulta')) }, [token]); return <><PageHeading eyebrow="Administração · compromissos" title="Acordos e parcelas" description="Pagamentos trabalhistas extraídos do relatório real, com quitadas e futuras separadas." action={<button className="secondary-button" onClick={() => printReport('Acordos e parcelas', ['Processo','Parcela','Valor','Vencimento','Status'], rows.map((row) => [row.processo, String(row.numero), formatMoney(row.valor), formatDate(row.vencimento), row.status]))}><Download size={16} /> Gerar PDF</button>} /><SectionCard title={`${rows.length} parcelas registradas`} caption="Relatório de pagamentos de acordos">{error ? <ErrorState message={error} /> : rows.length === 0 ? <EmptyState title="Nenhum acordo registrado" description="Os dados aparecerão após a carga do relatório de pagamentos." /> : <div className="table-wrap"><table><thead><tr><th>Processo</th><th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Status</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td className="mono">{row.processo}</td><td>{row.numero}</td><td>{formatMoney(row.valor)}</td><td>{formatDate(row.vencimento)}</td><td><StatusPill value={row.status} /></td></tr>)}</tbody></table></div>}</SectionCard></> }
+
+function DocumentsView({ token }: { token: string }) { const [docs, setDocs] = useState<CompanyDocument[]>([]); const [query, setQuery] = useState(''); useEffect(() => { listCompanyDocuments(token).then((data) => setDocs(data.documentos || [])).catch(() => undefined) }, [token]); const sections = regimentoSections.filter((section) => !query || `${section.title} ${section.items.join(' ')}`.toLowerCase().includes(query.toLowerCase())); return <><PageHeading eyebrow="Minha área · normas" title="Documentos internos" description="Consulte o regimento e a Convenção Coletiva disponibilizados pela empresa." action={<div className="search-box"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar no regimento" /></div>} /><div className="document-list">{docs.map((doc) => <div className="document-row" key={doc.id}><span className="document-icon"><BookOpen size={18} /></span><div><strong>{doc.titulo}</strong><small>{doc.arquivo_nome || 'Documento interno'} · {doc.disponivel_funcionarios ? 'Disponível aos funcionários' : 'Administrativo'}</small></div>{doc.arquivo_url && <a className="icon-button" href={doc.arquivo_url} target="_blank" rel="noreferrer" aria-label="Abrir documento"><ArrowRight size={17} /></a>}</div>)}</div><SectionCard title="Regimento Interno · consulta rápida" caption={`${sections.length} seções encontradas`}><div className="policy-list">{sections.map((section) => <details key={section.title} open={Boolean(query)}><summary>{section.title}</summary><div className="policy-content">{section.items.map((item, index) => <p key={`${section.title}-${index}`}>{item}</p>)}</div></details>)}</div></SectionCard></> }
+
 function ControlModuleView({ token, module }: { token: string; module: ModuleKey }) {
   const [data, setData] = useState<DashboardResponse>(); const [loading, setLoading] = useState(true); const [error, setError] = useState('')
   useEffect(() => { dashboard(token).then(setData).catch((err) => setError(err instanceof Error ? err.message : 'Falha de consulta')).finally(() => setLoading(false)) }, [token])
@@ -378,6 +432,9 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'atestados') return <MedicalLeavesView token={token} />
     if (active === 'avisos') return <NoticesView token={token} />
     if (active === 'solicitacoes') return <RequestsView token={token} />
+    if (active === 'importacoes') return <PointImportsView token={token} />
+    if (active === 'acordos') return <AgreementsView token={token} />
+    if (active === 'documentos') return <DocumentsView token={token} />
     return <ControlModuleView token={token} module={active} />
   }
   return <div className="app-shell"><aside className={`sidebar ${mobileMenu ? 'is-open' : ''}`}><div className="sidebar-brand"><img className="brand-logo" src={rfLogo} alt="RF — Rafaela Fernandes" /><div><strong>RF</strong><span>Rafaela Fernandes</span></div><button className="close-mobile" onClick={() => setMobileMenu(false)}><X size={18} /></button></div><div className="sidebar-user"><div className="avatar">{user.nome.split(' ').slice(0, 2).map((part) => part[0]).join('')}</div><div><strong>{user.nome.split(' ').slice(0, 2).join(' ')}</strong><span>{profileLabel(user.perfil)}</span></div></div><nav>{groups.map((group) => <div className="nav-group" key={group}><span className="nav-label">{group}</span>{allowedItems.filter((item) => item.group === group).map((item) => { const Icon = item.icon; return <button key={item.key} className={`nav-item ${active === item.key ? 'active' : ''}`} onClick={() => navigate(item.key)}><Icon size={17} /><span>{item.label}</span>{active === item.key && <ChevronRight className="nav-arrow" size={14} />}</button> })}</div>)}</nav><button className="logout-button" onClick={onLogout}><LogOut size={17} /> Sair da sessão</button></aside><div className={`shell-backdrop ${mobileMenu ? 'visible' : ''}`} onClick={() => setMobileMenu(false)} /><main className="main-area"><header className="topbar"><button className="mobile-menu-button" onClick={() => setMobileMenu(true)}><Menu size={20} /></button><div className="breadcrumbs"><span>RF Gestão</span><ChevronRight size={14} /><strong>{activeItem.label}</strong></div><div className="topbar-actions"><span className="connection-status"><span className="live-dot">●</span> Supabase conectado</span><div className="topbar-avatar">{user.nome[0]}</div></div></header><div className="content-wrap">{renderPage()}</div><footer className="app-footer"><span>RF Gestão · {new Date().getFullYear()}</span><span>Perfil: {profileLabel(user.perfil)} · sessão segura</span></footer></main></div>

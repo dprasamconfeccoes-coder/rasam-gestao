@@ -15,6 +15,9 @@ export type ModuleKey =
   | 'atestados'
   | 'solicitacoes'
   | 'avisos'
+  | 'importacoes'
+  | 'acordos'
+  | 'documentos'
 
 export interface SessionUser {
   usuario_id: string
@@ -145,5 +148,59 @@ export interface MedicalLeaveRow {
   status: string
   status_label: string | null
   observacao_rh: string | null
+  created_at: string
+}
+
+export interface PointImportRow {
+  id: string
+  cpf: string
+  nome_csv: string
+  data: string
+  entrada_1: string | null
+  saida_1: string | null
+  entrada_2: string | null
+  saida_2: string | null
+  total_normais: string | null
+  extra_50: string | null
+  extra_100: string | null
+  dia_falta: string | null
+  horas_atraso: string | null
+  justificativas: string | null
+  encontrado: boolean
+  tipo: 'diario' | 'mensal'
+  competencia: string | null
+}
+
+export interface PointImportSummary {
+  id: string
+  tipo: 'diario' | 'mensal'
+  competencia: string | null
+  arquivo_nome: string
+  total_linhas: number
+  linhas_encontradas: number
+  linhas_nao_encontradas: number
+  cpfs_nao_encontrados: string[]
+  created_at: string
+}
+
+export interface AgreementInstallment {
+  id: string
+  processo: string
+  favorecido: string | null
+  numero: number
+  valor: number
+  vencimento: string | null
+  status: 'quitada' | 'pendente' | 'atrasada'
+  observacoes: string | null
+}
+
+export interface CompanyDocument {
+  id: string
+  titulo: string
+  categoria: string
+  arquivo_nome: string | null
+  arquivo_url: string | null
+  conteudo_texto: string | null
+  disponivel_funcionarios: boolean
   created_at: string
 }

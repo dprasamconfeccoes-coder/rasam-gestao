@@ -2,6 +2,8 @@ import { supabase } from './supabase'
 import { config } from './config'
 import type {
   DashboardResponse,
+  AgreementInstallment,
+  CompanyDocument,
   EmployeeProfile,
   EmployeeRow,
   LoginResponse,
@@ -10,6 +12,8 @@ import type {
   OrderRow,
   PayslipRow,
   PointRow,
+  PointImportRow,
+  PointImportSummary,
   RequestRow,
   SessionUser,
 } from './types'
@@ -127,4 +131,30 @@ export function listOrders(token: string) {
   return rpc<{ sucesso: boolean; ordens: OrderRow[]; erro?: string }>('app_listar_ordens', {
     p_token: token,
   })
+}
+
+export function importPoint(token: string, payload: { tipo: 'diario' | 'mensal'; competencia: string; arquivoNome: string; linhas: Record<string, unknown>[] }) {
+  return rpc<{ sucesso: boolean; erro?: string; total_linhas?: number; linhas_encontradas?: number; linhas_nao_encontradas?: number; cpfs_nao_encontrados?: string[] }>('app_importar_ponto', {
+    p_token: token,
+    p_tipo: payload.tipo,
+    p_competencia: payload.competencia,
+    p_arquivo_nome: payload.arquivoNome,
+    p_linhas: payload.linhas,
+  })
+}
+
+export function listPointImports(token: string) {
+  return rpc<{ sucesso: boolean; erro?: string; importacoes: PointImportSummary[] }>('app_listar_importacoes', { p_token: token })
+}
+
+export function listImportedPoint(token: string, tipo?: 'diario' | 'mensal') {
+  return rpc<{ sucesso: boolean; erro?: string; registros: PointImportRow[] }>('app_listar_ponto_importado', { p_token: token, p_tipo: tipo || null })
+}
+
+export function listAgreements(token: string) {
+  return rpc<{ sucesso: boolean; erro?: string; parcelas: AgreementInstallment[] }>('app_listar_acordos', { p_token: token })
+}
+
+export function listCompanyDocuments(token: string) {
+  return rpc<{ sucesso: boolean; erro?: string; documentos: CompanyDocument[] }>('app_listar_documentos', { p_token: token })
 }

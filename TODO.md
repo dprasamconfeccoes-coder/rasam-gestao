@@ -10,3 +10,8 @@
 - [ ] **Responsividade e PWA:** interface usável em celular, tablet e desktop, com manifesto, ícones, service worker e cache restrito ao shell público.
 - [ ] **Publicação no GitHub Pages:** criar o repositório novo, configurar build reproduzível e publicar o frontend com fallback SPA, sem incluir chaves privadas ou dados pessoais.
 - [ ] **Validação de produção:** executar diagnósticos, build, testes de RPC por perfil, proteção de acesso, manifesto, rotas, upload/download privado quando disponível e verificação da URL publicada.
+
+- [x] **Importação real de ponto:** aceitar CSV diário e mensal, cruzar exclusivamente por CPF, persistir linhas encontradas e manter divergências auditáveis.
+- [x] **Relatórios operacionais:** gerar impressão em PDF do ponto e conferência de vale-alimentação sem inventar elegibilidade.
+- [x] **Acordos e financeiro:** persistir os quatro processos do relatório de pagamentos, oito parcelas com status quitada/pendente e os resumos financeiros do diagnóstico.
+- [x] **Documentos internos:** disponibilizar regimento pesquisável e CCT 2025/2026 no módulo de documentos, com acesso conforme perfil.

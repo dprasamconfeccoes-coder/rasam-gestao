@@ -25,7 +25,15 @@ A coluna `funcionarios.cadastro_tipo` diferencia os dois cenários (`completo` o
 
 ## Supabase
 
-As migrações versionadas estão em `supabase/migrations/0001_unified_rasam_gestao.sql`, `0002_private_documents_scope.sql` e `0003_employee_registration_types.sql`. A carga real da ficha foi executada diretamente no projeto Supabase e não é armazenada neste repositório.
+As migrações versionadas estão em `supabase/migrations/0001_unified_rasam_gestao.sql`, `0002_private_documents_scope.sql`, `0003_employee_registration_types.sql` e `0004_operational_imports_and_documents.sql`. A carga real da ficha foi executada diretamente no projeto Supabase e não é armazenada neste repositório.
+
+## Operação com dados reais
+
+- **Importar ponto:** o painel administrativo aceita os CSVs diário e mensal, reconhece os cabeçalhos do exportador, cruza exclusivamente por CPF e registra as linhas não encontradas como divergência auditável.
+- **Relatórios:** a tela de importações gera uma tabela pronta para impressão em PDF do ponto e uma conferência de vale-alimentação sem conceder elegibilidade automaticamente.
+- **Acordos:** parcelas quitadas e futuras do relatório de pagamentos são persistidas em `acordos_trabalhistas` e `acordo_parcelas`.
+- **Documentos:** o regimento interno é pesquisável dentro do portal; a CCT 2025/2026 fica disponível como documento normativo para consulta.
+- **Dados carregados:** foram persistidas 1.085 linhas de ponto (35 diárias e 1.050 mensais), com 630 registros de jornada cruzados para funcionários cadastrados. As divergências permanecem visíveis no histórico de importações.
 
 ## Publicação
 
