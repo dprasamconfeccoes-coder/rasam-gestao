@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { LoaderCircle, SearchX } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LoaderCircle, SearchX } from 'lucide-react'
 
 export function PageHeading({ eyebrow, title, description, action }: { eyebrow: string; title: string; description?: string; action?: ReactNode }) {
   return (
@@ -43,6 +43,14 @@ export function ErrorState({ message }: { message: string }) {
 
 export function SectionCard({ title, caption, children, className = '' }: { title: string; caption?: string; children: ReactNode; className?: string }) {
   return <section className={`section-card ${className}`}><div className="section-header"><div><h2>{title}</h2>{caption && <span>{caption}</span>}</div></div>{children}</section>
+}
+
+export function Pagination({ page, total, pageSize = 8, onChange }: { page: number; total: number; pageSize?: number; onChange: (page: number) => void }) {
+  const pages = Math.max(1, Math.ceil(total / pageSize))
+  if (total <= pageSize) return null
+  const start = (page - 1) * pageSize + 1
+  const end = Math.min(page * pageSize, total)
+  return <div className="pagination" aria-label="Paginação"><span>Mostrando {start}–{end} de {total}</span><div className="pagination-actions"><button className="icon-button" aria-label="Página anterior" disabled={page <= 1} onClick={() => onChange(page - 1)}><ChevronLeft size={15} /></button><strong>{page} <small>/ {pages}</small></strong><button className="icon-button" aria-label="Próxima página" disabled={page >= pages} onClick={() => onChange(page + 1)}><ChevronRight size={15} /></button></div></div>
 }
 
 export function formatDate(value?: string | null) {
