@@ -301,3 +301,25 @@ td small { display: block; margin-top: 4px; color: var(--muted); font-size: 10px
 .callout { box-shadow: inset 3px 0 var(--gold); }
 @media (max-width: 900px) { .admin-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); } .admin-tabs { top: 69px; overflow-x: auto; flex-wrap: nowrap; } .admin-tabs button { flex: 0 0 auto; } }
 @media (max-width: 760px) { .content-wrap { padding-top: 32px; } .admin-overview { gap: 8px; } .admin-summary { min-height: 82px; padding: 12px; } .admin-summary strong { font-size: 21px; } .admin-tabs { position: static; margin-bottom: 16px; border-radius: 11px; } .section-toolbar { align-items: flex-start; flex-direction: column; } .section-toolbar .secondary-button { width: 100%; } .pagination { padding: 12px 15px; } .document-row { align-items: flex-start; flex-wrap: wrap; } .document-row > div { min-width: calc(100% - 44px); } .document-row select { width: 100%; } }
+
+/* Status intelligence: the color carries the first read, text confirms it. */
+.status-pill-wrap { display: inline-flex; align-items: flex-start; gap: 8px; min-width: 112px; }
+.status-dot, .legend-dot { display: inline-block; flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 15%, transparent); }
+.status-pill { gap: 6px; min-height: 24px; padding: 5px 9px; border: 1px solid transparent; font-size: 10px; font-weight: 800; letter-spacing: .01em; }
+.status-context { display: block; max-width: 116px; margin-top: 4px; color: var(--muted-2); font-size: 9px; line-height: 1.25; white-space: normal; }
+.status-ativo, .status-conferido, .status-pago, .status-quitada, .status-entregue, .status-atendida, .status-aceita, .status-aceito, .status-normal, .status-encontrado, .status-em-dia { color: #b9efd0; background: rgba(74, 211, 143, .16); border-color: rgba(111,202,155,.28); }
+.status-pendente, .status-aguardando, .status-em-analise, .status-em-costura, .status-recebida, .status-em-producao, .status-importante, .status-alta, .status-gestor { color: #f4dda4; background: rgba(215,168,74,.16); border-color: rgba(215,168,74,.28); }
+.status-vencido, .status-vencida, .status-atrasado, .status-atrasada, .status-negativo, .status-falta, .status-cancelada, .status-recusada, .status-recusado, .status-urgente, .status-divergencia, .status-inativo, .status-inativa { color: #ffb7bc; background: rgba(239,126,134,.16); border-color: rgba(239,126,134,.32); }
+.status-importante, .status-alta { color: #ffd5e7; background: rgba(217,88,141,.16); border-color: rgba(217,88,141,.32); }
+.status-positivo { color: #b9efd0; background: rgba(74,211,143,.16); border-color: rgba(111,202,155,.28); }
+.status-regular, .status-sem-status { color: #dce2ea; background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.1); }
+.status-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px; color: var(--muted); font-size: 10px; }
+.status-legend span { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.legend-good { color: var(--green); } .legend-neutral { color: var(--gold); } .legend-alert { color: var(--danger); }
+.dashboard-signal { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin: -2px 0 18px; padding: 13px 16px; border: 1px solid rgba(215,168,74,.2); border-radius: 12px; background: linear-gradient(90deg, rgba(215,168,74,.08), rgba(255,255,255,.025)); }
+.dashboard-signal strong, .dashboard-signal span { display: block; }
+.dashboard-signal strong { color: var(--ink-strong); font-size: 12px; }
+.dashboard-signal > div > span { margin-top: 4px; color: var(--muted); font-size: 10px; }
+.admin-signal { margin: 0 0 18px; }
+.metric-danger { color: var(--danger); } .metric-neutral { color: var(--muted); }
+@media (max-width: 760px) { .dashboard-signal { align-items: flex-start; flex-direction: column; gap: 11px; } .status-legend { gap: 8px 12px; } .status-context { max-width: 100px; } }

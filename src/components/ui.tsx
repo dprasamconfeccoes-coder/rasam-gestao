@@ -14,7 +14,7 @@ export function PageHeading({ eyebrow, title, description, action }: { eyebrow: 
   )
 }
 
-export function MetricCard({ label, value, detail, tone = 'gold', onClick }: { label: string; value: string | number; detail: string; tone?: 'gold' | 'pink' | 'green' | 'blue'; onClick?: () => void }) {
+export function MetricCard({ label, value, detail, tone = 'gold', onClick }: { label: string; value: string | number; detail: string; tone?: 'gold' | 'pink' | 'green' | 'blue' | 'danger' | 'neutral'; onClick?: () => void }) {
   return (
     <article className={`metric-card metric-${tone}${onClick ? ' is-clickable' : ''}`} onClick={onClick} role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined} onKeyDown={(event) => { if (onClick && (event.key === 'Enter' || event.key === ' ')) onClick() }}>
       <div className="metric-top"><span>{label}</span><span className="metric-dot" /></div>
@@ -24,9 +24,25 @@ export function MetricCard({ label, value, detail, tone = 'gold', onClick }: { l
   )
 }
 
-export function StatusPill({ value }: { value: string | null | undefined }) {
-  const normalized = (value || 'sem status').toLowerCase().replaceAll(' ', '-')
-  return <span className={`status-pill status-${normalized}`}>{value || 'Sem status'}</span>
+function normalizeStatus(value: string | null | undefined) {
+  return (value || 'sem status').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[_\s]+/g, '-')
+}
+
+export function statusContext(value: string | null | undefined) {
+  const status = normalizeStatus(value)
+  if (/(atras|venc|negativ|falt|cancel|recus|urg|diverg|inativ|inadimpl)/.test(status)) return 'Requer atenção agora'
+  if (/(pend|aguard|analise|recebid|produc|costur|em-)/.test(status)) return 'Em acompanhamento'
+  if (/(quit|pag|ativo|confer|entreg|aceit|atendid|normal|encontr|dia)/.test(status)) return 'Situação regular'
+  return 'Acompanhe este item'
+}
+
+export function StatusPill({ value, detail }: { value: string | null | undefined; detail?: string }) {
+  const normalized = normalizeStatus(value)
+  return <span className="status-pill-wrap"><span className={`status-pill status-${normalized}`}><span className="status-dot" aria-hidden="true" />{value || 'Sem status'}</span>{detail && <small className="status-context">{detail}</small>}</span>
+}
+
+export function StatusLegend() {
+  return <div className="status-legend" aria-label="Legenda de estados"><span><i className="legend-dot legend-good" /> Regular</span><span><i className="legend-dot legend-neutral" /> Em acompanhamento</span><span><i className="legend-dot legend-alert" /> Requer atenção</span></div>
 }
 
 export function LoadingState({ label = 'Consultando dados seguros…' }: { label?: string }) {
