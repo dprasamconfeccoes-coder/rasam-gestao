@@ -252,6 +252,20 @@ export function adminQuitarParcela(token: string, id: string, comprovanteUrl?: s
   return rpc<{ sucesso: boolean; erro?: string }>('app_admin_quitar_parcela', { p_token: token, p_id: id, p_comprovante_url: comprovanteUrl || null, p_comprovante_nome: comprovanteNome || null })
 }
 
+export async function uploadFinancialReceipt(token: string, parcelaId: string, file: File) {
+  const form = new FormData()
+  form.set('parcela_id', parcelaId)
+  form.set('arquivo', file)
+  const response = await fetch(`${config.supabaseUrl}/functions/v1/financeiro-comprovante-upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'x-app-token': token },
+    body: form,
+  })
+  const data = (await response.json()) as { sucesso: boolean; erro?: string; caminho?: string; nome?: string }
+  if (!response.ok || !data.sucesso || !data.caminho) throw new Error(data.erro || 'Não foi possível enviar o comprovante')
+  return { caminho: data.caminho, nome: data.nome || file.name }
+}
+
 export function adminCriarRecorrencia(token: string, payload: { descricao: string; categoria: string; fornecedor: string; valor: number; periodicidade: string; proximoVencimento: string }) {
   return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_criar_recorrencia', { p_token: token, p_descricao: payload.descricao, p_categoria: payload.categoria, p_fornecedor: payload.fornecedor, p_valor: payload.valor, p_periodicidade: payload.periodicidade, p_proximo_vencimento: payload.proximoVencimento })
 }

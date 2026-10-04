@@ -403,3 +403,23 @@ tbody tr:hover { background: #faf5f8; }
 .status-context { color: var(--muted); }
 .app-footer { border-top-color: var(--line); }
 @media (max-width: 760px) { .shell-backdrop.visible { background: rgba(32,38,52,.35); } .sidebar { box-shadow: 22px 0 50px rgba(45,55,72,.18); } }
+
+.upload-action {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.upload-action input[type='file'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.upload-action:has(input:disabled) {
+  opacity: .55;
+  cursor: wait;
+}
