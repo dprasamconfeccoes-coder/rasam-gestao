@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertCircle, ArrowDownToLine, Banknote, CalendarClock, Check, ChevronDown, CircleAlert, FilePlus2, History, Plus, RefreshCw, RotateCcw, Search, ShieldCheck, WalletCards, X } from 'lucide-react'
+import { AlertCircle, ArrowDownToLine, Banknote, CalendarClock, Check, ChevronDown, CircleAlert, FilePlus2, FileText, History, Pencil, Plus, RefreshCw, RotateCcw, Search, ShieldCheck, WalletCards, X } from 'lucide-react'
 import {
   addDebtInstallment,
   adminDebtAccess,
@@ -15,6 +15,7 @@ import {
 } from '../lib/api'
 import type { DebtCategory, DebtInstallment, DebtPaymentMethod, ManagedDebt } from '../lib/types'
 import { ConfirmationModal, EmptyState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
+import { downloadManagedDebtPdf } from './debt-management-pdf'
 import './debt-management.css'
 
 type ScheduleMode = 'equal' | 'custom'
@@ -171,6 +172,7 @@ export function DebtManagementDashboard({ token }: { token: string }) {
   const [newInstallmentDraft, setNewInstallmentDraft] = useState<InstallmentDraft>({ valor: '', vencimento: '', formaPagamento: 'outro', chavePix: '', dadosTransferencia: '' })
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [downloading, setDownloading] = useState('')
+  const [pdfGenerating, setPdfGenerating] = useState('')
 
   const reload = useCallback(async (withSpinner = true) => {
     if (withSpinner) setLoading(true)
@@ -296,6 +298,19 @@ export function DebtManagementDashboard({ token }: { token: string }) {
     }
   }
 
+  async function generateDebtReport(debt: ManagedDebt) {
+    setPdfGenerating(debt.id)
+    setError('')
+    try {
+      await downloadManagedDebtPdf(debt)
+      setMessage(`Relatório detalhado de ${debt.credor} gerado.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível gerar o relatório PDF.')
+    } finally {
+      setPdfGenerating('')
+    }
+  }
+
   async function confirmPending() {
     if (!pending) return
     if ((pending.kind === 'change-debt' || pending.kind === 'change-installment') && pending.action !== 'restaurar' && !pending.reason.trim()) {
@@ -396,15 +411,26 @@ export function DebtManagementDashboard({ token }: { token: string }) {
             </div>)}
           </div>
         </SectionCard>
-        <SectionCard title="Visão do passivo" caption="Distribuição por natureza e estado de cadastro">
+        <SectionCard title="Visão do passivo" caption="Saldo em aberto por natureza · registros inativos excluídos">
           <div className="debt-health-list">
-            {(Object.keys(categoryLabels) as DebtCategory[]).map((category) => {
-              const count = debts.filter((debt) => debt.categoria === category && debt.status !== 'inativa').length
-              const balance = debts.filter((debt) => debt.categoria === category && debt.status !== 'inativa').reduce((sum, debt) => sum + Number(debt.saldo_devedor || 0), 0)
-              const total = Math.max(1, debts.filter((debt) => debt.status !== 'inativa').length)
-              return <div className="debt-health-row" key={category}><div><span>{categoryLabels[category]}</span><strong>{formatMoney(balance)}</strong></div><div className="debt-health-track"><span style={{ width: `${Math.min(100, count / total * 100)}%` }} /></div></div>
-            })}
-            <div className="debt-review-note"><ShieldCheck size={16} /><span>{debts.filter((debt) => debt.revisao_pendente).length} registro(s) legado(s) aguardam revisão de categoria ou condições.</span></div>
+            {(() => {
+              const activeDebts = debts.filter((debt) => debt.status !== 'inativa')
+              const totalBalance = activeDebts.reduce((sum, debt) => sum + Number(debt.saldo_devedor || 0), 0)
+              const pendingReview = debts.filter((debt) => debt.revisao_pendente).length
+              return <>
+                <div className="debt-health-summary"><span>Exposição ativa</span><strong>{formatMoney(totalBalance)}</strong><small>{activeDebts.length} dívida(s) · {pendingReview} revisão(ões) pendente(s)</small></div>
+                <div className="debt-health-breakdown" aria-label="Distribuição do saldo por natureza">
+                  {(Object.keys(categoryLabels) as DebtCategory[]).map((category) => {
+                    const categoryDebts = activeDebts.filter((debt) => debt.categoria === category)
+                    const count = categoryDebts.length
+                    const balance = categoryDebts.reduce((sum, debt) => sum + Number(debt.saldo_devedor || 0), 0)
+                    const share = totalBalance > 0 ? Math.min(100, balance / totalBalance * 100) : 0
+                    return <div className={`debt-health-row cat-${category}`} key={category}><div className="debt-health-row-copy"><span>{categoryLabels[category]}<small>{count} registro(s)</small></span><strong>{formatMoney(balance)}</strong></div><div className="debt-health-track" aria-label={`${share.toFixed(1)}% do saldo total`}><span style={{ width: `${share}%` }} /></div></div>
+                  })}
+                </div>
+                <div className="debt-review-note"><ShieldCheck size={16} /><span>{pendingReview} registro(s) legado(s) aguardam revisão de categoria ou condições.</span></div>
+              </>
+            })()}
           </div>
         </SectionCard>
       </section>
@@ -456,7 +482,12 @@ export function DebtManagementDashboard({ token }: { token: string }) {
               <div className="debt-record-main">
                 <div className="debt-record-copy"><div className="debt-record-tags"><span className={`debt-category-chip cat-${debt.categoria}`}>{categoryLabels[debt.categoria]}</span><StatusPill value={statusLabels[debt.status]} />{debt.revisao_pendente && <span className="debt-review-chip"><CircleAlert size={13} /> Revisar legado</span>}{debt.origem_legada && <span className="debt-legacy-chip">Migrado · {debt.origem_legada}</span>}</div><h3>{debt.credor}</h3><p>{debt.descricao}</p><small>{debt.data_contratacao ? `Origem ${formatDate(debt.data_contratacao)}` : 'Data de origem não informada'} · {debt.parcelas.length} item(ns) de agenda</small></div>
                 <div className="debt-record-amounts"><div><small>Saldo em aberto</small><strong>{formatMoney(debt.saldo_devedor)}</strong></div><div><small>Valor original</small><strong>{formatMoney(debt.valor_original)}</strong></div><div className={lateCount ? 'has-late' : ''}><small>{lateCount ? 'Parcelas vencidas' : 'Próximo vencimento'}</small><strong>{lateCount ? `${lateCount} em atraso` : nextInstallment ? formatDate(nextInstallment.vencimento) : '—'}</strong></div></div>
-                <div className="debt-record-controls"><button type="button" className="secondary-button" onClick={() => toggleExpanded(debt.id)} aria-expanded={expandedRecord}><ChevronDown size={16} className={expandedRecord ? 'rotated' : ''} /> {expandedRecord ? 'Ocultar parcelas' : 'Ver parcelas'}</button><button type="button" className="icon-button" aria-label="Editar dados da dívida" disabled={debt.status === 'inativa'} onClick={() => beginEditDebt(debt)}><span>Editar</span></button><button type="button" className={`secondary-button ${debt.status === 'inativa' ? '' : 'debt-danger-button'}`} onClick={() => setPending({ kind: 'change-debt', id: debt.id, action: debt.status === 'inativa' ? 'restaurar' : 'inativar', reason: '' })}>{debt.status === 'inativa' ? <><RotateCcw size={15} /> Restaurar</> : <><X size={15} /> Inativar</>}</button></div>
+                <div className="debt-record-controls" role="group" aria-label={`Ações para ${debt.credor}`}>
+                  <button type="button" className={`secondary-button debt-action debt-action-expand ${expandedRecord ? 'is-active' : ''}`} onClick={() => toggleExpanded(debt.id)} aria-expanded={expandedRecord}><ChevronDown size={15} className={expandedRecord ? 'rotated' : ''} /> {expandedRecord ? 'Ocultar parcelas' : 'Ver parcelas'}</button>
+                  <button type="button" className="secondary-button debt-action debt-action-edit" aria-label="Editar dados da dívida" disabled={debt.status === 'inativa'} onClick={() => beginEditDebt(debt)}><Pencil size={14} /> Editar</button>
+                  <button type="button" className="secondary-button debt-action debt-action-pdf" onClick={() => void generateDebtReport(debt)} disabled={pdfGenerating === debt.id} aria-label={`Gerar relatório PDF de ${debt.credor}`}><FileText size={14} /> {pdfGenerating === debt.id ? 'Gerando PDF…' : 'Gerar PDF'}</button>
+                  <button type="button" className={`secondary-button debt-action ${debt.status === 'inativa' ? 'debt-action-restore' : 'debt-action-inactivate'}`} onClick={() => setPending({ kind: 'change-debt', id: debt.id, action: debt.status === 'inativa' ? 'restaurar' : 'inativar', reason: '' })}>{debt.status === 'inativa' ? <><RotateCcw size={14} /> Restaurar</> : <><X size={14} /> Inativar</>}</button>
+                </div>
               </div>
               {debt.status === 'inativa' && <div className="debt-inactive-banner"><AlertCircle size={15} />Registro inativo · saldo e histórico preservados; não entra nos totais ativos.</div>}
               {editingDebt === debt.id && editDebtDraft && <form className="debt-inline-editor" noValidate onSubmit={(event) => { event.preventDefault(); setPending({ kind: 'update-debt', id: debt.id, draft: editDebtDraft }) }}><h4>Editar dados da dívida</h4><div className="debt-form-grid"><label>Credor<input value={editDebtDraft.credor} onChange={(event) => setEditDebtDraft({ ...editDebtDraft, credor: event.target.value })} /></label><label>Natureza<select value={editDebtDraft.categoria} onChange={(event) => setEditDebtDraft({ ...editDebtDraft, categoria: event.target.value as DebtCategory })}>{Object.entries(categoryLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label className="debt-span-two">Descrição<input value={editDebtDraft.descricao} onChange={(event) => setEditDebtDraft({ ...editDebtDraft, descricao: event.target.value })} /></label><label>Data de contratação<input type="date" value={editDebtDraft.dataContratacao} onChange={(event) => setEditDebtDraft({ ...editDebtDraft, dataContratacao: event.target.value })} /></label><label className="debt-span-two">Observações<textarea rows={2} value={editDebtDraft.observacoes} onChange={(event) => setEditDebtDraft({ ...editDebtDraft, observacoes: event.target.value })} /></label></div><div className="debt-form-actions"><button type="button" className="secondary-button" onClick={() => { setEditingDebt(null); setEditDebtDraft(null) }}>Cancelar</button><button type="submit" className="primary-button">Revisar alteração</button></div></form>}
