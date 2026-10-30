@@ -781,6 +781,10 @@ export function adminFinanceiroLancamentoSalvar(token: string, payload: { id?: s
   return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_financeiro_lancamento_salvar', { p_token: token, p_id: payload.id || null, p_tipo: payload.tipo, p_categoria: payload.categoria, p_descricao: payload.descricao, p_valor: payload.valor, p_vencimento: payload.vencimento, p_observacoes: payload.observacoes || null })
 }
 
+export function adminFinanceiroLancamentosSerieSalvar(token: string, payload: { tipo: 'pagar'|'receber'; categoria: string; descricao: string; valor: number; primeiroVencimento: string; quantidade: number; periodicidade: 'semanal'|'mensal'|'anual'; observacoes?: string }) {
+  return rpc<{ sucesso: boolean; erro?: string; quantidade?: number; valor_total?: number }>('app_admin_financeiro_lancamentos_serie_salvar', { p_token: token, p_tipo: payload.tipo, p_categoria: payload.categoria, p_descricao: payload.descricao, p_valor: payload.valor, p_primeiro_vencimento: payload.primeiroVencimento, p_quantidade: payload.quantidade, p_periodicidade: payload.periodicidade, p_observacoes: payload.observacoes || null })
+}
+
 export function adminFinanceiroLancamentoStatus(token: string, id: string, status: 'pendente'|'pago'|'cancelado') {
   return rpc<{ sucesso: boolean; erro?: string }>('app_admin_financeiro_lancamento_status', { p_token: token, p_id: id, p_status: status })
 }
