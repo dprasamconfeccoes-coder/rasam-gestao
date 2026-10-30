@@ -115,8 +115,10 @@ export interface PointRow {
   status: string | null
   extra_50?: string | null
   extra_100?: string | null
+  previsto?: string | null
   dia_falta?: string | null
   horas_atraso?: string | null
+  desconta_dsr?: string | null
   justificativas?: string | null
   inconsistencia?: string | null
   inconsistencia_tipo?: string | null
