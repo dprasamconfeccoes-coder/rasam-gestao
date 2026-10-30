@@ -285,6 +285,21 @@ export interface AdminVacationRow {
   updated_at: string
 }
 
+export interface AdminLeaveRow {
+  id: string
+  funcionario_id: string
+  nome: string
+  cpf: string
+  cargo: string | null
+  tipo: string
+  inicio: string
+  fim: string | null
+  motivo: string | null
+  status: 'ativo' | 'encerrado' | 'cancelado'
+  created_at: string
+  updated_at: string
+}
+
 export interface AdminRequestRow extends RequestRow {
   funcionario_id: string
   analisado_em: string | null

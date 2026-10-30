@@ -229,6 +229,32 @@ export function adminVacations(token: string) {
   return rpc<{ sucesso: boolean; erro?: string; ferias: AdminVacationRow[] }>('app_admin_listar_ferias', { p_token: token })
 }
 
+export function adminLeaves(token: string) {
+  return rpc<{ sucesso: boolean; erro?: string; afastamentos: import('./types').AdminLeaveRow[] }>('app_admin_listar_afastamentos', { p_token: token })
+}
+
+export function createAdminLeave(token: string, payload: { funcionarioId: string; tipo: string; inicio: string; fim: string; motivo: string; status: string }) {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_criar_afastamento', {
+    p_token: token,
+    p_funcionario_id: payload.funcionarioId,
+    p_tipo: payload.tipo,
+    p_inicio: payload.inicio,
+    p_fim: payload.fim || null,
+    p_motivo: payload.motivo || null,
+    p_status: payload.status,
+  })
+}
+
+export function updateAdminLeave(token: string, id: string, payload: { fim: string; motivo: string; status: string }) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_atualizar_afastamento', {
+    p_token: token,
+    p_id: id,
+    p_fim: payload.fim || null,
+    p_motivo: payload.motivo || null,
+    p_status: payload.status,
+  })
+}
+
 export function createAdminVacation(token: string, payload: { funcionarioId: string; periodoAquisitivoInicio: string; periodoAquisitivoFim: string; inicio: string; fim: string; status: string; observacoes: string }) {
   return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_criar_ferias', {
     p_token: token,
