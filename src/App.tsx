@@ -73,6 +73,7 @@ import {
   updateAvatar,
   uploadMedicalLeave,
 } from './lib/api'
+import { EmployeeMedicalLeaves } from './features/MedicalLeavesWorkflow'
 import type {
   DashboardResponse,
   EmployeeProfile,
@@ -1044,7 +1045,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'perfil') return <EmployeeProfileView token={token} onProfileUpdated={setProfile} />
     if (active === 'ponto') return <PointView token={token} user={user} />
     if (active === 'holerites') return <PayslipsView token={token} />
-    if (active === 'atestados') return <MedicalLeavesView token={token} />
+    if (active === 'atestados') return <EmployeeMedicalLeaves token={token} />
     if (active === 'avisos') return <NoticesView token={token} />
     if (active === 'solicitacoes') return <RequestsView token={token} />
     if (active === 'importacoes') return <PointImportsView token={token} />

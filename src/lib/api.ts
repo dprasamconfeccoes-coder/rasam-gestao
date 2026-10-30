@@ -152,21 +152,33 @@ export function listMedicalLeaves(token: string) {
   })
 }
 
-export async function uploadMedicalLeave(token: string, payload: { tipo: string; dataAtendimento: string; dias: number; observacao: string; file: File }) {
+export async function uploadMedicalLeave(token: string, payload: { tipo: string; dataAtendimento: string; dias: number; cid?: string; observacao: string; file: File }) {
   const form = new FormData()
   form.set('tipo', payload.tipo)
   form.set('data_atendimento', payload.dataAtendimento)
   form.set('dias', String(payload.dias))
+  form.set('cid', payload.cid || '')
   form.set('observacao', payload.observacao)
   form.set('arquivo', payload.file)
   const response = await fetch(`${config.supabaseUrl}/functions/v1/atestado-upload`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'x-app-token': token },
+    headers: { apikey: config.supabaseKey, Authorization: `Bearer ${token}`, 'x-app-token': token },
     body: form,
   })
   const data = (await response.json()) as { sucesso: boolean; erro?: string; status_label?: string }
   if (!response.ok || !data.sucesso) throw new Error(data.erro || 'Não foi possível enviar o atestado')
   return data
+}
+
+export async function getMedicalLeaveDocumentUrl(token: string, id: string) {
+  const response = await fetch(`${config.supabaseUrl}/functions/v1/atestado-documento`, {
+    method: 'POST',
+    headers: { apikey: config.supabaseKey, Authorization: `Bearer ${token}`, 'x-app-token': token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ atestado_id: id }),
+  })
+  const data = (await response.json()) as { sucesso: boolean; erro?: string; url?: string }
+  if (!response.ok || !data.sucesso || !data.url) throw new Error(data.erro || 'Não foi possível abrir o documento')
+  return data.url
 }
 
 export function listOrders(token: string) {

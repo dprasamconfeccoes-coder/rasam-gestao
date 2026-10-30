@@ -171,11 +171,21 @@ export interface RequestRow {
   created_at: string
 }
 
+export interface MedicalLeaveAuditEvent {
+  evento: 'enviado' | 'aceito' | 'recusado' | 'registro_anterior' | string
+  status_anterior: string | null
+  status_novo: string
+  justificativa: string | null
+  responsavel: string | null
+  created_at: string
+}
+
 export interface MedicalLeaveRow {
   id: string
   tipo: string
   data_atendimento: string
   dias: number
+  cid?: string | null
   observacao: string | null
   arquivo_url: string | null
   arquivo_nome: string | null
@@ -183,6 +193,8 @@ export interface MedicalLeaveRow {
   status_label: string | null
   observacao_rh: string | null
   created_at: string
+  conferido_em?: string | null
+  timeline?: MedicalLeaveAuditEvent[]
 }
 
 export interface PointImportRow {
@@ -269,7 +281,7 @@ export interface AdminJustificationRow {
 export interface AdminMedicalLeaveRow extends MedicalLeaveRow {
   funcionario_id: string
   nome: string
-  cpf: string
+  cpf?: string | null
 }
 
 export interface AdminVacationRow {
