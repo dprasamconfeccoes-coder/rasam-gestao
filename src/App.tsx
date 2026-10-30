@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
+import * as XLSX from 'xlsx'
 import {
   AlertCircle,
   ArrowRight,
@@ -40,7 +41,9 @@ import {
 import rfLogo from './assets/rf-logo.png'
 import {
   clearToken,
+  applyPointImport,
   importPoint,
+  ignorePointImport,
   listAgreements,
   listCompanyDocuments,
   listImportedPoint,
@@ -580,20 +583,60 @@ function RequestsView({ token }: { token: string }) {
 }
 
 
-function csvPointRows(text: string) {
-  const lines = text.replace(/\r/g, '').split('\n').filter(Boolean)
-  if (lines.length < 2) return []
-  const headers = lines[0].replace(/^\uFEFF/, '').split(';').map((value) => value.trim())
-  const index = (name: string) => headers.findIndex((header) => header.toLowerCase() === name.toLowerCase())
-  const get = (cells: string[], name: string) => { const i = index(name); return i >= 0 ? (cells[i] || '').trim() : '' }
-  const fallback = (cells: string[], starts: string) => { const i = headers.findIndex((header) => header.toLowerCase().startsWith(starts.toLowerCase())); return i >= 0 ? (cells[i] || '').trim() : '' }
-  return lines.slice(1).map((line) => {
-    const cells = line.split(';')
-    const rawDate = fallback(cells, 'Dia').split(' ')[0]
+function parseDelimited(text: string) {
+  const rows: string[][] = []
+  let row: string[] = []; let cell = ''; let quoted = false
+  const source = text.replace(/^\uFEFF/, '')
+  for (let i = 0; i < source.length; i += 1) {
+    const char = source[i]
+    if (quoted) {
+      if (char === '"' && source[i + 1] === '"') { cell += '"'; i += 1 }
+      else if (char === '"') quoted = false
+      else cell += char
+    } else if (char === '"') quoted = true
+    else if (char === ';') { row.push(cell.trim()); cell = '' }
+    else if (char === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = '' }
+    else if (char !== '\r') cell += char
+  }
+  if (cell || row.length) { row.push(cell.trim()); rows.push(row) }
+  return rows.filter((item) => item.some(Boolean))
+}
+
+function normalizeHeader(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
+function pointRowsFromMatrix(matrix: string[][]) {
+  if (matrix.length < 2) return []
+  const headers = matrix[0].map(normalizeHeader)
+  const find = (...names: string[]) => {
+    const normalized = names.map(normalizeHeader)
+    const exact = headers.findIndex((header) => normalized.includes(header))
+    return exact >= 0 ? exact : headers.findIndex((header) => normalized.some((name) => header.startsWith(name)))
+  }
+  const get = (cells: string[], ...names: string[]) => { const index = find(...names); return index >= 0 ? String(cells[index] || '').trim() : '' }
+  return matrix.slice(1).map((cells) => {
+    const rawDate = get(cells, 'Dia').split(' ')[0]
     const parts = rawDate.split('/')
     const data = parts.length === 3 ? `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}` : ''
-    return { cpf: get(cells, 'CPF do funcionário'), nome: get(cells, 'Nome do funcionário'), data, previsto: fallback(cells, 'Previsto'), entrada_1: get(cells, 'Entrada 1'), saida_1: get(cells, 'Saída 1'), entrada_2: get(cells, 'Entrada 2'), saida_2: get(cells, 'Saída 2'), total_normais: fallback(cells, 'Total Normais'), total_noturno: fallback(cells, 'Total Noturno'), dia_falta: fallback(cells, 'Dia Falta'), horas_atraso: fallback(cells, 'Horas Atraso'), abono: fallback(cells, 'Abono'), extra_50: fallback(cells, 'Extra   50%D'), extra_100: fallback(cells, 'Extra   100%D'), desconta_dsr: fallback(cells, 'Desconta DSR'), justificativas: fallback(cells, 'Justificativas') }
-  }).filter((row) => row.cpf && row.data)
+    return {
+      cpf: get(cells, 'CPF do funcionário', 'CPF'), nome: get(cells, 'Nome do funcionário', 'Nome'), data,
+      previsto: get(cells, 'Previsto'), entrada_1: get(cells, 'Entrada 1'), saida_1: get(cells, 'Saída 1', 'Saida 1'),
+      entrada_2: get(cells, 'Entrada 2'), saida_2: get(cells, 'Saída 2', 'Saida 2'), total_normais: get(cells, 'Total Normais'),
+      total_noturno: get(cells, 'Total Noturno'), dia_falta: get(cells, 'Dia Falta'), horas_atraso: get(cells, 'Horas Atraso'),
+      abono: get(cells, 'Abono'), extra_50: get(cells, 'Extra   50%D', 'Extra 50%D'), extra_100: get(cells, 'Extra   100%D', 'Extra 100%D'),
+      desconta_dsr: get(cells, 'Desconta DSR'), justificativas: get(cells, 'Justificativas'),
+    }
+  }).filter((row) => row.cpf || row.nome)
+}
+
+async function pointRowsFromFile(file: File) {
+  if (/\.xlsx?$/i.test(file.name)) {
+    const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false })
+    const sheet = workbook.Sheets[workbook.SheetNames[0]]
+    return pointRowsFromMatrix(XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '' }))
+  }
+  return pointRowsFromMatrix(parseDelimited(await file.text()))
 }
 
 function printReport(title: string, columns: string[], rows: string[][]) {
@@ -603,12 +646,68 @@ function printReport(title: string, columns: string[], rows: string[][]) {
 }
 
 function PointImportsView({ token }: { token: string }) {
-  const [tipo, setTipo] = useState<'diario' | 'mensal'>('mensal'); const [competencia, setCompetencia] = useState('09/2026'); const [file, setFile] = useState<File | null>(null); const [imports, setImports] = useState<PointImportSummary[]>([]); const [rows, setRows] = useState<PointImportRow[]>([]); const [loading, setLoading] = useState(false); const [error, setError] = useState(''); const [message, setMessage] = useState('')
-  async function reload() { const data = await listPointImports(token); if (data.sucesso) setImports(data.importacoes || []) }
-  useEffect(() => { reload().catch(() => undefined) }, [token])
-  async function submit(event: FormEvent) { event.preventDefault(); if (!file) { setError('Selecione um CSV de ponto.'); return }; setLoading(true); setError(''); setMessage(''); try { const linhas = csvPointRows(await file.text()); if (!linhas.length) throw new Error('Não foi possível reconhecer as linhas do CSV.'); const result = await importPoint(token, { tipo, competencia, arquivoNome: file.name, linhas }); if (!result.sucesso) throw new Error(result.erro || 'Falha na importação'); setMessage(`${result.total_linhas} linhas processadas; ${result.linhas_encontradas} cruzadas por CPF e ${result.linhas_nao_encontradas} não encontradas.`); setFile(null); await reload(); const listed = await listImportedPoint(token, tipo); if (listed.sucesso) setRows(listed.registros || []) } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao importar o arquivo.') } finally { setLoading(false) } }
-  async function loadRows() { const listed = await listImportedPoint(token, tipo); if (listed.sucesso) { setRows(listed.registros || []); printReport(`Ponto ${tipo} · ${competencia}`, ['Data','Funcionário','CPF','Entrada','Saída','Horas normais','Atraso/Falta'], (listed.registros || []).map((row) => [formatDate(row.data), row.nome_csv, maskCpf(row.cpf), row.entrada_1 || '', row.saida_1 || '', row.total_normais || '', row.horas_atraso || row.dia_falta || ''])) } }
-  return <><PageHeading eyebrow="Administração · dados reais" title="Importar ponto" description="Importe CSV diário ou mensal, cruzando cada linha exclusivamente pelo CPF e preservando divergências para conferência." action={<button className="secondary-button" onClick={loadRows}><Download size={16} /> Gerar PDF do ponto</button>} /><div className="two-column"><SectionCard title="Nova importação" caption="Nenhum CPF é inventado ou aproximado"><form className="form-stack" onSubmit={submit}><div className="form-row"><label>Tipo<select value={tipo} onChange={(event) => setTipo(event.target.value as 'diario' | 'mensal')}><option value="mensal">Ponto mensal / fechamento</option><option value="diario">Ponto diário</option></select></label><label>Competência<input value={competencia} onChange={(event) => setCompetencia(event.target.value)} placeholder="09/2026" /></label></div><label>Arquivo CSV<input type="file" accept=".csv,text/csv" onChange={(event) => setFile(event.target.files?.[0] || null)} required /><span className="field-note">O sistema identifica os cabeçalhos do exportador e cruza pelo CPF.</span></label>{error && <div className="form-error"><AlertCircle size={16} />{error}</div>}{message && <div className="form-success"><Check size={16} />{message}</div>}<button className="primary-button" type="submit" disabled={loading}>{loading ? <><RefreshCw className="spin" size={16} /> Processando…</> : <><Upload size={16} /> Importar e cruzar por CPF</>}</button></form></SectionCard><SectionCard title="Relatório de vale-alimentação" caption="A elegibilidade fica explícita para conferência do RH"><button className="secondary-button" onClick={async () => { const data = await listEmployees(token); printReport(`Conferência de vale-alimentação · ${competencia}`, ['Funcionário','CPF','Status'], (data || []).map((row) => [row.nome, maskCpf(row.cpf), 'A confirmar pelo RH'])) }}><Download size={16} /> Gerar PDF de conferência</button><div className="security-note"><div className="security-icon"><ShieldCheck size={20} /></div><div><strong>Sem regras inventadas</strong><p>O relatório não concede benefício automaticamente; sinaliza cada cadastro para validação administrativa.</p></div></div></SectionCard></div><SectionCard title="Histórico de importações" caption="Importações e divergências ficam auditáveis">{imports.length === 0 ? <EmptyState title="Nenhuma importação ainda" description="Envie o primeiro CSV diário ou mensal para começar." /> : <div className="document-list">{imports.map((item) => <div className="document-row" key={item.id}><span className="document-icon"><FileSpreadsheet size={18} /></span><div><strong>{item.tipo === 'mensal' ? 'Mensal' : 'Diário'} · {item.competencia || 'sem competência'}</strong><small>{item.arquivo_nome} · {item.linhas_encontradas}/{item.total_linhas} CPFs encontrados · {formatDate(item.created_at)}</small></div><StatusPill value={item.linhas_nao_encontradas ? `${item.linhas_nao_encontradas} divergências` : 'Conferido'} /></div>)}</div>}</SectionCard>{rows.length > 0 && <SectionCard title="Prévia cruzada" caption="Últimas linhas carregadas"><div className="table-wrap"><table><thead><tr><th>Data</th><th>Funcionário</th><th>CPF</th><th>Entrada</th><th>Saída</th><th>Match</th></tr></thead><tbody>{rows.slice(0, 20).map((row) => <tr key={row.id}><td>{formatDate(row.data)}</td><td>{row.nome_csv}</td><td className="mono">{maskCpf(row.cpf)}</td><td>{row.entrada_1 || '—'}</td><td>{row.saida_1 || '—'}</td><td><StatusPill value={row.encontrado ? 'Encontrado' : 'Divergência'} /></td></tr>)}</tbody></table></div></SectionCard>}</>
+  const [tipo, setTipo] = useState<'diario' | 'mensal'>('mensal')
+  const [competencia, setCompetencia] = useState('10/2026')
+  const [file, setFile] = useState<File | null>(null)
+  const [imports, setImports] = useState<PointImportSummary[]>([])
+  const [rows, setRows] = useState<PointImportRow[]>([])
+  const [pendingId, setPendingId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false); const [actionLoading, setActionLoading] = useState(false)
+  const [error, setError] = useState(''); const [message, setMessage] = useState('')
+  const pending = imports.find((item) => item.id === pendingId)
+
+  async function reload() { const data = await listPointImports(token); if (!data.sucesso) throw new Error(data.erro || 'Falha ao consultar o histórico'); setImports(data.importacoes || []) }
+  useEffect(() => { reload().catch((err) => setError(err instanceof Error ? err.message : 'Falha ao consultar o histórico')) }, [token])
+
+  async function loadPreview(importacaoId: string, importType: 'diario' | 'mensal' = tipo) {
+    const listed = await listImportedPoint(token, importType, importacaoId)
+    if (!listed.sucesso) throw new Error(listed.erro || 'Falha ao carregar a prévia')
+    setRows(listed.registros || []); setPendingId(importacaoId)
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault(); if (!file) { setError('Selecione o arquivo exportado pelo aplicativo de ponto.'); return }
+    setLoading(true); setError(''); setMessage(''); setRows([]); setPendingId(null)
+    try {
+      const linhas = await pointRowsFromFile(file)
+      if (!linhas.length) throw new Error('Não foi possível reconhecer linhas no arquivo. Use o exportador original, em CSV ou Excel.')
+      const result = await importPoint(token, { tipo, competencia, arquivoNome: file.name, linhas })
+      if (!result.sucesso || !result.importacao_id) throw new Error(result.erro || 'Falha ao analisar a importação')
+      await reload(); await loadPreview(result.importacao_id)
+      setFile(null); setMessage('Prévia criada. Revise as inconsistências antes de aplicar os registros encontrados.')
+    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao analisar o arquivo.') } finally { setLoading(false) }
+  }
+
+  async function applyPending() {
+    if (!pendingId) return
+    setActionLoading(true); setError('')
+    try { const result = await applyPointImport(token, pendingId); if (!result.sucesso) throw new Error(result.erro || 'Não foi possível aplicar os registros'); await reload(); await loadPreview(pendingId); setMessage(`${result.linhas_aplicadas || 0} registros válidos aplicados. As inconsistências ficaram preservadas para correção.`) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao aplicar os registros.') } finally { setActionLoading(false) }
+  }
+
+  async function ignorePending() {
+    if (!pendingId) return
+    setActionLoading(true); setError('')
+    try { const result = await ignorePointImport(token, pendingId); if (!result.sucesso) throw new Error(result.erro || 'Não foi possível arquivar a importação'); await reload(); setPendingId(null); setRows([]); setMessage('Importação arquivada no histórico de auditoria.') }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao arquivar a importação.') } finally { setActionLoading(false) }
+  }
+
+  async function loadRows() {
+    const listed = await listImportedPoint(token, tipo)
+    if (listed.sucesso) { setRows(listed.registros || []); printReport(`Ponto ${tipo} · ${competencia}`, ['Data','Funcionário','CPF','Entrada','Saída','Horas normais','Atraso/Falta'], (listed.registros || []).map((row) => [formatDate(row.data), row.nome_csv, maskCpf(row.cpf), row.entrada_1 || '', row.saida_1 || '', row.total_normais || '', row.horas_atraso || row.dia_falta || ''])) }
+  }
+
+  return <div className="import-page">
+    <PageHeading eyebrow="Administração · dados reais" title="Importar ponto" description="Analise o arquivo, confira os CPFs e aplique somente os registros válidos. As inconsistências ficam rastreáveis para correção posterior." action={<button className="secondary-button" onClick={loadRows}><Download size={16} /> Gerar PDF do ponto</button>} />
+    <div className="import-flow-note"><div className="import-step"><b>1</b><span><strong>Analisar</strong><small>CPF, data e formato</small></span></div><ChevronRight size={16} /><div className="import-step"><b>2</b><span><strong>Revisar</strong><small>Válidos e inconsistências</small></span></div><ChevronRight size={16} /><div className="import-step"><b>3</b><span><strong>Aplicar</strong><small>Sem bloquear os válidos</small></span></div></div>
+    <div className="import-layout">
+      <SectionCard title="Nova importação" caption="O arquivo é apenas analisado até você confirmar"><form className="form-stack import-form" onSubmit={submit}><div className="form-row"><label>Tipo de ponto<select value={tipo} onChange={(event) => setTipo(event.target.value as 'diario' | 'mensal')}><option value="mensal">Ponto mensal / fechamento</option><option value="diario">Ponto diário</option></select></label><label>Competência<input value={competencia} onChange={(event) => setCompetencia(event.target.value)} placeholder="10/2026" /></label></div><label>Arquivo exportado<input type="file" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => setFile(event.target.files?.[0] || null)} required /><span className="field-note">Aceita o CSV exato do aplicativo e planilhas Excel. O cruzamento é feito exclusivamente pelo CPF.</span></label>{file && <div className="selected-file"><FileSpreadsheet size={18} /><div><strong>{file.name}</strong><small>{(file.size / 1024).toFixed(0)} KB · pronto para análise</small></div></div>}{error && <div className="form-error"><AlertCircle size={16} />{error}</div>}{message && <div className="form-success"><Check size={16} />{message}</div>}<button className="primary-button" type="submit" disabled={loading}>{loading ? <><RefreshCw className="spin" size={16} /> Analisando arquivo…</> : <><Upload size={16} /> Analisar e cruzar CPFs</>}</button></form></SectionCard>
+      <SectionCard title="Critérios de validação" caption="Regras explícitas da carga"><div className="import-rules"><div><Check size={16} /><span><strong>CPF encontrado</strong><small>Registro fica elegível para aplicação.</small></span></div><div><AlertCircle size={16} /><span><strong>CPF não encontrado</strong><small>Fica marcado como inconsistência, sem bloquear os demais.</small></span></div><div><ShieldCheck size={16} /><span><strong>Auditoria</strong><small>Usuário, arquivo, competência e resultado ficam no histórico.</small></span></div></div></SectionCard>
+    </div>
+    {pending && <SectionCard title="Revisão antes da aplicação" caption={`Importação ${pending.tipo === 'mensal' ? 'mensal' : 'diária'} · ${pending.arquivo_nome}`} className="import-review-card"><div className="import-summary"><div className="import-stat"><span>Linhas lidas</span><strong>{pending.total_linhas}</strong></div><div className="import-stat valid"><span>CPFs encontrados</span><strong>{pending.linhas_encontradas}</strong></div><div className="import-stat invalid"><span>Inconsistências</span><strong>{pending.linhas_nao_encontradas}</strong></div><div className="import-stat"><span>Importado por</span><strong>{pending.imported_by_name || 'Você'}</strong></div></div><div className="import-review-actions"><div><strong>{pending.linhas_nao_encontradas ? 'Atenção: há linhas que precisam de correção.' : 'Tudo conferido: não há inconsistências.'}</strong><small>Aplicar registra somente os CPFs encontrados e mantém as demais linhas no histórico.</small></div><div className="button-row"><button className="primary-button" onClick={() => void applyPending()} disabled={actionLoading || pending.status !== 'pendente'}>{actionLoading ? <RefreshCw className="spin" size={16} /> : <Check size={16} />} {pending.status === 'aplicada' ? 'Registros aplicados' : 'Aplicar registros válidos'}</button><button className="secondary-button" onClick={() => void ignorePending()} disabled={actionLoading}>{pending.status === 'aplicada' ? 'Arquivar alerta' : pending.status === 'ignorada' ? 'Importação ignorada' : 'Ignorar e arquivar'}</button></div></div></SectionCard>}
+    <SectionCard title="Histórico e rastreabilidade" caption="Importações, operador, competência e resultado ficam preservados"><div className="import-history">{imports.length === 0 ? <EmptyState title="Nenhuma importação ainda" description="A primeira análise aparecerá aqui com o operador e os resultados." /> : imports.map((item) => <button className={`import-history-row ${pendingId === item.id ? 'is-selected' : ''}`} key={item.id} onClick={() => void loadPreview(item.id, item.tipo)}><span className="document-icon"><FileSpreadsheet size={18} /></span><span className="import-history-main"><strong>{item.tipo === 'mensal' ? 'Mensal' : 'Diário'} · {item.competencia || 'sem competência'}</strong><small>{item.arquivo_nome} · {item.imported_by_name || 'Usuário'} · {formatDate(item.created_at)}</small></span><span className="import-history-count"><b>{item.linhas_encontradas}/{item.total_linhas}</b><small>CPFs válidos</small></span><StatusPill value={item.status === 'aplicada' ? 'Aplicada' : item.status === 'ignorada' ? 'Ignorada' : item.linhas_nao_encontradas ? `${item.linhas_nao_encontradas} inconsistências` : 'Pendente'} /></button>)}</div></SectionCard>
+    {rows.length > 0 && <SectionCard title="Linhas da importação" caption={`${rows.length} registros · vermelho indica inconsistência de CPF ou data`} className="import-preview-card"><div className="table-wrap"><table><thead><tr><th>Data</th><th>Funcionário no arquivo</th><th>CPF</th><th>Entrada</th><th>Saída</th><th>Resultado</th></tr></thead><tbody>{rows.slice(0, 100).map((row) => <tr className={row.encontrado ? '' : 'row-inconsistent'} key={row.id}><td>{formatDate(row.data)}</td><td><strong>{row.nome_csv}</strong>{!row.encontrado && <small className="table-note">{row.inconsistencia || 'Inconsistência'}</small>}</td><td className="mono">{maskCpf(row.cpf)}</td><td>{row.entrada_1 || '—'}</td><td>{row.saida_1 || '—'}</td><td><StatusPill value={row.encontrado ? 'Encontrado' : 'Inconsistente'} /></td></tr>)}</tbody></table></div>{rows.length > 100 && <div className="table-footnote">Exibindo as primeiras 100 linhas desta prévia.</div>}</SectionCard>}
+  </div>
 }
 
 function AgreementsView({ token }: { token: string }) { const [rows, setRows] = useState<AgreementInstallment[]>([]); const [error, setError] = useState(''); useEffect(() => { listAgreements(token).then((data) => { if (!data.sucesso) throw new Error(data.erro || 'Acesso negado'); setRows(data.parcelas || []) }).catch((err) => setError(err instanceof Error ? err.message : 'Falha de consulta')) }, [token]); return <><PageHeading eyebrow="Administração · compromissos" title="Acordos e parcelas" description="Pagamentos trabalhistas extraídos do relatório real, com quitadas e futuras separadas." action={<button className="secondary-button" onClick={() => printReport('Acordos e parcelas', ['Processo','Parcela','Valor','Vencimento','Status'], rows.map((row) => [row.processo, String(row.numero), formatMoney(row.valor), formatDate(row.vencimento), row.status]))}><Download size={16} /> Gerar PDF</button>} /><SectionCard title={`${rows.length} parcelas registradas`} caption="Relatório de pagamentos de acordos">{error ? <ErrorState message={error} /> : rows.length === 0 ? <EmptyState title="Nenhum acordo registrado" description="Os dados aparecerão após a carga do relatório de pagamentos." /> : <div className="table-wrap"><table><thead><tr><th>Processo</th><th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Status</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td className="mono">{row.processo}</td><td>{row.numero}</td><td>{formatMoney(row.valor)}</td><td>{formatDate(row.vencimento)}</td><td><StatusPill value={row.status} /></td></tr>)}</tbody></table></div>}</SectionCard></> }

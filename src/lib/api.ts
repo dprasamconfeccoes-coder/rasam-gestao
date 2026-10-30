@@ -150,7 +150,7 @@ export function listOrders(token: string) {
 }
 
 export function importPoint(token: string, payload: { tipo: 'diario' | 'mensal'; competencia: string; arquivoNome: string; linhas: Record<string, unknown>[] }) {
-  return rpc<{ sucesso: boolean; erro?: string; total_linhas?: number; linhas_encontradas?: number; linhas_nao_encontradas?: number; cpfs_nao_encontrados?: string[] }>('app_importar_ponto', {
+  return rpc<{ sucesso: boolean; erro?: string; importacao_id?: string; status?: string; total_linhas?: number; linhas_encontradas?: number; linhas_nao_encontradas?: number; cpfs_nao_encontrados?: string[] }>('app_importar_ponto', {
     p_token: token,
     p_tipo: payload.tipo,
     p_competencia: payload.competencia,
@@ -163,8 +163,16 @@ export function listPointImports(token: string) {
   return rpc<{ sucesso: boolean; erro?: string; importacoes: PointImportSummary[] }>('app_listar_importacoes', { p_token: token })
 }
 
-export function listImportedPoint(token: string, tipo?: 'diario' | 'mensal') {
-  return rpc<{ sucesso: boolean; erro?: string; registros: PointImportRow[] }>('app_listar_ponto_importado', { p_token: token, p_tipo: tipo || null })
+export function applyPointImport(token: string, importacaoId: string) {
+  return rpc<{ sucesso: boolean; erro?: string; status?: string; linhas_aplicadas?: number; linhas_inconsistentes?: number }>('app_aplicar_importacao_ponto', { p_token: token, p_importacao_id: importacaoId })
+}
+
+export function ignorePointImport(token: string, importacaoId: string) {
+  return rpc<{ sucesso: boolean; erro?: string; status?: string }>('app_ignorar_importacao_ponto', { p_token: token, p_importacao_id: importacaoId })
+}
+
+export function listImportedPoint(token: string, tipo?: 'diario' | 'mensal', importacaoId?: string) {
+  return rpc<{ sucesso: boolean; erro?: string; registros: PointImportRow[] }>('app_listar_ponto_importado', { p_token: token, p_tipo: tipo || null, p_importacao_id: importacaoId || null })
 }
 
 export function listAgreements(token: string) {

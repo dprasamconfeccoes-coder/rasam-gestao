@@ -166,8 +166,10 @@ export interface PointImportRow {
   horas_atraso: string | null
   justificativas: string | null
   encontrado: boolean
+  inconsistencia: string | null
   tipo: 'diario' | 'mensal'
   competencia: string | null
+  status: 'pendente' | 'aplicada' | 'ignorada'
 }
 
 export interface PointImportSummary {
@@ -179,6 +181,10 @@ export interface PointImportSummary {
   linhas_encontradas: number
   linhas_nao_encontradas: number
   cpfs_nao_encontrados: string[]
+  imported_by_name: string | null
+  status: 'pendente' | 'aplicada' | 'ignorada'
+  applied_at: string | null
+  archived_at: string | null
   created_at: string
 }
 

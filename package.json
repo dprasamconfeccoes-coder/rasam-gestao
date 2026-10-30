@@ -16,7 +16,8 @@
     "jspdf-autotable": "^5.0.9",
     "lucide-react": "^0.468.0",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/react": "^19.1.12",
