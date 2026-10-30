@@ -34,6 +34,36 @@ async function loadLogoDataUrl() {
   }
 }
 
+async function loadImageDataUrl(url: string) {
+  if (!url) return null
+  if (url.startsWith('data:image/')) return url
+  try {
+    const response = await fetch(url)
+    if (!response.ok) return null
+    const blob = await response.blob()
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
+
+function moneyValue(value: unknown) {
+  const amount = Number(value)
+  return Number.isFinite(amount) ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount) : 'Não informado'
+}
+
+function dateValue(value: unknown) {
+  const raw = cleanText(value)
+  if (!raw) return 'Não informado'
+  const date = new Date(`${raw.slice(0, 10)}T00:00:00`)
+  return Number.isNaN(date.getTime()) ? raw : date.toLocaleDateString('pt-BR')
+}
+
 export async function downloadEmployeeFichaPdf(employee: EmployeeFichaRecord) {
   const [{ jsPDF }, { default: autoTable }] = await Promise.all([
     import('jspdf'),
@@ -46,7 +76,7 @@ export async function downloadEmployeeFichaPdf(employee: EmployeeFichaRecord) {
   const company = cleanText(employee.empregador_razao_social) || 'Empresa'
   const cnpj = cleanText(employee.empregador_cnpj)
   const generatedAt = new Intl.DateTimeFormat('pt-BR').format(new Date())
-  const logoDataUrl = await loadLogoDataUrl()
+  const [logoDataUrl, avatarDataUrl] = await Promise.all([loadLogoDataUrl(), loadImageDataUrl(cleanText(employee.avatar_url))])
 
   doc.setProperties({
     title: `Ficha de Empregado - ${name}`,
@@ -80,16 +110,39 @@ export async function downloadEmployeeFichaPdf(employee: EmployeeFichaRecord) {
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   if (cnpj) doc.text(`CNPJ: ${cnpj}`, textX, companyBottom + 5)
+  if (avatarDataUrl) {
+    const avatarFormat = avatarDataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+    doc.addImage(avatarDataUrl, avatarFormat, pageWidth - margin - 24, 8, 22, 22, undefined, 'FAST')
+  }
   doc.setTextColor(162, 63, 105)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(8)
-  doc.text('FICHA DE EMPREGADO', pageWidth - margin, 14, { align: 'right' })
+  doc.text('FICHA DE EMPREGADO', avatarDataUrl ? pageWidth - margin - 29 : pageWidth - margin, 14, { align: 'right' })
   doc.setTextColor(102, 90, 96)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
-  doc.text(`Gerada em ${generatedAt}`, pageWidth - margin, 20, { align: 'right' })
+  doc.text(`Gerada em ${generatedAt}`, avatarDataUrl ? pageWidth - margin - 29 : pageWidth - margin, 20, { align: 'right' })
 
   let y = 48
+  doc.setFillColor(246, 241, 231)
+  doc.roundedRect(margin, y, pageWidth - margin * 2, 8, 1.5, 1.5, 'F')
+  doc.setFillColor(162, 63, 105)
+  doc.roundedRect(margin, y, 1.2, 8, 0.5, 0.5, 'F')
+  doc.setTextColor(48, 38, 43)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(8.5)
+  doc.text('Resumo atual', margin + 5, y + 5.3)
+  autoTable(doc, {
+    startY: y + 9,
+    body: [['Salário atual', moneyValue(employee.salario)], ['Situação', cleanText(employee.situacao) || 'Não informado'], ['Data de admissão', dateValue(employee.data_admissao)]],
+    theme: 'grid',
+    margin: { left: margin, right: margin, top: 14, bottom: 19 },
+    styles: { font: 'helvetica', fontSize: 8, textColor: [45, 37, 41], lineColor: [230, 224, 216], lineWidth: 0.15, cellPadding: 2.8, overflow: 'linebreak', valign: 'top' },
+    columnStyles: { 0: { cellWidth: 55, fontStyle: 'bold', textColor: [92, 77, 84], fillColor: [250, 248, 244] }, 1: { cellWidth: 'auto' } },
+    alternateRowStyles: { fillColor: [255, 255, 255] },
+    rowPageBreak: 'avoid',
+  })
+  y = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 30) + 5
   for (const group of fieldGroups) {
     if (y > pageHeight - 35) {
       doc.addPage()

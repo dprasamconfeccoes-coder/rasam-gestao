@@ -338,7 +338,8 @@ function EmployeesView({ token }: { token: string }) {
     try {
       const result = await adminProntuario(token, id)
       if (!result.sucesso || !result.funcionario) throw new Error(result.erro || 'Não foi possível abrir a ficha')
-      setSelected(result)
+      const row = rows.find((item) => item.id === id)
+      setSelected({ ...result, funcionario: { ...result.funcionario, avatar_url: row?.avatar_url || result.funcionario.avatar_url, situacao: row?.situacao || 'Trabalhando' } })
     } catch (err) {
       setFichaError(err instanceof Error ? err.message : 'Falha ao abrir a ficha')
     } finally {
@@ -353,7 +354,8 @@ function EmployeesView({ token }: { token: string }) {
       const result = await adminProntuario(token, id)
       if (!result.sucesso || !result.funcionario) throw new Error(result.erro || 'Não foi possível consultar a ficha do funcionário.')
       const { downloadEmployeeFichaPdf } = await import('./features/employee-ficha-pdf')
-      await downloadEmployeeFichaPdf(result.funcionario)
+      const row = rows.find((item) => item.id === id)
+      await downloadEmployeeFichaPdf({ ...result.funcionario, avatar_url: row?.avatar_url || result.funcionario.avatar_url, situacao: row?.situacao || 'Trabalhando' })
     } catch (err) {
       setReportError(err instanceof Error ? err.message : 'Não foi possível gerar o relatório.')
     } finally {
@@ -386,22 +388,22 @@ function EmployeesView({ token }: { token: string }) {
             <p className="table-scroll-hint">Deslize para o lado para ver todas as colunas.</p>
             <table className="employees-table">
               <thead>
-                <tr><th>Nome</th><th>CPF</th><th>Cargo</th><th>Admissão</th><th>Ações</th></tr>
+                <tr><th>Nome</th><th>CPF</th><th>Cargo</th><th>Salário</th><th>Admissão</th><th>Situação</th><th>Ações</th></tr>
               </thead>
               <tbody>
                 {filtered.map((row) => (
                   <tr key={row.id}>
                     <td>
                       <div className="employee-name-cell">
+                        <span className="employee-avatar-cell" aria-hidden="true">{row.avatar_url ? <img src={row.avatar_url} alt="" /> : null}</span>
                         <strong>{row.nome}</strong>
-                        <span className={`employee-status-tag ${row.ativo ? 'is-active' : 'is-inactive'}`}>
-                          <i aria-hidden="true" />{row.ativo ? 'Ativo' : 'Inativo'}
-                        </span>
                       </div>
                     </td>
                     <td className="mono">{maskCpf(row.cpf)}</td>
                     <td>{row.cargo || 'Não informado'}</td>
+                    <td>{row.salario === null || row.salario === undefined ? 'Não informado' : formatMoney(row.salario)}</td>
                     <td>{formatDate(row.data_admissao)}</td>
+                    <td><StatusPill value={row.situacao || (row.ativo ? 'Trabalhando' : 'Inativo')} /></td>
                     <td>
                       <div className="employee-row-actions">
                         <button
@@ -444,10 +446,17 @@ function EmployeesView({ token }: { token: string }) {
             }}
           >
             <div className="employee-ficha-summary employee-action-panel">
-              <div>
-                <span className="eyebrow">Ficha operacional</span>
-                <h3>{String(selected.funcionario.nome)}</h3>
-                <p>{String(selected.funcionario.cargo || 'Cargo não informado')} · {String(selected.funcionario.tipo_vinculo || 'vínculo')}</p>
+              <div className="employee-ficha-identity">
+                <UserAvatar name={String(selected.funcionario.nome)} url={String(selected.funcionario.avatar_url || '') || null} className="employee-ficha-avatar" />
+                <div>
+                  <span className="eyebrow">Ficha operacional</span>
+                  <h3>{String(selected.funcionario.nome)}</h3>
+                  <p>{String(selected.funcionario.cargo || 'Cargo não informado')} · {String(selected.funcionario.tipo_vinculo || 'vínculo')}</p>
+                </div>
+              </div>
+              <div className="employee-ficha-highlights">
+                <div><span>Salário atual</span><strong>{selected.funcionario.salario === null || selected.funcionario.salario === undefined ? 'Não informado' : formatMoney(Number(selected.funcionario.salario))}</strong></div>
+                <div><span>Situação</span><StatusPill value={String(selected.funcionario.situacao || 'Trabalhando')} /></div>
               </div>
               <div className="metric-grid compact">
                 <div><b>{selected.ponto.length}</b><small>pontos</small></div>

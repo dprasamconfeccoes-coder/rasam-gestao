@@ -617,6 +617,8 @@ td strong { color: #2b2328; }
 .employee-ficha-form .form-hint { background: #f7f3ed; }
 .employee-name-cell { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
 .employee-name-cell > strong { max-width: 330px; white-space: normal; overflow-wrap: anywhere; }
+.employee-avatar-cell { display: grid; place-items: center; overflow: hidden; width: 34px; height: 34px; flex: 0 0 34px; border: 1px solid var(--line); border-radius: 50%; background: var(--surface-2); }
+.employee-avatar-cell img { width: 100%; height: 100%; object-fit: cover; }
 .employee-status-tag { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 99px; font-size: 9px; font-weight: 800; line-height: 1; white-space: nowrap; }
 .employee-status-tag i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .employee-status-tag.is-active { color: #76570d; background: #fff3d6; }
@@ -625,10 +627,18 @@ td strong { color: #2b2328; }
 .employee-row-actions .compact-button { margin: 0; }
 .employee-pdf-button { color: #8f355d; background: #fff7fa; }
 .employee-report-error { margin: 14px 18px; }
+.employee-ficha-identity { display: flex; align-items: center; gap: 14px; }
+.employee-ficha-avatar { width: 58px; height: 58px; border-radius: 50%; font-size: 17px; }
+.employee-ficha-highlights { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+.employee-ficha-highlights > div { display: grid; gap: 5px; min-width: 150px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.04); }
+.employee-ficha-highlights span { color: var(--muted); font-size: 10px; }
+.employee-ficha-highlights strong { font-size: 13px; }
 @media (max-width: 760px) {
   .topbar-user { padding-left: 10px; }
   .topbar-user-meta strong { max-width: 120px; }
   .employee-row-actions { min-width: 150px; }
+  .employee-ficha-highlights { align-items: stretch; flex-direction: column; }
+  .employee-ficha-highlights > div { min-width: 0; }
 }
 @media (max-width: 420px) {
   .topbar { gap: 8px; padding: 0 10px; }

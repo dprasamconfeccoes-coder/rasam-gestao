@@ -63,6 +63,8 @@ export interface EmployeeRow {
   salario: number | null
   ativo: boolean
   perfil: Profile
+  avatar_url: string | null
+  situacao: 'Trabalhando' | 'Em férias' | 'Afastado' | 'Inativo'
 }
 
 export interface OrderRow {
