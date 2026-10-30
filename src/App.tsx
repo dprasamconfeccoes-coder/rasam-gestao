@@ -120,7 +120,7 @@ const navItems: NavItem[] = [
   { key: 'producao', label: 'Produção', description: 'Lotes e costura', icon: Factory, group: 'Operação', profiles: managerProfiles },
   { key: 'financeiro', label: 'Financeiro', description: 'Fluxo e compromissos', icon: CircleDollarSign, group: 'Controle', profiles: managerProfiles },
   { key: 'dividas', label: 'Dívidas', description: 'Saldos e vencimentos', icon: WalletCards, group: 'Controle', profiles: adminProfiles },
-  { key: 'rh', label: 'Recursos humanos', description: 'Férias e afastamentos', icon: BriefcaseBusiness, group: 'Pessoas', profiles: managerProfiles },
+  { key: 'rh', label: 'Recursos humanos', description: 'Painel e operações de RH', icon: BriefcaseBusiness, group: 'Pessoas', profiles: adminProfiles },
   { key: 'relatorios', label: 'Relatórios', description: 'Leituras da operação', icon: BarChart3, group: 'Controle', profiles: managerProfiles },
   { key: 'perfil', label: 'Meu perfil', description: 'Dados cadastrais', icon: UserRound, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'ponto', label: 'Meu ponto', description: 'Jornada registrada', icon: Fingerprint, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
@@ -1039,7 +1039,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'ordens') return <OrdersView token={token} />
     if (active === 'financeiro' || active === 'dividas') return <AdminCenter token={token} initialTab="financeiro" />
     if (active === 'relatorios') return <AdminCenter token={token} initialTab="fechamento" />
-    if (active === 'rh') return <AdminCenter token={token} initialTab="prontuario" />
+    if (active === 'rh') return <AdminCenter token={token} initialTab="painel" />
     if (active === 'producao') return <AdminCenter token={token} initialTab="producao" />
     if (active === 'perfil') return <EmployeeProfileView token={token} onProfileUpdated={setProfile} />
     if (active === 'ponto') return <PointView token={token} user={user} />
