@@ -1,5 +1,5 @@
 import { AlertCircle, ArrowRight, CalendarDays, Check, FileCheck2, HeartPulse, ShieldAlert, UserRound, UsersRound } from 'lucide-react'
-import type { AdminJustificationRow, AdminMedicalLeaveRow, AdminPointRow, AdminRequestRow, EmployeeRow } from '../lib/types'
+import type { AdminJustificationRow, AdminMedicalLeaveRow, AdminPointRow, AdminRequestRow, AdminVacationRow, EmployeeRow } from '../lib/types'
 import { EmptyState, SectionCard, StatusPill, formatDate } from '../components/ui'
 
 type OpenTab = (tab: string) => void
@@ -18,6 +18,7 @@ export function HRDashboardPanel({
   justifications,
   leaves,
   requests,
+  vacations,
   employees,
   onOpenTab,
 }: {
@@ -25,6 +26,7 @@ export function HRDashboardPanel({
   justifications: AdminJustificationRow[]
   leaves: AdminMedicalLeaveRow[]
   requests: AdminRequestRow[]
+  vacations: AdminVacationRow[]
   employees: EmployeeRow[]
   onOpenTab: OpenTab
 }) {
@@ -74,7 +76,7 @@ export function HRDashboardPanel({
       <SectionCard title="Central de alertas" caption={`${alerts.length} alertas prioritários encontrados`}>
         {alerts.length === 0 ? <EmptyState title="Tudo em dia" description="Não há justificativas, atestados ou solicitações aguardando análise." /> : <div className="hr-alert-list">{alerts.map((alert) => <div className={`hr-alert-item is-${alert.tone}`} key={alert.id}><span className="hr-alert-icon">{alert.tone === 'danger' ? <ShieldAlert size={17} /> : alert.tone === 'gold' ? <HeartPulse size={17} /> : <FileCheck2 size={17} />}</span><div className="hr-alert-copy"><strong>{alert.title}</strong><small>{alert.detail}</small></div><button className="icon-button" type="button" onClick={() => onOpenTab(alert.tab)} aria-label={alert.action} title={alert.action}><ArrowRight size={16} /></button></div>)}</div>}
       </SectionCard>
-      <SectionCard title="Atalhos de operação" caption="Ações frequentes do departamento pessoal"><div className="hr-quick-actions"><button type="button" onClick={() => onOpenTab('cadastro')}><UserRound size={18} /><span><strong>Cadastrar vínculo</strong><small>Admissão e acesso inicial</small></span><ArrowRight size={15} /></button><button type="button" onClick={() => onOpenTab('fechamento')}><CalendarDays size={18} /><span><strong>Fechamento mensal</strong><small>Conferir ponto e valores</small></span><ArrowRight size={15} /></button><button type="button" onClick={() => onOpenTab('avisos')}><Check size={18} /><span><strong>Publicar aviso</strong><small>Comunicar a equipe</small></span><ArrowRight size={15} /></button><button type="button" onClick={() => onOpenTab('prontuario')}><UsersRound size={18} /><span><strong>Consultar funcionário</strong><small>{activeEmployees} ativos no cadastro</small></span><ArrowRight size={15} /></button></div></SectionCard>
+      <SectionCard title="Atalhos de operação" caption="Ações frequentes do departamento pessoal"><div className="hr-quick-actions"><button type="button" onClick={() => onOpenTab('cadastro')}><UserRound size={18} /><span><strong>Cadastrar vínculo</strong><small>Admissão e acesso inicial</small></span><ArrowRight size={15} /></button><button type="button" onClick={() => onOpenTab('ferias')}><CalendarDays size={18} /><span><strong>Gerenciar férias</strong><small>{vacations.length} período(s) lançado(s)</small></span><ArrowRight size={15} /></button><button type="button" onClick={() => onOpenTab('fechamento')}><CalendarDays size={18} /><span><strong>Fechamento mensal</strong><small>Conferir ponto e valores</small></span><ArrowRight size={15} /></button><button type="button" onClick={() => onOpenTab('avisos')}><Check size={18} /><span><strong>Publicar aviso</strong><small>Comunicar a equipe</small></span><ArrowRight size={15} /></button><button type="button" onClick={() => onOpenTab('prontuario')}><UsersRound size={18} /><span><strong>Consultar funcionário</strong><small>{activeEmployees} ativos no cadastro</small></span><ArrowRight size={15} /></button></div></SectionCard>
     </div>
     <SectionCard title="Leitura rápida da equipe" caption="Indicadores conectados aos registros atuais"><div className="hr-overview-strip"><div><span>Funcionários ativos</span><strong>{activeEmployees}</strong></div><div><span>Inconsistências de ponto</span><strong>{inconsistencies.length}</strong></div><div><span>Sem justificativa</span><strong>{unjustified.length}</strong></div><div><span>Solicitações abertas</span><strong>{openRequests.length}</strong></div></div></SectionCard>
   </div>
