@@ -315,6 +315,9 @@ function EmployeesView({ token }: { token: string }) {
   const [reportError, setReportError] = useState('')
   const [fichaError, setFichaError] = useState('')
   const [search, setSearch] = useState('')
+  const [situacaoFilter, setSituacaoFilter] = useState('')
+  const [salaryMin, setSalaryMin] = useState('')
+  const [salaryMax, setSalaryMax] = useState('')
   const [selected, setSelected] = useState<import('./lib/types').ProntuarioResponse | null>(null)
   const [selectedId, setSelectedId] = useState('')
   const [generatingReportId, setGeneratingReportId] = useState('')
@@ -326,10 +329,31 @@ function EmployeesView({ token }: { token: string }) {
       .finally(() => setLoading(false))
   }, [token])
 
-  const filtered = useMemo(
-    () => rows.filter((row) => `${row.nome} ${row.cargo || ''} ${row.cpf}`.toLowerCase().includes(search.toLowerCase())),
-    [rows, search],
-  )
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    const parseSalary = (value: string) => {
+      if (!value) return null
+      const normalized = value.includes(',') ? value.replace(/\./g, '').replace(',', '.') : value
+      const parsed = Number(normalized)
+      return Number.isFinite(parsed) ? parsed : null
+    }
+    const min = parseSalary(salaryMin)
+    const max = parseSalary(salaryMax)
+    return rows.filter((row) => {
+      const searchable = `${row.nome} ${row.cargo || ''} ${row.cpf}`.toLowerCase()
+      const salary = Number(row.salario)
+      const matchesQuery = !query || searchable.includes(query)
+      const matchesSituation = !situacaoFilter || row.situacao === situacaoFilter
+      const matchesMin = min === null || (Number.isFinite(salary) && salary >= min)
+      const matchesMax = max === null || (Number.isFinite(salary) && salary <= max)
+      return matchesQuery && matchesSituation && matchesMin && matchesMax
+    })
+  }, [rows, search, situacaoFilter, salaryMin, salaryMax])
+
+  const activeFilterCount = [search, situacaoFilter, salaryMin, salaryMax].filter(Boolean).length
+  function clearEmployeeFilters() {
+    setSearch(''); setSituacaoFilter(''); setSalaryMin(''); setSalaryMax('')
+  }
 
   async function openEmployee(id: string) {
     setSelectedId(id)
@@ -376,13 +400,22 @@ function EmployeesView({ token }: { token: string }) {
           </div>
         }
       />
+      <div className="employee-filter-panel">
+        <div className="employee-filter-header"><div><strong>Filtros da equipe</strong><span>Combine situação, salário e busca para encontrar rapidamente os registros.</span></div><button className="text-button" type="button" onClick={clearEmployeeFilters} disabled={!activeFilterCount}>Limpar filtros{activeFilterCount ? ` (${activeFilterCount})` : ''}</button></div>
+        <div className="employee-filter-fields">
+          <label>Situação<select value={situacaoFilter} onChange={(event) => setSituacaoFilter(event.target.value)}><option value="">Todas as situações</option><option value="Trabalhando">Trabalhando</option><option value="Em férias">Em férias</option><option value="Afastado">Afastado</option><option value="Inativo">Inativo</option></select></label>
+          <label>Salário mínimo<input inputMode="decimal" value={salaryMin} onChange={(event) => setSalaryMin(event.target.value.replace(/[^0-9,.]/g, ''))} placeholder="R$ 0,00" /></label>
+          <label>Salário máximo<input inputMode="decimal" value={salaryMax} onChange={(event) => setSalaryMax(event.target.value.replace(/[^0-9,.]/g, ''))} placeholder="Sem limite" /></label>
+          <div className="employee-filter-presets"><span>Atalhos</span><button type="button" onClick={() => { setSalaryMin(''); setSalaryMax('2000') }}>Até R$ 2 mil</button><button type="button" onClick={() => { setSalaryMin('2000'); setSalaryMax('4000') }}>R$ 2–4 mil</button><button type="button" onClick={() => { setSalaryMin('4000'); setSalaryMax('') }}>Acima de R$ 4 mil</button></div>
+        </div>
+      </div>
       <SectionCard title={`${filtered.length} registros visíveis`} caption="Abra a ficha no modal ou gere o PDF individual">
         {loading ? (
           <LoadingState />
         ) : error ? (
           <ErrorState message={error} />
         ) : filtered.length === 0 ? (
-          <EmptyState title="Nenhum funcionário encontrado" description={search ? 'Ajuste a busca para tentar novamente.' : 'Ainda não existem registros para exibir.'} />
+          <EmptyState title="Nenhum funcionário encontrado" description={activeFilterCount ? 'Ajuste ou limpe os filtros para ampliar o resultado.' : 'Ainda não existem registros para exibir.'} />
         ) : (
           <div className="table-wrap">
             <p className="table-scroll-hint">Deslize para o lado para ver todas as colunas.</p>
