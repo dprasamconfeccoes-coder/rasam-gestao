@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
-import { LoaderCircle, SearchX } from 'lucide-react'
+import { useEffect, useRef, type ReactNode } from 'react'
+import { Check, LoaderCircle, SearchX } from 'lucide-react'
+import './confirmation-modal.css'
 
 export function PageHeading({ eyebrow, title, description, action }: { eyebrow: string; title: string; description?: string; action?: ReactNode }) {
   return (
@@ -43,6 +44,56 @@ export function ErrorState({ message }: { message: string }) {
 
 export function SectionCard({ title, caption, children, className = '' }: { title: string; caption?: string; children: ReactNode; className?: string }) {
   return <section className={`section-card ${className}`}><div className="section-header"><div><h2>{title}</h2>{caption && <span>{caption}</span>}</div></div>{children}</section>
+}
+
+export function ConfirmationModal({
+  title,
+  description,
+  confirmLabel = 'Confirmar',
+  cancelLabel = 'Voltar',
+  busy = false,
+  children,
+  onConfirm,
+  onCancel,
+}: {
+  title: string
+  description: string
+  confirmLabel?: string
+  cancelLabel?: string
+  busy?: boolean
+  children?: ReactNode
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const returnFocusRef = useRef<HTMLElement | null>(typeof document === 'undefined' ? null : document.activeElement as HTMLElement)
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    cancelRef.current?.focus()
+    return () => {
+      const trigger = returnFocusRef.current
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true })
+      else if (typeof document !== 'undefined') {
+        const fallback = document.querySelector<HTMLElement>('.page-heading h1')
+        if (fallback) { fallback.tabIndex = -1; fallback.focus({ preventScroll: true }) }
+      }
+    }
+  }, [])
+  return <div className="confirmation-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onCancel() }}>
+    <section className="confirmation-modal" role="dialog" aria-modal="true" aria-labelledby="confirmation-modal-title" aria-describedby="confirmation-modal-description" onKeyDown={(event) => {
+      if (event.key === 'Escape' && !busy) { event.preventDefault(); onCancel(); return }
+      if (event.key !== 'Tab') return
+      const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'))
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+    }}>
+      <div className="confirmation-modal-icon"><Check size={20} /></div>
+      <div className="confirmation-modal-copy"><h2 id="confirmation-modal-title">{title}</h2><p id="confirmation-modal-description">{description}</p></div>
+      {children && <div className="confirmation-modal-details">{children}</div>}
+      <div className="confirmation-modal-actions"><button ref={cancelRef} type="button" className="secondary-button" disabled={busy} onClick={onCancel}>{cancelLabel}</button><button type="button" className="primary-button" disabled={busy} onClick={onConfirm}>{busy ? 'Processando…' : confirmLabel}</button></div>
+    </section>
+  </div>
 }
 
 export function formatDate(value?: string | null) {

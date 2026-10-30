@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Activity, AlertTriangle, Check, ChevronDown, Clock3, Factory, PackageCheck, RefreshCw, Scissors, Search, Truck } from 'lucide-react'
 import { getFactoryProduction, releaseWorkOrderForFinance, saveFactoryProduction, startWorkOrderProduction } from '../lib/api'
 import type { FactoryProductionLot, FactoryProductionResponse, FactoryProductionSummary, WorkOrderProgressPayload } from '../lib/types'
-import { EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate } from '../components/ui'
+import { ConfirmationModal, EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate } from '../components/ui'
 import './factory-production.css'
 
 type FilterKey = 'todas' | 'recebida' | 'em_producao' | 'costurada' | 'expedida' | 'entregue' | 'aguardando_pagamento'
+type ProductionConfirmation = { title: string; description: string; confirmLabel: string; detail: string; run: () => Promise<boolean> }
 
 const blankSummary: FactoryProductionSummary = {
   lotes_ativos: 0, lotes_aguardando_inicio: 0, lotes_em_producao: 0, lotes_prontos_entrega: 0,
@@ -52,6 +53,8 @@ export function FactoryProductionDashboard({ token }: { token: string }) {
   const [notice, setNotice] = useState('')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<FilterKey>('todas')
+  const [confirmation, setConfirmation] = useState<ProductionConfirmation | null>(null)
+  const [confirmationBusy, setConfirmationBusy] = useState(false)
 
   const reload = useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true)
@@ -88,7 +91,7 @@ export function FactoryProductionDashboard({ token }: { token: string }) {
     })
   }, [lots, query, filter])
 
-  async function runAction(key: string, action: () => Promise<{ sucesso: boolean; erro?: string }>, success: string) {
+  async function runAction(key: string, action: () => Promise<{ sucesso: boolean; erro?: string }>, success: string): Promise<boolean> {
     setSaving(key)
     setError('')
     setNotice('')
@@ -97,8 +100,10 @@ export function FactoryProductionDashboard({ token }: { token: string }) {
       if (!result.sucesso) throw new Error(result.erro || 'A alteração não foi concluída.')
       setNotice(success)
       await reload(false)
+      return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao salvar alteração.')
+      return false
     } finally {
       setSaving('')
     }
@@ -136,7 +141,25 @@ export function FactoryProductionDashboard({ token }: { token: string }) {
       setError('Revise a grade por tamanho: entregue ≤ costurada ≤ produzida ≤ solicitada.')
       return
     }
-    await runAction(`progresso-${lot.id}`, () => saveFactoryProduction(token, lot.id, items), `Progresso do lote ${lot.numero} salvo e auditado.`)
+    const produced = items.reduce((sum, item) => sum + item.quantidade_produzida, 0)
+    const sewn = items.reduce((sum, item) => sum + item.quantidade_costurada, 0)
+    const delivered = items.reduce((sum, item) => sum + item.quantidade_entregue, 0)
+    setError('')
+    setConfirmation({
+      title: 'Confirmar atualização da produção',
+      description: `A grade do lote ${lot.numero} será atualizada e a movimentação ficará registrada no histórico de auditoria.`,
+      confirmLabel: 'Salvar produção',
+      detail: `${lot.cliente || 'Cliente não informado'} · ${lot.descricao}\nProduzidas: ${produced} · Costuradas: ${sewn} · Entregues: ${delivered}`,
+      run: () => runAction(`progresso-${lot.id}`, () => saveFactoryProduction(token, lot.id, items), `Progresso do lote ${lot.numero} salvo e auditado.`),
+    })
+  }
+
+  async function confirmProductionAction() {
+    if (!confirmation) return
+    setConfirmationBusy(true)
+    const completed = await confirmation.run()
+    if (completed) setConfirmation(null)
+    setConfirmationBusy(false)
   }
 
   const stageCounts = [
@@ -198,9 +221,9 @@ export function FactoryProductionDashboard({ token }: { token: string }) {
               <div className="factory-progress-summary"><div><span>Solicitadas</span><strong>{sum.requested.toLocaleString('pt-BR')}</strong></div><div><span>Produzidas</span><strong>{sum.produced.toLocaleString('pt-BR')}</strong></div><div><span>Costuradas</span><strong>{sum.sewn.toLocaleString('pt-BR')}</strong></div><div><span>Entregues</span><strong>{sum.delivered.toLocaleString('pt-BR')}</strong></div></div>
               <div className="factory-lot-progress"><div><span>Produção do lote</span><b>{progress}%</b></div><span className="factory-progress-track"><i style={{ width: `${progress}%` }} /></span></div>
               <div className="factory-lot-actions">
-                {lot.status === 'recebida' && <button className="primary-button" disabled={Boolean(saving)} onClick={() => void runAction(`start-${lot.id}`, () => startWorkOrderProduction(token, lot.id), `Produção do lote ${lot.numero} iniciada.`)}>{saving === `start-${lot.id}` ? <RefreshCw size={15} className="spin" /> : <Factory size={15} />} Iniciar produção</button>}
+                {lot.status === 'recebida' && <button className="primary-button" disabled={Boolean(saving) || confirmationBusy} onClick={() => { setError(''); setConfirmation({ title: 'Confirmar início da produção', description: `O lote ${lot.numero} passará de “Aguardando início” para “Em produção”.`, confirmLabel: 'Iniciar lote', detail: `${lot.cliente || 'Cliente não informado'} · ${lot.descricao}\n${sum.requested.toLocaleString('pt-BR')} peças solicitadas`, run: () => runAction(`start-${lot.id}`, () => startWorkOrderProduction(token, lot.id), `Produção do lote ${lot.numero} iniciada.`) }) }}><Factory size={15} /> Iniciar produção</button>}
                 {isEditable && <button className="secondary-button" onClick={() => setExpanded((current) => ({ ...current, [lot.id]: !current[lot.id] }))}><Scissors size={15} /> {expanded[lot.id] ? 'Fechar grade' : 'Gerenciar produção e entregas'} <ChevronDown size={14} className={expanded[lot.id] ? 'is-open' : ''} /></button>}
-                {lot.status === 'entregue' && !lot.financeiro_liberado_em && <button className="primary-button" disabled={Boolean(saving)} onClick={() => void runAction(`release-${lot.id}`, () => releaseWorkOrderForFinance(token, lot.id), `Lote ${lot.numero} liberado para o financeiro.`)}>{saving === `release-${lot.id}` ? <RefreshCw size={15} className="spin" /> : <Check size={15} />} Liberar para financeiro</button>}
+                {lot.status === 'entregue' && !lot.financeiro_liberado_em && <button className="primary-button" disabled={Boolean(saving) || confirmationBusy} onClick={() => { setError(''); setConfirmation({ title: 'Confirmar liberação para financeiro', description: `O lote ${lot.numero} ficará disponível em Ordens de Serviço para registrar pagamento e anexar nota fiscal/comprovantes.`, confirmLabel: 'Liberar lote', detail: `${lot.cliente || 'Cliente não informado'} · ${lot.descricao}\n${sum.delivered.toLocaleString('pt-BR')} peças entregues`, run: () => runAction(`release-${lot.id}`, () => releaseWorkOrderForFinance(token, lot.id), `Lote ${lot.numero} liberado para o financeiro.`) }) }}><Check size={15} /> Liberar para financeiro</button>}
                 {lot.financeiro_liberado_em && <span className="factory-release-note"><Check size={15} /> Liberado para financeiro em {formatDate(lot.financeiro_liberado_em)}</span>}
               </div>
               {expanded[lot.id] && isEditable && <div className="factory-editor">
@@ -211,12 +234,13 @@ export function FactoryProductionDashboard({ token }: { token: string }) {
                     {(['quantidade_produzida', 'quantidade_costurada', 'quantidade_entregue'] as const).map((field) => <input key={field} aria-label={`${field === 'quantidade_produzida' ? 'Produzidas' : field === 'quantidade_costurada' ? 'Costuradas' : 'Entregues'} · ${size.tamanho}`} type="number" min="0" max={size.quantidade} step="1" value={draft[field]} onChange={(event) => changeProgress(lot.id, index, field, Number(event.target.value))} />)}
                   </div>
                 })}</div>}
-                <div className="factory-editor-footer"><span>O status do lote avança automaticamente conforme os totais registrados.</span><button className="primary-button" disabled={saving === `progresso-${lot.id}`} onClick={() => void saveProgress(lot)}>{saving === `progresso-${lot.id}` ? <><RefreshCw size={15} className="spin" /> Salvando…</> : <><Check size={15} /> Salvar atualização</>}</button></div>
+                <div className="factory-editor-footer"><span>O status do lote avança automaticamente conforme os totais registrados.</span><button className="primary-button" disabled={Boolean(saving) || confirmationBusy} onClick={() => void saveProgress(lot)}><Check size={15} /> Revisar atualização</button></div>
               </div>}
             </article>
           })}
         </div>}
       </SectionCard>
     </>}
+    {confirmation && <ConfirmationModal title={confirmation.title} description={confirmation.description} confirmLabel={confirmation.confirmLabel} busy={confirmationBusy} onCancel={() => { if (!confirmationBusy) { setConfirmation(null); setError('') } }} onConfirm={() => void confirmProductionAction()}><div className="confirmation-summary production-confirmation-summary">{confirmation.detail.split('\n').map((line, index) => <p key={index}>{line}</p>)}</div>{error && <p className="confirmation-modal-error" role="alert">{error}</p>}</ConfirmationModal>}
   </div>
 }

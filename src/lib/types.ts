@@ -100,6 +100,7 @@ export interface OrderSizeRow {
   id: string
   tamanho: string
   quantidade: number
+  valor_unitario?: number
   quantidade_produzida: number
   quantidade_costurada: number
   quantidade_entregue: number
@@ -206,13 +207,13 @@ export interface FactoryProductionResponse {
 }
 
 export interface CreateWorkOrderPayload {
+  clienteId: string
   clienteNome: string
   descricao: string
   prioridade: string
   prazo: string
-  valorTotal: number
   observacoes: string
-  tamanhos: Array<{ tamanho: string; quantidade: number }>
+  tamanhos: Array<{ tamanho: string; quantidade: number; valor_unitario: number }>
 }
 
 export interface WorkOrderProgressPayload {

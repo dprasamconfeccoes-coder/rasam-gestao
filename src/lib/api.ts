@@ -295,14 +295,25 @@ export async function getWorkOrderDocumentUrl(token: string, documentId: string,
   return data
 }
 
-export function createWorkOrder(token: string, payload: CreateWorkOrderPayload) {
-  return rpc<{ sucesso: boolean; erro?: string; id?: string; numero?: string; quantidade?: number }>('app_admin_criar_ordem_painel', {
+export function searchOrderClients(token: string, query: string) {
+  return rpc<{ sucesso: boolean; erro?: string; clientes?: Array<{ id: string; nome: string }> }>('app_admin_buscar_clientes_ordem', {
     p_token: token,
-    p_cliente_nome: payload.clienteNome,
+    p_busca: query,
+  })
+}
+export function createOrderClient(token: string, name: string) {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string; nome?: string; existente?: boolean }>('app_admin_criar_cliente_ordem', {
+    p_token: token,
+    p_nome: name,
+  })
+}
+export function createWorkOrder(token: string, payload: CreateWorkOrderPayload) {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string; numero?: string; quantidade?: number; valor_total?: number }>('app_admin_criar_ordem_painel_v2', {
+    p_token: token,
+    p_cliente_id: payload.clienteId,
     p_descricao: payload.descricao,
     p_prioridade: payload.prioridade,
     p_prazo: payload.prazo,
-    p_valor_total: payload.valorTotal,
     p_observacoes: payload.observacoes || null,
     p_tamanhos: payload.tamanhos,
   })
