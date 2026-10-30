@@ -553,10 +553,70 @@ function EmployeeProfileView({ token, onProfileUpdated }: { token: string; onPro
   return <><PageHeading eyebrow="Minha área · cadastro" title="Meu perfil" description="Confira os dados que o RH mantém no sistema." />{loading ? <LoadingState /> : error && !profile ? <ErrorState message={error} /> : profile ? <div className="profile-layout"><SectionCard title={profile.nome} caption={profile.cargo || 'Cargo não informado'}><div className="profile-identity"><UserAvatar name={profile.nome} url={profile.avatar_url} className="profile-avatar" /><div><strong>Foto do perfil</strong><span>JPG, PNG ou WebP · até 800 KB</span><div className="profile-avatar-actions"><label className="secondary-button">{savingAvatar ? <RefreshCw className="spin" size={15} /> : <Upload size={15} />} {profile.avatar_url ? 'Trocar foto' : 'Adicionar foto'}<input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={savingAvatar} onChange={(event) => { void changeAvatar(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>{profile.avatar_url && <button className="text-button" type="button" onClick={() => void removeAvatar()} disabled={savingAvatar}>Remover</button>}</div></div></div>{error && <div className="form-error profile-error"><AlertCircle size={16} />{error}</div>}<div className="detail-grid"><div><span>CPF</span><strong>{maskCpf(profile.cpf)}</strong></div><div><span>Data de nascimento</span><strong>{formatDate(profile.data_nascimento)}</strong></div><div><span>Admissão</span><strong>{formatDate(profile.data_admissao)}</strong></div><div><span>Telefone</span><strong>{profile.telefone_celular || 'Não informado'}</strong></div><div className="wide"><span>Endereço</span><strong>{profile.endereco || 'Não informado'}</strong></div></div></SectionCard><SectionCard title="Dados de trabalho" caption="Visão pessoal"><div className="security-row"><span>Cargo</span><strong>{profile.cargo || 'Não informado'}</strong></div><div className="security-row"><span>Função</span><strong>{profile.funcao || 'Não informado'}</strong></div><div className="security-row"><span>Situação</span><strong><StatusPill value={profile.ativo ? 'Ativo' : 'Inativo'} /></strong></div></SectionCard></div> : null}</>
 }
 
-function PointView({ token }: { token: string }) {
-  const [rows, setRows] = useState<PointRow[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('')
-  useEffect(() => { listPoint(token).then((data) => { if (!data.sucesso) throw new Error(data.erro || 'Falha de consulta'); setRows(data.registros || []) }).catch((err) => setError(err instanceof Error ? err.message : 'Falha de consulta')).finally(() => setLoading(false)) }, [token])
-  return <><PageHeading eyebrow="Minha área · jornada" title="Meu ponto" description="Registros de jornada associados ao seu funcionário." /><SectionCard title="Histórico de ponto" caption="Últimos 180 registros">{loading ? <LoadingState /> : error ? <ErrorState message={error} /> : rows.length === 0 ? <EmptyState title="Ainda não há ponto registrado" description="Quando o RH lançar sua jornada, os registros aparecerão aqui." /> : <div className="table-wrap"><table><thead><tr><th>Data</th><th>Entrada</th><th>Almoço</th><th>Retorno</th><th>Saída</th><th>Horas</th><th>Status</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td>{formatDate(row.data)}</td><td>{row.entrada || '—'}</td><td>{row.saida_almoco || '—'}</td><td>{row.volta_almoco || '—'}</td><td>{row.saida || '—'}</td><td>{row.horas_trabalhadas || '—'}</td><td><StatusPill value={row.status || 'normal'} /></td></tr>)}</tbody></table></div>}</SectionCard></>
+function PointView({ token, user }: { token: string; user: SessionUser }) {
+  const isAdministrative = user.perfil === 'admin' || user.perfil === 'administrador'
+  const [rows, setRows] = useState<PointRow[]>([])
+  const [employees, setEmployees] = useState<EmployeeRow[]>([])
+  const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'custom'>('month')
+  const [employeeId, setEmployeeId] = useState('')
+  const [customStart, setCustomStart] = useState('')
+  const [customEnd, setCustomEnd] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const range = useMemo(() => {
+    const now = new Date()
+    const toIso = (date: Date) => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+    if (period === 'custom') return { inicio: customStart || null, fim: customEnd || null }
+    if (period === 'day') return { inicio: toIso(now), fim: toIso(now) }
+    if (period === 'week') {
+      const start = new Date(now); const weekday = start.getDay() || 7
+      start.setDate(start.getDate() - weekday + 1)
+      const end = new Date(start); end.setDate(start.getDate() + 6)
+      return { inicio: toIso(start), fim: toIso(end) }
+    }
+    return { inicio: toIso(new Date(now.getFullYear(), now.getMonth(), 1)), fim: toIso(new Date(now.getFullYear(), now.getMonth() + 1, 0)) }
+  }, [period, customStart, customEnd])
+
+  useEffect(() => {
+    if (!isAdministrative) return
+    listEmployees(token).then(setEmployees).catch(() => undefined)
+  }, [token, isAdministrative])
+
+  useEffect(() => {
+    if (period === 'custom' && (!customStart || !customEnd)) return
+    let cancelled = false
+    setLoading(true); setError('')
+    listPoint(token, { inicio: range.inicio, fim: range.fim, funcionarioId: isAdministrative ? employeeId || null : null, limite: 1000 })
+      .then((data) => { if (!data.sucesso) throw new Error(data.erro || 'Falha de consulta'); if (!cancelled) setRows(data.registros || []) })
+      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Falha de consulta') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [token, isAdministrative, employeeId, period, range.inicio, range.fim, customStart, customEnd])
+
+  const selectedEmployee = employees.find((employee) => employee.id === employeeId)
+  const periodLabel = period === 'day' ? 'Hoje' : period === 'week' ? 'Esta semana' : period === 'month' ? 'Este mês' : 'Período personalizado'
+  const title = isAdministrative ? 'Ponto da equipe' : 'Meu ponto'
+  const description = isAdministrative ? 'Consulte a jornada de toda a equipe ou filtre um funcionário por período.' : 'Registros de jornada associados exclusivamente ao seu funcionário.'
+  return <>
+    <PageHeading eyebrow="Minha área · jornada" title={title} description={description} />
+    {isAdministrative ? <div className="point-filter-panel">
+      <div className="point-filter-heading"><div><strong>Filtros de ponto</strong><span>Escolha o período e, se necessário, um funcionário específico.</span></div><span className="point-filter-scope"><UsersRound size={15} /> Visão administrativa</span></div>
+      <div className="point-filter-fields">
+        <label>Período<select value={period} onChange={(event) => setPeriod(event.target.value as typeof period)}><option value="day">Ponto do dia</option><option value="week">Ponto da semana</option><option value="month">Ponto do mês</option><option value="custom">Período personalizado</option></select></label>
+        <label>Funcionário<select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}><option value="">Todos os funcionários</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.nome} · {maskCpf(employee.cpf)}</option>)}</select></label>
+        {period === 'custom' ? <><label>Data inicial<input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} /></label><label>Data final<input type="date" value={customEnd} min={customStart || undefined} onChange={(event) => setCustomEnd(event.target.value)} /></label></> : <div className="point-filter-current"><CalendarDays size={17} /><span>{periodLabel}<small>{range.inicio ? `${formatDate(range.inicio)}${range.fim && range.fim !== range.inicio ? ` até ${formatDate(range.fim)}` : ''}` : 'Selecione as datas'}</small></span></div>}
+      </div>
+    </div> : null}
+    <SectionCard title={isAdministrative ? `${rows.length} registros encontrados` : 'Meu histórico de ponto'} caption={isAdministrative ? `${selectedEmployee ? selectedEmployee.nome : 'Todos os funcionários'} · ${periodLabel}` : 'Seus registros de jornada'}>
+      {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : rows.length === 0 ? <EmptyState title="Nenhum registro no período" description={isAdministrative ? 'Altere o período ou o funcionário para ampliar a consulta.' : 'Quando o RH lançar sua jornada, os registros aparecerão aqui.'} /> : <div className="table-wrap"><p className="table-scroll-hint">Deslize para o lado para ver todas as colunas.</p><table><thead><tr>{isAdministrative ? <th>Funcionário</th> : null}<th>Data</th><th>Entrada</th><th>Almoço</th><th>Retorno</th><th>Saída</th><th>Horas</th><th>Status</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}>{isAdministrative ? <td><strong>{row.nome || 'Funcionário'}</strong><small className="table-subtext">{row.cpf ? maskCpf(row.cpf) : 'CPF não informado'}</small></td> : null}<td>{formatDate(row.data)}</td><td>{row.entrada || '—'}</td><td>{row.saida_almoco || '—'}</td><td>{row.volta_almoco || '—'}</td><td>{row.saida || '—'}</td><td>{row.horas_trabalhadas || '—'}</td><td><StatusPill value={row.status || 'normal'} /></td></tr>)}</tbody></table></div>}
+    </SectionCard>
+  </>
 }
 
 function PayslipsView({ token }: { token: string }) {
@@ -793,7 +853,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'rh') return <AdminCenter token={token} initialTab="prontuario" />
     if (active === 'producao') return <AdminCenter token={token} initialTab="producao" />
     if (active === 'perfil') return <EmployeeProfileView token={token} onProfileUpdated={setProfile} />
-    if (active === 'ponto') return <PointView token={token} />
+    if (active === 'ponto') return <PointView token={token} user={user} />
     if (active === 'holerites') return <PayslipsView token={token} />
     if (active === 'atestados') return <MedicalLeavesView token={token} />
     if (active === 'avisos') return <NoticesView token={token} />

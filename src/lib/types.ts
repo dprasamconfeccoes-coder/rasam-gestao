@@ -102,6 +102,10 @@ export interface EmployeeProfile {
 
 export interface PointRow {
   id: string
+  funcionario_id?: string
+  nome?: string | null
+  cpf?: string | null
+  cargo?: string | null
   data: string
   entrada: string | null
   saida_almoco: string | null
@@ -109,6 +113,14 @@ export interface PointRow {
   saida: string | null
   horas_trabalhadas: string | null
   status: string | null
+}
+
+export interface PointListResponse {
+  sucesso: boolean
+  registros: PointRow[]
+  erro?: string
+  escopo?: 'individual' | 'equipe'
+  perfil?: Profile
 }
 
 export interface PayslipRow {

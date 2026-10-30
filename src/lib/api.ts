@@ -87,10 +87,13 @@ export function updateAvatar(token: string, avatarUrl: string | null) {
   })
 }
 
-export function listPoint(token: string) {
-  return rpc<{ sucesso: boolean; registros: PointRow[]; erro?: string }>('app_listar_ponto', {
+export function listPoint(token: string, filters: { inicio?: string | null; fim?: string | null; funcionarioId?: string | null; limite?: number } = {}) {
+  return rpc<{ sucesso: boolean; registros: PointRow[]; erro?: string; escopo?: 'individual' | 'equipe'; perfil?: string }>('app_listar_ponto', {
     p_token: token,
-    p_limite: 180,
+    p_limite: filters.limite ?? 500,
+    p_inicio: filters.inicio ?? null,
+    p_fim: filters.fim ?? null,
+    p_funcionario_id: filters.funcionarioId ?? null,
   })
 }
 
