@@ -60,6 +60,7 @@ import {
   listEmployees,
   listMedicalLeaves,
   listNotices,
+  listNoticeAttachments,
   markNoticeRead,
   listOrders,
   listPayslips,
@@ -75,6 +76,7 @@ import {
 } from './lib/api'
 import { EmployeeMedicalLeaves } from './features/MedicalLeavesWorkflow'
 import { EmployeeHRRequests } from './features/EmployeeHRRequests'
+import { NoticeAttachments } from './features/NoticeAttachments'
 import type {
   DashboardResponse,
   EmployeeProfile,
@@ -128,7 +130,7 @@ const navItems: NavItem[] = [
   { key: 'holerites', label: 'Holerites', description: 'Comprovantes disponíveis', icon: Receipt, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'atestados', label: 'Atestados', description: 'Histórico e conferência', icon: HeartPulse, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'solicitacoes', label: 'Solicitações ao RH', description: 'Acompanhe seus pedidos', icon: FileCheck2, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
-  { key: 'avisos', label: 'Avisos', description: 'Comunicados da empresa', icon: Bell, group: 'Minha área', profiles: ['funcionario'] },
+  { key: 'avisos', label: 'Avisos', description: 'Comunicados da empresa', icon: Bell, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'importacoes', label: 'Importar ponto', description: 'CSV diário e mensal', icon: FileSpreadsheet, group: 'Administração', profiles: managerProfiles },
   { key: 'acordos', label: 'Acordos e parcelas', description: 'Pagamentos trabalhistas', icon: Scale, group: 'Administração', profiles: adminProfiles },
   { key: 'documentos', label: 'Documentos internos', description: 'Regimento e CCT', icon: BookOpen, group: 'Administração', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
@@ -868,25 +870,36 @@ const noticeCategoryLabels: Record<string, string> = {
   informativo: 'Informativo', outro: 'Outro',
 }
 
-function NoticesView({ token, onUnreadChange }: { token: string; onUnreadChange: (count: number) => void }) {
+function NoticesView({ token, onUnreadChange, canMarkRead }: { token: string; onUnreadChange: (count: number) => void; canMarkRead: boolean }) {
   const [rows, setRows] = useState<NoticeRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState('')
   useEffect(() => {
-    listNotices(token)
-      .then((data) => {
+    let cancelled = false
+    Promise.all([listNotices(token), listNoticeAttachments(token)])
+      .then(([data, attachmentResult]) => {
         if (!data.sucesso) throw new Error(data.erro || 'Falha de consulta')
-        const notices = data.avisos || []
+        const attachmentsByNotice = new Map<string, NonNullable<NoticeRow['anexos']>>()
+        if (attachmentResult.sucesso) for (const attachment of attachmentResult.anexos || []) {
+          const current = attachmentsByNotice.get(attachment.aviso_id) || []
+          current.push(attachment)
+          attachmentsByNotice.set(attachment.aviso_id, current)
+        }
+        const notices = (data.avisos || []).map((row) => ({ ...row, anexos: attachmentsByNotice.get(row.id) || [] }))
+          .sort((a, b) => new Date(b.publicado_em || b.created_at).getTime() - new Date(a.publicado_em || a.created_at).getTime())
+        if (cancelled) return
         setRows(notices)
-        onUnreadChange(data.nao_lidos ?? notices.filter((row) => !row.is_lido && !row.lido_em).length)
+        if (!attachmentResult.sucesso) setError(attachmentResult.erro || 'Os avisos foram carregados, mas os anexos não puderam ser listados.')
+        onUnreadChange(canMarkRead ? (data.nao_lidos ?? notices.filter((row) => !row.is_lido && !row.lido_em).length) : 0)
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Falha de consulta'))
-      .finally(() => setLoading(false))
-  }, [token, onUnreadChange])
+      .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Falha de consulta') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [token, onUnreadChange, canMarkRead])
 
   async function markRead(row: NoticeRow) {
-    if (row.is_lido || row.lido_em || busyId) return
+    if (!canMarkRead || row.is_lido || row.lido_em || busyId) return
     setBusyId(row.id)
     setError('')
     try {
@@ -902,23 +915,24 @@ function NoticesView({ token, onUnreadChange }: { token: string; onUnreadChange:
     }
   }
 
-  const unreadCount = rows.filter((row) => !row.is_lido && !row.lido_em).length
+  const unreadCount = canMarkRead ? rows.filter((row) => !row.is_lido && !row.lido_em).length : 0
   const readCount = rows.length - unreadCount
   return <div className="employee-notices-page">
-    <PageHeading eyebrow="Minha área · comunicação" title="Avisos" description="Comunicados oficiais da empresa. Marque cada aviso como lido para atualizar seu acompanhamento." />
-    <div className="notice-personal-summary">
+    <PageHeading eyebrow="Minha área · comunicação" title="Avisos" description={canMarkRead ? 'Acompanhe comunicados e campanhas da empresa em ordem cronológica. Abra as imagens e baixe os arquivos publicados pelo RH.' : 'Comunicados e campanhas oficiais da empresa, com imagens e documentos disponibilizados pelo RH.'} />
+    {canMarkRead && <div className="notice-personal-summary">
       <div className="notice-personal-count is-unread"><span>Não lidos</span><strong>{unreadCount}</strong></div>
       <div className="notice-personal-count"><span>Já lidos</span><strong>{readCount}</strong></div>
       <div className="notice-personal-count"><span>Total publicado</span><strong>{rows.length}</strong></div>
-    </div>
+    </div>}
     <SectionCard title="Comunicados publicados" caption="Avisos enviados pelo RH para os funcionários da empresa">
       {loading ? <LoadingState /> : error && rows.length === 0 ? <ErrorState message={error} /> : rows.length === 0 ? <EmptyState title="Nenhum aviso publicado" description="Quando o RH publicar um comunicado, ele aparecerá aqui." /> : <div className="notice-list employee-notice-list">
         {rows.map((row) => {
-          const isRead = Boolean(row.is_lido || row.lido_em)
+          const isRead = !canMarkRead || Boolean(row.is_lido || row.lido_em)
           return <article className={`notice-card employee-notice-card ${isRead ? 'is-read' : 'is-unread'}`} key={row.id}>
-            <div className="notice-head"><div className="notice-tags"><StatusPill value={row.prioridade} /><span className="notice-category-tag">{noticeCategoryLabels[row.categoria] || 'Informativo'}</span>{!isRead && <span className="notice-unread-tag">Novo · não lido</span>}</div><time>{formatDate(row.publicado_em || row.created_at)}</time></div>
+            <div className="notice-head"><div className="notice-tags"><StatusPill value={row.prioridade} /><span className="notice-category-tag">{noticeCategoryLabels[row.categoria] || 'Informativo'}</span>{canMarkRead && !isRead && <span className="notice-unread-tag">Novo · não lido</span>}</div><time>{formatDate(row.publicado_em || row.created_at)}</time></div>
             <h3>{row.titulo}</h3><p>{row.conteudo}</p>
-            <div className="employee-notice-footer">{isRead ? <span className="notice-read-receipt"><Check size={14} /> Lido em {formatDate(row.lido_em || '')}</span> : <button className="primary-button notice-read-button" type="button" onClick={() => void markRead(row)} disabled={busyId === row.id}>{busyId === row.id ? <><RefreshCw size={14} className="spin" /> Registrando…</> : <><Check size={14} /> Marcar como lido</>}</button>}</div>
+            <NoticeAttachments token={token} noticeId={row.id} attachments={row.anexos || []} />
+            {canMarkRead && <div className="employee-notice-footer">{isRead ? <span className="notice-read-receipt"><Check size={14} /> Lido em {formatDate(row.lido_em || '')}</span> : <button className="primary-button notice-read-button" type="button" onClick={() => void markRead(row)} disabled={busyId === row.id}>{busyId === row.id ? <><RefreshCw size={14} className="spin" /> Registrando…</> : <><Check size={14} /> Marcar como lido</>}</button>}</div>}
           </article>
         })}
       </div>}
@@ -1106,7 +1120,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'ponto') return <PointView token={token} user={user} />
     if (active === 'holerites') return <PayslipsView token={token} />
     if (active === 'atestados') return <EmployeeMedicalLeaves token={token} />
-    if (active === 'avisos') return <NoticesView token={token} onUnreadChange={setUnreadNotices} />
+    if (active === 'avisos') return <NoticesView token={token} onUnreadChange={setUnreadNotices} canMarkRead={user.perfil === 'funcionario'} />
     if (active === 'solicitacoes') return <EmployeeHRRequests token={token} />
     if (active === 'importacoes') return <PointImportsView token={token} />
     if (active === 'acordos') return <AgreementsView token={token} />

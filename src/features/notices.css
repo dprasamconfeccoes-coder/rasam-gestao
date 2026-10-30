@@ -178,3 +178,41 @@
   .notices-pagination { gap: 7px; }
   .notice-admin-actions > button { flex: 1 1 auto; justify-content: center; }
 }
+
+.notice-attachments { display: grid; gap: 10px; margin-top: 14px; }
+.notice-attachment { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; overflow: hidden; border: 1px solid #e7e0d8; border-radius: 11px; background: #fbfaf8; }
+.notice-attachment.is-image { grid-template-columns: minmax(0, 1fr); }
+.notice-image-preview { display: grid; max-height: 460px; min-height: 120px; place-items: center; overflow: hidden; background: #f0ede9; }
+.notice-image-preview img { display: block; width: 100%; max-height: 460px; object-fit: contain; }
+.notice-attachment-meta { display: flex; min-width: 0; flex-direction: column; gap: 4px; padding: 11px 13px; }
+.notice-attachment-meta strong { overflow: hidden; color: #37312c; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.notice-attachment-meta small { color: #786e66; font-size: 10px; }
+.notice-attachment-error { color: #a52e59 !important; }
+.notice-file-icon { display: grid; width: 42px; height: 42px; flex: 0 0 auto; place-items: center; margin: 0 0 0 12px; border-radius: 10px; background: #f5edf0; color: #a52e59; }
+.notice-attachment.is-pdf { grid-template-columns: auto minmax(0, 1fr) auto; }
+.notice-attachment-actions { display: flex; align-items: center; gap: 7px; padding: 8px 10px; }
+.notice-attachment-open,
+.notice-attachment-download,
+.notice-attachment-remove { display: inline-flex; min-height: 34px; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; border: 1px solid #e2d9d0; border-radius: 8px; background: #fff; color: #4c433d; font: inherit; font-size: 10px; font-weight: 700; text-decoration: none; cursor: pointer; }
+.notice-attachment-download:hover,
+.notice-attachment-open:hover { border-color: #c896a8; background: #fff7fa; color: #8e2449; }
+.notice-attachment-remove { border-color: #efd4d4; color: #a13d3d; }
+.notice-attachment-actions button:disabled { cursor: wait; opacity: .6; }
+.employee-notice-card .notice-attachments { margin-top: 16px; }
+.notice-admin-card .notice-attachments { max-width: 680px; }
+.notices-field-content > label { color: #5f5751; font-size: 11px; font-weight: 700; }
+.notices-field-content input[type="file"] { min-height: 44px; padding: 7px; border: 1px dashed #d7c9bf; border-radius: 9px; background: #fcfaf8; color: #554b44; font: inherit; font-size: 11px; }
+.notice-selected-files { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.notice-selected-files span { max-width: 100%; overflow: hidden; padding: 6px 9px; border-radius: 7px; background: #f7f2ee; color: #51473f; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.notice-selected-files button { min-height: 30px; padding: 0 9px; border: 1px solid #e4d9d1; border-radius: 7px; background: #fff; color: #805248; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
+
+@media (max-width: 620px) {
+  .notice-attachment { grid-template-columns: minmax(0, 1fr); }
+  .notice-attachment.is-pdf { grid-template-columns: auto minmax(0, 1fr); }
+  .notice-attachment.is-pdf .notice-attachment-actions { grid-column: 1 / -1; justify-content: flex-start; padding-top: 0; }
+  .notice-attachment-actions { flex-wrap: wrap; padding: 0 10px 10px; }
+  .notice-attachment-actions > * { flex: 1 1 auto; }
+  .notice-file-icon { margin-top: 11px; }
+  .notice-attachment.is-image .notice-attachment-actions { padding: 0 10px 10px; }
+  .notice-image-preview, .notice-image-preview img { max-height: 340px; }
+}

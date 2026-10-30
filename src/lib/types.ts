@@ -152,6 +152,15 @@ export interface PayslipRow {
   disponivel: boolean
 }
 
+export interface NoticeAttachmentRow {
+  id: string
+  aviso_id: string
+  nome_arquivo: string
+  mime_type: string
+  tamanho_bytes: number
+  created_at: string
+}
+
 export interface NoticeRow {
   id: string
   titulo: string
@@ -162,6 +171,7 @@ export interface NoticeRow {
   created_at: string
   lido_em?: string | null
   is_lido?: boolean
+  anexos?: NoticeAttachmentRow[]
 }
 
 export interface NoticeAuditRow {

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Archive, Bell, CalendarDays, Check, Eye, Megaphone, Pause, PenLine, Plus, RefreshCw, Send, UsersRound } from 'lucide-react'
-import { adminNoticeReaders, adminNoticesPage, saveNotice } from '../lib/api'
+import { adminNoticeReaders, adminNoticesPage, listNoticeAttachments, removeNoticeAttachment, saveNotice, uploadNoticeAttachment } from '../lib/api'
 import type { AdminNoticePage, AdminNoticeRow, NoticeEmployeeReadRow } from '../lib/types'
 import { EmptyState, ErrorState, PageHeading, StatusPill, formatDate } from '../components/ui'
+import { NoticeAttachments } from './NoticeAttachments'
 import './notices.css'
 
 const PAGE_SIZE = 20
@@ -25,7 +26,7 @@ function dateTime(value: string | null | undefined) {
 }
 
 function auditLabel(event: string) {
-  const labels: Record<string, string> = { criado: 'Rascunho criado', editado: 'Conteúdo editado', publicado: 'Publicado', pausado: 'Publicação pausada', arquivado: 'Arquivado' }
+  const labels: Record<string, string> = { criado: 'Rascunho criado', editado: 'Conteúdo editado', publicado: 'Publicado', pausado: 'Publicação pausada', arquivado: 'Arquivado', anexo_adicionado: 'Anexo adicionado', anexo_removido: 'Anexo removido' }
   return labels[event] || event
 }
 
@@ -34,7 +35,9 @@ function snapshotLine(snapshot: Record<string, unknown> | null) {
   const status = typeof snapshot.status === 'string' ? snapshot.status : ''
   const title = typeof snapshot.titulo === 'string' ? snapshot.titulo : ''
   const priority = typeof snapshot.prioridade === 'string' ? snapshot.prioridade : ''
-  return [title, status, priority].filter(Boolean).join(' · ') || 'Estado registrado'
+  const fileName = typeof snapshot.nome_arquivo === 'string' ? snapshot.nome_arquivo : ''
+  const removed = snapshot.removido === true ? 'Arquivo retirado da publicação' : ''
+  return [title, status, priority, fileName, removed].filter(Boolean).join(' · ') || 'Estado registrado'
 }
 
 export function AdminNoticesDashboard({ token }: { token: string }) {
@@ -51,6 +54,9 @@ export function AdminNoticesDashboard({ token }: { token: string }) {
   const [readerOpenId, setReaderOpenId] = useState('')
   const [readerRows, setReaderRows] = useState<Record<string, NoticeEmployeeReadRow[]>>({})
   const [readerBusyId, setReaderBusyId] = useState('')
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [fileInputKey, setFileInputKey] = useState(0)
+  const [attachmentBusyId, setAttachmentBusyId] = useState('')
 
   async function load() {
     setLoading(true)
@@ -58,7 +64,15 @@ export function AdminNoticesDashboard({ token }: { token: string }) {
     try {
       const result = await adminNoticesPage(token, statusFilter, categoryFilter || null, offset, PAGE_SIZE)
       if (!result.sucesso) throw new Error(result.erro || 'Falha ao carregar avisos.')
-      setPage(result)
+      const attachmentResult = await listNoticeAttachments(token, result.avisos.map((row) => row.id))
+      if (!attachmentResult.sucesso) throw new Error(attachmentResult.erro || 'Falha ao carregar anexos dos avisos.')
+      const byNotice = new Map<string, NonNullable<AdminNoticeRow['anexos']>>()
+      for (const attachment of attachmentResult.anexos || []) {
+        const current = byNotice.get(attachment.aviso_id) || []
+        current.push(attachment)
+        byNotice.set(attachment.aviso_id, current)
+      }
+      setPage({ ...result, avisos: result.avisos.map((row) => ({ ...row, anexos: byNotice.get(row.id) || [] })) })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao carregar avisos.')
     } finally {
@@ -73,14 +87,35 @@ export function AdminNoticesDashboard({ token }: { token: string }) {
     setSaving(true)
     setError('')
     setMessage('')
+    let remainingFiles = [...selectedFiles]
+    let savedId = form.id
+    const publishAfterUpload = remainingFiles.length > 0 && form.status === 'publicado'
     try {
-      const result = await saveNotice(token, form.id, form)
+      const stagedStatus = publishAfterUpload ? 'rascunho' : form.status
+      const result = await saveNotice(token, form.id, { ...form, status: stagedStatus })
       if (!result.sucesso) throw new Error(result.erro || 'Não foi possível salvar o aviso.')
+      savedId = result.id || form.id
+      if (!savedId) throw new Error('O aviso foi salvo, mas não foi possível confirmar seu identificador.')
+      for (const file of [...remainingFiles]) {
+        await uploadNoticeAttachment(token, savedId, file)
+        remainingFiles = remainingFiles.slice(1)
+        setSelectedFiles(remainingFiles)
+      }
+      if (publishAfterUpload) {
+        const publication = await saveNotice(token, savedId, { ...form, status: 'publicado' })
+        if (!publication.sucesso) throw new Error(publication.erro || 'Os anexos foram enviados, mas o aviso não pôde ser publicado. Publique-o pelo histórico.')
+      }
       setForm(initialForm)
+      setSelectedFiles([])
+      setFileInputKey((current) => current + 1)
       setMessage(form.status === 'publicado' ? 'Aviso publicado para os funcionários.' : 'Aviso salvo no histórico.')
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao salvar aviso.')
+      const message = err instanceof Error ? err.message : 'Falha ao salvar aviso.'
+      if (savedId) setForm((current) => ({ ...current, id: savedId, status: publishAfterUpload ? 'rascunho' : current.status }))
+      setSelectedFiles(remainingFiles)
+      if (savedId) await load()
+      setError(message)
     } finally {
       setSaving(false)
     }
@@ -88,6 +123,8 @@ export function AdminNoticesDashboard({ token }: { token: string }) {
 
   function edit(row: AdminNoticeRow) {
     setForm({ id: row.id, titulo: row.titulo, conteudo: row.conteudo, categoria: row.categoria, prioridade: row.prioridade, status: row.status === 'publicado' ? 'publicado' : row.status === 'arquivado' ? 'arquivado' : 'rascunho' })
+    setSelectedFiles([])
+    setFileInputKey((current) => current + 1)
     setMessage('')
     setError('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -126,7 +163,25 @@ export function AdminNoticesDashboard({ token }: { token: string }) {
     }
   }
 
+  async function removeAttachment(attachmentId: string) {
+    if (!window.confirm('Remover este anexo do aviso? A ação ficará registrada na auditoria.')) return
+    setAttachmentBusyId(attachmentId)
+    setError('')
+    setMessage('')
+    try {
+      const result = await removeNoticeAttachment(token, attachmentId)
+      if (!result.sucesso) throw new Error(result.erro || 'Não foi possível remover o anexo.')
+      setMessage('Anexo removido da publicação; o evento foi registrado na auditoria.')
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao remover anexo.')
+    } finally {
+      setAttachmentBusyId('')
+    }
+  }
+
   const summary = page.resumo || emptyPage.resumo
+  const editingAttachments = form.id ? page.avisos.find((row) => row.id === form.id)?.anexos || [] : []
   return <div className="admin-notices-dashboard">
     <PageHeading eyebrow="Comunicação · gestão RH" title="Avisos da empresa" description="Publique comunicados, acompanhe quem já leu e mantenha o histórico de alterações em um só lugar." action={<button className="secondary-button" type="button" onClick={() => void load()} disabled={loading}><RefreshCw size={16} className={loading ? 'spin' : ''} /> Atualizar</button>} />
     <div className="notices-metric-grid">
@@ -137,13 +192,23 @@ export function AdminNoticesDashboard({ token }: { token: string }) {
     </div>
 
     <section className="notices-composer card-surface">
-      <div className="notices-section-heading"><div><span className="eyebrow">{form.id ? 'Edição do comunicado' : 'Nova publicação'}</span><h2>{form.id ? 'Editar aviso' : 'Criar aviso'}</h2><p>O aviso publicado aparece na área do funcionário e inicia com status não lido.</p></div>{form.id ? <button className="secondary-button" type="button" onClick={() => setForm(initialForm)}>Cancelar edição</button> : <span className="notices-heading-icon"><Megaphone size={20} /></span>}</div>
+      <div className="notices-section-heading"><div><span className="eyebrow">{form.id ? 'Edição do comunicado' : 'Nova publicação'}</span><h2>{form.id ? 'Editar aviso' : 'Criar aviso'}</h2><p>O aviso publicado aparece na área do funcionário e inicia com status não lido.</p></div>{form.id ? <button className="secondary-button" type="button" onClick={() => { setForm(initialForm); setSelectedFiles([]); setFileInputKey((current) => current + 1) }}>Cancelar edição</button> : <span className="notices-heading-icon"><Megaphone size={20} /></span>}</div>
       <form className="notices-form" onSubmit={submit}>
         <label className="notices-field notices-field-title">Título<input required minLength={3} maxLength={160} value={form.titulo} onChange={(event) => setForm({ ...form, titulo: event.target.value })} placeholder="Ex.: Holerite de outubro disponível" /></label>
         <label className="notices-field">Categoria<select value={form.categoria} onChange={(event) => setForm({ ...form, categoria: event.target.value })}>{categoryOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label className="notices-field">Prioridade<select value={form.prioridade} onChange={(event) => setForm({ ...form, prioridade: event.target.value })}><option value="normal">Normal</option><option value="importante">Importante</option><option value="urgente">Urgente</option></select></label>
         <label className="notices-field">Publicação<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}><option value="rascunho">Salvar como rascunho</option><option value="publicado">Publicar agora</option>{form.status === 'arquivado' && <option value="arquivado">Manter arquivado</option>}</select></label>
         <label className="notices-field notices-field-content">Comunicado<textarea required minLength={5} maxLength={10000} rows={5} value={form.conteudo} onChange={(event) => setForm({ ...form, conteudo: event.target.value })} placeholder="Escreva as informações que os funcionários precisam receber…" /><small>{form.conteudo.length}/10.000 caracteres</small></label>
+        <div className="notices-field notices-field-content"><label htmlFor="notice-files">Fotos e anexos</label><input id="notice-files" key={fileInputKey} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => {
+          const files = Array.from(event.currentTarget.files || [])
+          const valid = files.every((file) => file.size <= 10 * 1024 * 1024 && /\.(pdf|jpe?g|png|webp)$/i.test(file.name))
+          if (!valid) { setError('Anexe somente PDF, JPG, PNG ou WebP de até 10 MB cada.'); setSelectedFiles([]); setFileInputKey((current) => current + 1); return }
+          if (files.length + editingAttachments.length > 5) { setError('Cada aviso pode ter até 5 anexos ativos.'); setSelectedFiles([]); setFileInputKey((current) => current + 1); return }
+          setError(''); setSelectedFiles(files)
+        }} /><small>PDF, JPG, PNG ou WebP · até 10 MB por arquivo · limite de 5 anexos por aviso. Os arquivos ficam privados e só abrem por autorização.</small>
+          {selectedFiles.length > 0 && <div className="notice-selected-files">{selectedFiles.map((file, index) => <span key={`${file.name}-${index}`}>{file.name} · {(file.size / (1024 * 1024)).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} MB</span>)}<button type="button" onClick={() => { setSelectedFiles([]); setFileInputKey((current) => current + 1) }}>Limpar seleção</button></div>}
+        </div>
+        {editingAttachments.length > 0 && <div className="notices-field notices-field-content"><span>Anexos já publicados neste aviso</span><NoticeAttachments token={token} noticeId={form.id || ''} attachments={editingAttachments} canRemove onRemove={removeAttachment} removingId={attachmentBusyId} /></div>}
         {error && <div className="form-error notices-feedback"><Bell size={15} />{error}</div>}
         {message && <div className="form-success notices-feedback"><Check size={15} />{message}</div>}
         <div className="notices-form-actions"><button className="primary-button" type="submit" disabled={saving}>{saving ? <><RefreshCw size={15} className="spin" /> Salvando…</> : <>{form.status === 'publicado' ? <Send size={15} /> : <PenLine size={15} />}{form.id ? 'Salvar alterações' : form.status === 'publicado' ? 'Publicar aviso' : 'Salvar rascunho'}</>}</button><span>As publicações e alterações ficam registradas na auditoria.</span></div>
@@ -155,12 +220,13 @@ export function AdminNoticesDashboard({ token }: { token: string }) {
       <div className="notices-filter-row">
         <label>Status<select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setOffset(0) }}><option value="todos">Todos os estados</option><option value="publicado">Publicados</option><option value="rascunho">Rascunhos e pausados</option><option value="arquivado">Arquivados</option></select></label>
         <label>Categoria<select value={categoryFilter} onChange={(event) => { setCategoryFilter(event.target.value); setOffset(0) }}><option value="">Todas as categorias</option>{categoryOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <button className="secondary-button" type="button" onClick={() => { setForm(initialForm); setMessage(''); setError(''); window.scrollTo({ top: 0, behavior: 'smooth' }) }}><Plus size={15} /> Novo aviso</button>
+        <button className="secondary-button" type="button" onClick={() => { setForm(initialForm); setSelectedFiles([]); setFileInputKey((current) => current + 1); setMessage(''); setError(''); window.scrollTo({ top: 0, behavior: 'smooth' }) }}><Plus size={15} /> Novo aviso</button>
       </div>
       {loading ? <div className="notices-loading"><RefreshCw size={18} className="spin" /> Carregando histórico…</div> : error && page.avisos.length === 0 ? <ErrorState message={error} /> : page.avisos.length === 0 ? <EmptyState title="Nenhum aviso neste filtro" description="Crie um comunicado ou escolha outro estado/categoria." /> : <div className="notices-list">
         {page.avisos.map((row) => <article className={`notice-admin-card state-${row.status}`} key={row.id}>
           <div className="notice-admin-topline"><div className="notice-admin-tags"><StatusPill value={row.status} /><StatusPill value={row.prioridade} /><span className="notice-category-tag">{categoryOptions.find(([value]) => value === row.categoria)?.[1] || 'Informativo'}</span></div><span className="notice-date-label">{row.publicado_em ? `Publicado ${formatDate(row.publicado_em)}` : `Atualizado ${formatDate(row.updated_at || row.created_at)}`}</span></div>
           <h3>{row.titulo}</h3><p className="notice-admin-content">{row.conteudo}</p>
+          <NoticeAttachments token={token} noticeId={row.id} attachments={row.anexos || []} canRemove removingId={attachmentBusyId} onRemove={removeAttachment} />
           <div className="notice-read-stats"><span><Eye size={15} /><strong>{row.lidos}</strong> de {row.funcionarios_ativos} lidos</span>{row.status === 'publicado' && <span className={row.nao_lidos > 0 ? 'has-unread' : 'all-read'}>{row.nao_lidos > 0 ? `${row.nao_lidos} não lido(s)` : 'Todos leram'}</span>}</div>
           <div className="notice-admin-actions"><button className="secondary-button" type="button" onClick={() => edit(row)}><PenLine size={14} /> Editar</button>{row.status === 'publicado' ? <button className="secondary-button" type="button" onClick={() => void changeStatus(row, 'rascunho')} disabled={busyId === row.id}><Pause size={14} /> Pausar</button> : row.status === 'arquivado' ? <button className="secondary-button" type="button" onClick={() => void changeStatus(row, 'rascunho')} disabled={busyId === row.id}><PenLine size={14} /> Restaurar</button> : <button className="primary-button" type="button" onClick={() => void changeStatus(row, 'publicado')} disabled={busyId === row.id}><Send size={14} /> Publicar</button>}{row.status !== 'arquivado' && <button className="secondary-button is-archive" type="button" onClick={() => void changeStatus(row, 'arquivado')} disabled={busyId === row.id}><Archive size={14} /> Arquivar</button>}{row.status === 'publicado' && <button className="secondary-button" type="button" onClick={() => void toggleReaders(row)}>{readerOpenId === row.id ? 'Ocultar leituras' : 'Ver funcionários'}</button>}</div>
           {readerOpenId === row.id && <div className="notice-readers-panel"><h4><UsersRound size={15} /> Recibos por funcionário</h4>{readerBusyId === row.id ? <span>Consultando…</span> : <div className="notice-readers-list">{(readerRows[row.id] || []).map((reader) => <div className="notice-reader-row" key={reader.funcionario_id}><span>{reader.nome}</span><span className={reader.lido ? 'reader-done' : 'reader-pending'}>{reader.lido ? `Lido ${dateTime(reader.lido_em)}` : 'Ainda não lido'}</span></div>)}</div>}</div>}
