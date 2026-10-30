@@ -485,6 +485,7 @@ export interface CompanyDocument {
   disponivel_funcionarios: boolean
   mime_type: string | null
   tamanho_bytes: number | null
+  excluido_em?: string | null
   created_at: string
   updated_at: string
 }

@@ -417,6 +417,12 @@ export function updateInternalDocument(token: string, grupoId: string, payload: 
     disponivel_funcionarios: payload.disponivelFuncionarios,
   })
 }
+export function deleteInternalDocument(token: string, grupoId: string) {
+  return fetchInternalDocuments<{ sucesso: boolean; erro?: string; versoes_arquivadas?: number }>(token, { action: 'delete', grupo_id: grupoId })
+}
+export function restoreInternalDocument(token: string, grupoId: string) {
+  return fetchInternalDocuments<{ sucesso: boolean; erro?: string; versoes_restauradas?: number }>(token, { action: 'restore', grupo_id: grupoId })
+}
 async function fetchInternalDocuments<T>(token: string, body: Record<string, unknown>): Promise<T> {
   const response = await fetch(`${config.supabaseUrl}/functions/v1/documentos-internos`, {
     method: 'POST',

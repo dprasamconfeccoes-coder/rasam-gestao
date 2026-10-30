@@ -178,6 +178,14 @@ Deno.serve(async (request: Request) => {
     if (updateError || !updated?.sucesso) return response({ sucesso: false, erro: updated?.erro || "Não foi possível atualizar o documento." }, 403);
     return response({ sucesso: true });
   }
+  if (body.action === "delete" || body.action === "restore") {
+    const groupId = String(body.grupo_id || "");
+    if (!isUuid(groupId)) return response({ sucesso: false, erro: "Documento inválido." }, 400);
+    const operation = body.action === "delete" ? "app_documento_interno_excluir" : "app_documento_interno_restaurar";
+    const { data: changed, error: changeError } = await admin.rpc(operation, { p_token: token, p_grupo_id: groupId });
+    if (changeError || !changed?.sucesso) return response({ sucesso: false, erro: changed?.erro || "Não foi possível alterar o estado do documento." }, 403);
+    return response(changed);
+  }
   const documentId = String(body.documento_id || "");
   if (!isUuid(documentId)) return response({ sucesso: false, erro: "Documento não encontrado" }, 404);
   const { data: access, error: accessError } = await admin.rpc("app_documento_interno_caminho", { p_token: token, p_documento_id: documentId });
