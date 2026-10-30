@@ -1,0 +1,44 @@
+import rfLogoUrl from '../assets/rf-logo.png'
+import type { FinanceiroLancamento } from '../lib/types'
+
+const margin = 14
+const brand = { plum: [145, 36, 111] as [number, number, number], gold: [183, 140, 44] as [number, number, number], ink: [37, 38, 43] as [number, number, number], muted: [103, 106, 112] as [number, number, number], line: [226, 228, 231] as [number, number, number], pale: [249, 246, 249] as [number, number, number], green: [41, 111, 78] as [number, number, number], red: [169, 64, 59] as [number, number, number] }
+const money = (value: unknown) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)
+const text = (value: unknown, fallback = 'Não informado') => value === null || value === undefined || String(value).trim() === '' ? fallback : String(value).trim()
+const date = (value?: string | null) => { if (!value) return 'Não informado'; const raw = value.slice(0, 10); const parsed = new Date(`${raw}T12:00:00`); return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString('pt-BR') }
+const safeFilename = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 70) || 'lancamento-financeiro'
+
+async function loadLogo() {
+  try {
+    const response = await fetch(rfLogoUrl)
+    if (!response.ok) return null
+    const blob = await response.blob()
+    return await new Promise<string | null>((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null); reader.onerror = () => resolve(null); reader.readAsDataURL(blob) })
+  } catch { return null }
+}
+
+function statusLabel(status: string) { return ({ pendente: 'Pendente', pago: 'Pago', vencido: 'Vencido', cancelado: 'Inativado' } as Record<string, string>)[status] || text(status) }
+function typeLabel(tipo: string) { return tipo === 'receber' ? 'Receita' : 'Despesa' }
+function seriesDetails(observacoes: string) { const match = observacoes.match(/Série de (\d+) lançamentos · (\d+)\/(\d+) · ([^·]+)/i); return match ? `Série de ${match[1]} lançamentos · parcela ${match[2]} de ${match[3]} · periodicidade ${match[4].trim()}` : 'Lançamento individual ou contrato sem série identificada' }
+
+export async function downloadFinanceiroLancamentoPdf(entry: FinanceiroLancamento) {
+  const [{ jsPDF }, { default: autoTable }, logo] = await Promise.all([import('jspdf'), import('jspdf-autotable'), loadLogo()])
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true })
+  const pageWidth = doc.internal.pageSize.getWidth(); const pageHeight = doc.internal.pageSize.getHeight(); const generated = new Date(); const generatedLabel = generated.toLocaleString('pt-BR')
+  const tipo = typeLabel(text(entry.tipo)); const status = statusLabel(text(entry.status)); const descricao = text(entry.descricao, 'Lançamento financeiro')
+  doc.setProperties({ title: `Relatório oficial · ${descricao}`, subject: 'Documento individual de lançamento financeiro', author: 'RF Gestão', creator: 'RF Gestão - Saúde financeira', keywords: 'financeiro, lançamento, despesa, receita, contrato, relatório' })
+  let y = 39
+  const section = (title: string) => { if (y + 14 > pageHeight - 22) { doc.addPage(); y = 39 } doc.setFillColor(247, 242, 247); doc.roundedRect(margin, y, pageWidth - margin * 2, 7.5, 1.2, 1.2, 'F'); doc.setFillColor(...brand.plum); doc.roundedRect(margin, y, 1.2, 7.5, .5, .5, 'F'); doc.setTextColor(...brand.ink); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.text(title, margin + 4.5, y + 5.1); y += 10 }
+  const table = (head: string[][], body: string[][], options: Record<string, unknown> = {}) => { autoTable(doc, { head, body, startY: y, theme: 'grid', margin: { left: margin, right: margin, top: 34, bottom: 21 }, styles: { font: 'helvetica', fontSize: 8, textColor: brand.ink, lineColor: brand.line, lineWidth: .15, cellPadding: 2.6, overflow: 'linebreak', valign: 'top' }, headStyles: { fillColor: brand.plum, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 }, alternateRowStyles: { fillColor: [250, 250, 251] }, rowPageBreak: 'avoid', ...options }); y = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 12) + 5 }
+
+  doc.setTextColor(...brand.ink); doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text('Relatório oficial de lançamento', margin, y); y += 5; doc.setFont('helvetica', 'normal'); doc.setTextColor(...brand.muted); doc.setFontSize(8.5); doc.text('Documento individual · saúde financeira e controle administrativo', margin, y); doc.setTextColor(...(text(entry.status) === 'pago' ? brand.green : brand.gold)); doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.text(status.toUpperCase(), pageWidth - margin, 42, { align: 'right' }); y += 9
+  const cards = [['TIPO', tipo], ['VALOR', money(entry.valor)], ['VENCIMENTO', date(entry.vencimento)], ['STATUS', status]]; const gap = 3; const cardWidth = (pageWidth - margin * 2 - gap * 3) / 4
+  cards.forEach(([label, value], index) => { const x = margin + index * (cardWidth + gap); doc.setFillColor(...brand.pale); doc.setDrawColor(...brand.line); doc.roundedRect(x, y, cardWidth, 20, 1.6, 1.6, 'FD'); doc.setTextColor(...brand.muted); doc.setFont('helvetica', 'bold'); doc.setFontSize(6.3); doc.text(label, x + 2.5, y + 5); doc.setTextColor(...brand.ink); doc.setFontSize(index === 2 ? 8 : 9); doc.text(doc.splitTextToSize(value, cardWidth - 5).slice(0, 2), x + 2.5, y + 13) }); y += 27
+
+  section('1. Identificação do lançamento'); table([], [[ 'Tipo de movimento', tipo, 'Situação', status ], [ 'Categoria', text(entry.categoria), 'Descrição', descricao ], [ 'Vencimento', date(entry.vencimento), 'Valor do lançamento', money(entry.valor) ], [ 'Identificador', text(entry.id), 'Criado em', date(entry.created_at) ]], { columnStyles: { 0: { cellWidth: 38, fontStyle: 'bold', fillColor: brand.pale }, 1: { cellWidth: 53 }, 2: { cellWidth: 38, fontStyle: 'bold', fillColor: brand.pale }, 3: { cellWidth: 'auto' } } })
+  section('2. Contrato, série e observações'); table([], [[ 'Enquadramento', seriesDetails(text(entry.observacoes, '')), 'Observações registradas', text(entry.observacoes, 'Nenhuma observação registrada.') ]], { columnStyles: { 0: { cellWidth: 34, fontStyle: 'bold', fillColor: brand.pale }, 1: { cellWidth: 58 }, 2: { cellWidth: 37, fontStyle: 'bold', fillColor: brand.pale }, 3: { cellWidth: 'auto' } } })
+  section('3. Declaração administrativa'); table([], [[`Este documento registra o lançamento financeiro “${descricao}”, classificado como ${tipo.toLocaleLowerCase('pt-BR')}, para controle de vencimento, baixa e auditoria administrativa. O valor e a data acima refletem o registro disponível no ambiente RF Gestão no momento da emissão.`]], { styles: { font: 'helvetica', fontSize: 8, textColor: brand.ink, lineColor: brand.line, lineWidth: .15, cellPadding: 4, overflow: 'linebreak', valign: 'top' } })
+
+  const totalPages = doc.getNumberOfPages(); for (let page = 1; page <= totalPages; page += 1) { doc.setPage(page); doc.setFillColor(250, 249, 250); doc.rect(0, 0, pageWidth, 31, 'F'); doc.setDrawColor(...brand.line); doc.setLineWidth(.25); doc.line(margin, 31, pageWidth - margin, 31); if (logo) doc.addImage(logo, 'PNG', margin, 6, 21, 15.4, undefined, 'FAST'); else { doc.setFillColor(...brand.plum); doc.roundedRect(margin, 7, 20, 14, 1.4, 1.4, 'F'); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text('RF', margin + 6, 16) } doc.setTextColor(...brand.ink); doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('RF Gestão', margin + 26, 11); doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...brand.muted); doc.text('Saúde financeira · controle administrativo', margin + 26, 16); doc.setTextColor(...brand.gold); doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.text('DOCUMENTO OFICIAL', pageWidth - margin, 11, { align: 'right' }); doc.setTextColor(...brand.muted); doc.setFont('helvetica', 'normal'); doc.setFontSize(6.8); doc.text(`Emitido em ${generatedLabel}`, pageWidth - margin, 16, { align: 'right' }); doc.setDrawColor(...brand.gold); doc.setLineWidth(.55); doc.circle(pageWidth - margin - 9, 24, 4.2, 'S'); doc.setTextColor(...brand.gold); doc.setFont('helvetica', 'bold'); doc.setFontSize(4.5); doc.text('RF', pageWidth - margin - 9, 25.3, { align: 'center' }); doc.setFontSize(5.8); doc.setTextColor(...brand.muted); doc.text(`RF Gestão · Página ${page} de ${totalPages}`, pageWidth / 2, pageHeight - 9, { align: 'center' }); doc.setDrawColor(...brand.line); doc.line(margin, pageHeight - 14, pageWidth - margin, pageHeight - 14) }
+  doc.save(`Relatorio-lancamento-${safeFilename(descricao)}.pdf`)
+}
