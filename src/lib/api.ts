@@ -107,6 +107,12 @@ export function decidePointInconsistency(token: string, funcionarioId: string, d
   })
 }
 
+export function createPointJustification(token: string, data: string, tipo: string, motivo: string, arquivoUrl?: string | null, arquivoNome?: string | null) {
+  return rpc<{ sucesso: boolean; id?: string; status?: string; erro?: string }>('app_criar_justificativa_ponto', {
+    p_token: token, p_data: data, p_tipo: tipo, p_motivo: motivo, p_arquivo_url: arquivoUrl || null, p_arquivo_nome: arquivoNome || null,
+  })
+}
+
 export function listPayslips(token: string) {
   return rpc<{ sucesso: boolean; holerites: PayslipRow[]; erro?: string }>('app_listar_holerites', {
     p_token: token,

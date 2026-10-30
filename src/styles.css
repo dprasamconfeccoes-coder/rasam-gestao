@@ -259,6 +259,21 @@ td { color: #cbd1da; } td strong { color: #f0f2f5; font-size: 11px; } tr:last-ch
 .closing-confirm { display: grid; gap: 8px; padding: 13px; border: 1px solid rgba(239,107,93,.35); border-radius: 10px; background: rgba(239,107,93,.07); }
 .closing-confirm input { padding: 10px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .closing-table { max-height: 480px; margin-top: 15px; }
+.point-justification-form { min-width: 240px; display: grid; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.point-justification-form textarea, .point-justification-form select, .point-justification-form input { width: 100%; box-sizing: border-box; padding: 7px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); font: inherit; font-size: 11px; }
+.point-justification-fields { display: grid; grid-template-columns: 1fr 72px; gap: 6px; }
+.point-justification-fields label { display: grid; gap: 3px; color: var(--muted); font-size: 10px; }
+.point-file-label { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 10px; cursor: pointer; }
+.point-file-label input { display: none; }
+.point-justification-form > small { color: var(--muted); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.point-justify-button { white-space: nowrap; font-size: 11px; padding: 7px 9px; }
+.point-attachment-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; color: var(--accent); font-size: 10px; text-decoration: none; }
+.point-confirm-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 20px; background: rgba(20, 16, 22, .55); backdrop-filter: blur(4px); }
+.point-confirm-dialog { width: min(440px, 100%); display: grid; grid-template-columns: auto 1fr; gap: 12px; padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: 0 24px 70px rgba(20, 16, 22, .28); }
+.point-confirm-icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; color: var(--accent); background: color-mix(in srgb, var(--accent) 13%, transparent); }
+.point-confirm-dialog h3 { margin: 2px 0 6px; font-size: 17px; }
+.point-confirm-dialog p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.point-confirm-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; margin-top: 5px; }
 .module-hero { display: flex; align-items: center; gap: 17px; padding: 24px; margin-bottom: 18px; border: 1px solid rgba(217,88,141,.18); border-radius: 14px; background: linear-gradient(100deg, rgba(217,88,141,.10), rgba(215,168,74,.05)); }
 .module-icon { display: grid; place-items: center; width: 58px; height: 58px; border-radius: 18px 18px 18px 5px; color: var(--pink); background: var(--pink-soft); }
 .module-hero h2 { margin: 7px 0 3px; font-size: 29px; letter-spacing: -.05em; }

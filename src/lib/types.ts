@@ -124,6 +124,9 @@ export interface PointRow {
   inconsistencia_tipo?: string | null
   inconsistencia_status?: 'pendente' | 'aprovada' | 'justificada' | null
   inconsistencia_justificativa?: string | null
+  justificativa_motivo?: string | null
+  justificativa_arquivo_url?: string | null
+  justificativa_arquivo_nome?: string | null
 }
 
 export interface PointListResponse {
@@ -168,6 +171,7 @@ export interface MedicalLeaveRow {
   data_atendimento: string
   dias: number
   observacao: string | null
+  arquivo_url: string | null
   arquivo_nome: string | null
   status: string
   status_label: string | null
