@@ -3,6 +3,7 @@ import { config } from './config'
 import type {
   DashboardResponse,
   AgreementInstallment,
+  CreateAgreementPayload,
   AdminNoticePage,
   AdminDebtRow,
   AdminJustificationRow,
@@ -264,6 +265,26 @@ export function listImportedPoint(token: string, tipo?: 'diario' | 'mensal', imp
 
 export function listAgreements(token: string) {
   return rpc<{ sucesso: boolean; erro?: string; parcelas: AgreementInstallment[] }>('app_listar_acordos', { p_token: token })
+}
+
+export function createAgreement(token: string, payload: CreateAgreementPayload) {
+  return rpc<{ sucesso: boolean; erro?: string; acordo_id?: string; quantidade_parcelas?: number }>('app_admin_salvar_acordo', {
+    p_token: token,
+    p_processo: payload.processo,
+    p_funcionario_nome: payload.funcionarioNome || null,
+    p_funcionario_cpf: payload.funcionarioCpf || null,
+    p_observacoes: payload.observacoes || null,
+    p_parcelas: payload.parcelas,
+  })
+}
+
+export function updateAgreementInstallmentStatus(token: string, parcelaId: string, status: 'quitada' | 'pendente', motivo = '') {
+  return rpc<{ sucesso: boolean; erro?: string; status?: string; pago_em?: string | null }>('app_admin_atualizar_status_acordo', {
+    p_token: token,
+    p_parcela_id: parcelaId,
+    p_status: status,
+    p_motivo: motivo || null,
+  })
 }
 
 export function listCompanyDocuments(token: string) {

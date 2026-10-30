@@ -48,7 +48,6 @@ import {
   applyPointImport,
   importPoint,
   ignorePointImport,
-  listAgreements,
   listCompanyDocuments,
   listImportedPoint,
   listPointImports,
@@ -77,6 +76,7 @@ import {
 import { EmployeeMedicalLeaves } from './features/MedicalLeavesWorkflow'
 import { EmployeeHRRequests } from './features/EmployeeHRRequests'
 import { NoticeAttachments } from './features/NoticeAttachments'
+import { AgreementsDashboard } from './features/AgreementsDashboard'
 import type {
   DashboardResponse,
   EmployeeProfile,
@@ -90,7 +90,6 @@ import type {
   PointRow,
   Profile,
   SessionUser,
-  AgreementInstallment,
   CompanyDocument,
   PointImportRow,
   PointImportSummary,
@@ -1068,7 +1067,6 @@ function PointImportsView({ token }: { token: string }) {
   </div>
 }
 
-function AgreementsView({ token }: { token: string }) { const [rows, setRows] = useState<AgreementInstallment[]>([]); const [error, setError] = useState(''); useEffect(() => { listAgreements(token).then((data) => { if (!data.sucesso) throw new Error(data.erro || 'Acesso negado'); setRows(data.parcelas || []) }).catch((err) => setError(err instanceof Error ? err.message : 'Falha de consulta')) }, [token]); return <><PageHeading eyebrow="Administração · compromissos" title="Acordos e parcelas" description="Pagamentos trabalhistas extraídos do relatório real, com quitadas e futuras separadas." action={<button className="secondary-button" onClick={() => printReport('Acordos e parcelas', ['Processo','Parcela','Valor','Vencimento','Status'], rows.map((row) => [row.processo, String(row.numero), formatMoney(row.valor), formatDate(row.vencimento), row.status]))}><Download size={16} /> Gerar PDF</button>} /><SectionCard title={`${rows.length} parcelas registradas`} caption="Relatório de pagamentos de acordos">{error ? <ErrorState message={error} /> : rows.length === 0 ? <EmptyState title="Nenhum acordo registrado" description="Os dados aparecerão após a carga do relatório de pagamentos." /> : <div className="table-wrap"><table><thead><tr><th>Processo</th><th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Status</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td className="mono">{row.processo}</td><td>{row.numero}</td><td>{formatMoney(row.valor)}</td><td>{formatDate(row.vencimento)}</td><td><StatusPill value={row.status} /></td></tr>)}</tbody></table></div>}</SectionCard></> }
 
 function DocumentsView({ token }: { token: string }) { const [docs, setDocs] = useState<CompanyDocument[]>([]); const [query, setQuery] = useState(''); useEffect(() => { listCompanyDocuments(token).then((data) => setDocs(data.documentos || [])).catch(() => undefined) }, [token]); const sections = regimentoSections.filter((section) => !query || `${section.title} ${section.items.join(' ')}`.toLowerCase().includes(query.toLowerCase())); return <><PageHeading eyebrow="Minha área · normas" title="Documentos internos" description="Consulte o regimento e a Convenção Coletiva disponibilizados pela empresa." action={<div className="search-box"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar no regimento" /></div>} /><div className="document-list">{docs.map((doc) => <div className="document-row" key={doc.id}><span className="document-icon"><BookOpen size={18} /></span><div><strong>{doc.titulo}</strong><small>{doc.arquivo_nome || 'Documento interno'} · {doc.disponivel_funcionarios ? 'Disponível aos funcionários' : 'Administrativo'}</small></div>{doc.arquivo_url && <a className="icon-button" href={doc.arquivo_url} target="_blank" rel="noreferrer" aria-label="Abrir documento"><ArrowRight size={17} /></a>}</div>)}</div><SectionCard title="Regimento Interno · consulta rápida" caption={`${sections.length} seções encontradas`}><div className="policy-list">{sections.map((section) => <details key={section.title} open={Boolean(query)}><summary>{section.title}</summary><div className="policy-content">{section.items.map((item, index) => <p key={`${section.title}-${index}`}>{item}</p>)}</div></details>)}</div></SectionCard></> }
 
@@ -1123,7 +1121,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'avisos') return <NoticesView token={token} onUnreadChange={setUnreadNotices} canMarkRead={user.perfil === 'funcionario'} />
     if (active === 'solicitacoes') return <EmployeeHRRequests token={token} />
     if (active === 'importacoes') return <PointImportsView token={token} />
-    if (active === 'acordos') return <AgreementsView token={token} />
+    if (active === 'acordos') return <AgreementsDashboard token={token} />
     if (active === 'documentos') return <DocumentsView token={token} />
     if (active === 'central') return <AdminCenter token={token} />
     return <ControlModuleView token={token} module={active} />

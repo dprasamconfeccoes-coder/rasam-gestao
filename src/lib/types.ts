@@ -305,13 +305,31 @@ export interface PointImportSummary {
 
 export interface AgreementInstallment {
   id: string
+  acordo_id: string
   processo: string
-  favorecido: string | null
+  funcionario_nome: string | null
+  funcionario_cpf: string | null
+  acordo_observacoes: string | null
+  tipo: 'entrada' | 'parcela'
   numero: number
   valor: number
   vencimento: string | null
   status: 'quitada' | 'pendente' | 'atrasada'
+  pago_em: string | null
   observacoes: string | null
+}
+
+export interface CreateAgreementPayload {
+  processo: string
+  funcionarioNome: string
+  funcionarioCpf: string
+  observacoes: string
+  parcelas: Array<{
+    tipo: 'entrada' | 'parcela'
+    numero: number
+    valor: number
+    vencimento: string
+  }>
 }
 
 export interface CompanyDocument {
