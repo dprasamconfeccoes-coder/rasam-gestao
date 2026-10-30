@@ -85,10 +85,14 @@ export interface OrderRow {
   pago_em: string | null
   nota_fiscal_numero: string | null
   nota_fiscal_emitida_em: string | null
+  financeiro_liberado_em: string | null
+  producao_iniciada_em: string | null
+  producao_concluida_em: string | null
   observacoes: string | null
   created_at: string
   updated_at: string
   tamanhos: OrderSizeRow[]
+  documentos: OrderDocumentRow[]
   historico: OrderAuditRow[]
 }
 
@@ -138,6 +142,67 @@ export interface WorkOrderDashboardResponse {
   erro?: string
   resumo: WorkOrderSummary
   ordens: OrderRow[]
+}
+
+export interface OrderDocumentRow {
+  id: string
+  tipo: 'nota_fiscal' | 'comprovante_pagamento'
+  nome_arquivo: string
+  mime_type: string
+  tamanho_bytes: number
+  created_at: string
+}
+
+export interface FactoryProductionSummary {
+  lotes_ativos: number
+  lotes_aguardando_inicio: number
+  lotes_em_producao: number
+  lotes_prontos_entrega: number
+  lotes_entregues: number
+  lotes_atrasados: number
+  lotes_aguardando_pagamento: number
+  unidades_solicitadas: number
+  unidades_produzidas: number
+  unidades_costuradas: number
+  unidades_entregues: number
+  unidades_aguardando_costura: number
+  unidades_prontas_entrega: number
+}
+
+export interface FactoryProductionLot {
+  id: string
+  numero: string
+  cliente: string | null
+  descricao: string
+  status: string
+  prioridade: string
+  data_entrada: string
+  prazo: string | null
+  quantidade: number
+  unidades_solicitadas: number
+  unidades_produzidas: number
+  unidades_costuradas: number
+  unidades_entregues: number
+  producao_iniciada_em: string | null
+  producao_concluida_em: string | null
+  financeiro_liberado_em: string | null
+  created_at: string
+  tamanhos: OrderSizeRow[]
+}
+
+export interface FactoryProductionTrend {
+  data: string
+  produzidas: number
+  costuradas: number
+  entregues: number
+}
+
+export interface FactoryProductionResponse {
+  sucesso: boolean
+  erro?: string
+  resumo: FactoryProductionSummary
+  lotes: FactoryProductionLot[]
+  tendencia: FactoryProductionTrend[]
 }
 
 export interface CreateWorkOrderPayload {

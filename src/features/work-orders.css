@@ -465,3 +465,47 @@
     padding: 15px 14px 16px;
   }
 }
+
+
+/* Financeiro e documentos da tela de Ordens; a edição de produção está no painel fabril. */
+.work-orders-metrics.financial-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.finance-separation-note { align-items: center; }
+.work-order-financial-grid { display: grid; grid-template-columns: minmax(180px, .8fr) minmax(300px, 1.2fr); gap: 12px; align-items: start; }
+.work-order-production-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 9px; padding: 4px 0; border: 0; color: #77570f; background: transparent; font-size: 9px; font-weight: 750; cursor: pointer; }
+.work-order-size-table-row.read-only { grid-template-columns: minmax(95px, 1.1fr) repeat(4, minmax(78px, .7fr)); }
+.work-order-size-table-row.read-only > span { color: #64595f; text-align: center; }
+.work-order-documents { margin-top: 13px; border: 1px solid rgba(54,40,45,.1); border-radius: 10px; background: #fff; }
+.work-order-documents > summary { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 12px; color: #443a40; list-style: none; cursor: pointer; font-size: 10px; font-weight: 750; }
+.work-order-documents > summary::-webkit-details-marker { display: none; }
+.work-order-documents > summary > span:first-child { display: inline-flex; align-items: center; gap: 7px; }
+.work-order-documents > summary > span:first-child svg { color: #65509a; }
+.work-order-documents .work-order-details-summary { display: inline-flex; align-items: center; gap: 5px; color: #81757b; font-size: 9px; font-weight: 600; }
+.work-order-documents[open] .work-order-details-summary svg { transform: rotate(180deg); }
+.work-order-documents-note { margin: 0; padding: 0 12px 12px; color: #81757b; font-size: 9px; line-height: 1.45; }
+.work-order-document-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 0 12px 12px; }
+.work-order-upload { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 7px 9px; overflow: hidden; border: 1px solid rgba(54,40,45,.14); border-radius: 8px; color: #443a40; background: #fff; font-size: 9px; font-weight: 700; cursor: pointer; }
+.work-order-upload:hover { border-color: rgba(137,98,15,.4); background: #fffbf2; }
+.work-order-upload input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.work-order-upload input:disabled { cursor: wait; }
+.work-order-document-actions > small { flex-basis: 100%; color: #81757b; font-size: 8px; }
+.work-order-document-list { display: grid; gap: 6px; padding: 0 12px 12px; }
+.work-order-document-row { display: flex; align-items: center; gap: 9px; width: 100%; min-width: 0; padding: 8px; border: 1px solid rgba(54,40,45,.08); border-radius: 8px; text-align: left; color: #443a40; background: #fff; cursor: pointer; }
+.work-order-document-row:hover { border-color: rgba(101,80,154,.25); background: #fbf9ff; }
+.work-order-document-row:disabled { opacity: .65; cursor: wait; }
+.work-order-document-row .document-icon { display: grid; place-items: center; flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; color: #65509a; background: rgba(101,80,154,.09); }
+.work-order-document-row > span:nth-child(2) { display: grid; gap: 3px; min-width: 0; flex: 1; }
+.work-order-document-row strong { overflow: hidden; color: #3c3338; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.work-order-document-row small { color: #81757b; font-size: 8px; }
+.work-order-document-row > svg:last-child { flex: 0 0 auto; color: #65509a; }
+
+@media (max-width: 1000px) {
+  .work-orders-metrics.financial-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .work-order-financial-grid { grid-template-columns: 1fr; }
+  .work-orders-heading-actions > button { min-width: 0; padding: 7px 6px; font-size: 9px; }
+  .work-order-document-actions { align-items: stretch; flex-direction: column; }
+  .work-order-upload { justify-content: center; }
+}
+
+.work-order-upload:focus-within { outline: 3px solid rgba(137,98,15,.55); outline-offset: 2px; border-color: #9a6c12; background: #fffbf2; }

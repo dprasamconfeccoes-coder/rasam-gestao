@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { config } from './config'
 import type {
   DashboardResponse,
+  FactoryProductionResponse,
   AgreementInstallment,
   CreateAgreementPayload,
   CreateWorkOrderPayload,
@@ -28,6 +29,7 @@ import type {
   NoticeAttachmentRow,
   NoticeRow,
   NoticeEmployeeReadRow,
+  OrderDocumentRow,
   OrderRow,
   PayslipRow,
   PointRow,
@@ -242,6 +244,55 @@ export function listOrders(token: string) {
 
 export function getWorkOrderDashboard(token: string) {
   return rpc<WorkOrderDashboardResponse>('app_admin_painel_ordens', { p_token: token })
+}
+
+export function getFactoryProduction(token: string) {
+  return rpc<FactoryProductionResponse>('app_admin_painel_fabrica', { p_token: token })
+}
+
+export function startWorkOrderProduction(token: string, orderId: string) {
+  return rpc<{ sucesso: boolean; erro?: string; status?: string }>('app_admin_iniciar_producao', {
+    p_token: token, p_ordem_id: orderId,
+  })
+}
+
+export function saveFactoryProduction(token: string, orderId: string, tamanhos: WorkOrderProgressPayload[]) {
+  return rpc<{ sucesso: boolean; erro?: string; status?: string; tamanhos?: WorkOrderProgressPayload[] }>(
+    'app_admin_salvar_progresso_fabrica', { p_token: token, p_ordem_id: orderId, p_tamanhos: tamanhos },
+  )
+}
+
+export function releaseWorkOrderForFinance(token: string, orderId: string) {
+  return rpc<{ sucesso: boolean; erro?: string; alterado?: boolean; financeiro_liberado_em?: string }>(
+    'app_admin_liberar_ordem_financeiro', { p_token: token, p_ordem_id: orderId },
+  )
+}
+
+export async function uploadWorkOrderDocument(token: string, orderId: string, type: OrderDocumentRow['tipo'], file: File) {
+  const form = new FormData()
+  form.set('action', 'upload')
+  form.set('ordem_id', orderId)
+  form.set('tipo', type)
+  form.set('arquivo', file)
+  const response = await fetch(`${config.supabaseUrl}/functions/v1/ordem-servico-documento`, {
+    method: 'POST',
+    headers: { apikey: config.supabaseKey, Authorization: `Bearer ${token}`, 'x-app-token': token },
+    body: form,
+  })
+  const data = (await response.json()) as { sucesso: boolean; erro?: string; documento?: OrderDocumentRow }
+  if (!response.ok || !data.sucesso || !data.documento) throw new Error(data.erro || 'Não foi possível enviar o documento')
+  return data.documento
+}
+
+export async function getWorkOrderDocumentUrl(token: string, documentId: string, download = false) {
+  const response = await fetch(`${config.supabaseUrl}/functions/v1/ordem-servico-documento`, {
+    method: 'POST',
+    headers: { apikey: config.supabaseKey, Authorization: `Bearer ${token}`, 'x-app-token': token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'signed-url', documento_id: documentId, download }),
+  })
+  const data = (await response.json()) as { sucesso: boolean; erro?: string; url?: string; expires_in?: number }
+  if (!response.ok || !data.sucesso || !data.url) throw new Error(data.erro || 'Não foi possível abrir o documento')
+  return data
 }
 
 export function createWorkOrder(token: string, payload: CreateWorkOrderPayload) {

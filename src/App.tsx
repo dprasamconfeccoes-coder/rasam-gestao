@@ -76,6 +76,7 @@ import { EmployeeHRRequests } from './features/EmployeeHRRequests'
 import { NoticeAttachments } from './features/NoticeAttachments'
 import { AgreementsDashboard } from './features/AgreementsDashboard'
 import { WorkOrdersDashboard } from './features/WorkOrdersDashboard'
+import { FactoryProductionDashboard } from './features/FactoryProductionDashboard'
 import type {
   DashboardResponse,
   EmployeeProfile,
@@ -116,7 +117,7 @@ type NavItem = { key: ModuleKey; label: string; description: string; icon: typeo
 const navItems: NavItem[] = [
   { key: 'dashboard', label: 'Visão geral', description: 'O que precisa de atenção hoje', icon: LayoutDashboard, group: 'Operação', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'funcionarios', label: 'Funcionários', description: 'Equipe e acessos', icon: UsersRound, group: 'Operação', profiles: managerProfiles },
-  { key: 'ordens', label: 'Ordens de serviço', description: 'Gestão de lotes e produção', icon: ClipboardList, group: 'Operação', profiles: adminProfiles },
+  { key: 'ordens', label: 'Ordens de serviço', description: 'Cadastro de lotes e financeiro', icon: ClipboardList, group: 'Operação', profiles: adminProfiles },
   { key: 'producao', label: 'Produção', description: 'Lotes e costura', icon: Factory, group: 'Operação', profiles: managerProfiles },
   { key: 'financeiro', label: 'Financeiro', description: 'Fluxo e compromissos', icon: CircleDollarSign, group: 'Controle', profiles: managerProfiles },
   { key: 'dividas', label: 'Dívidas', description: 'Saldos e vencimentos', icon: WalletCards, group: 'Controle', profiles: adminProfiles },
@@ -280,6 +281,7 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
   if (state.error || !state.data?.sucesso) return <><PageHeading eyebrow="Pulso da operação" title="Visão geral" /><ErrorState message={state.error || state.data?.erro || 'Sessão inválida'} /></>
   const indicators = state.data.indicadores!
   const isEmployee = user.perfil === 'funcionario'
+  const isAdmin = adminProfiles.includes(user.perfil)
   return <>
     <PageHeading eyebrow="Pulso da operação" title="Visão geral" description={`Bom dia, ${user.nome.split(' ')[0]}. Aqui está o que merece atenção.`} action={<span className="date-chip"><CalendarDays size={15} /> {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}</span>} />
     <div className="welcome-strip"><div><span className="eyebrow">Acesso liberado</span><h2>{profileLabel(user.perfil)} <span className="gold-text">· {user.cargo || 'RF Gestão'}</span></h2><p>As informações abaixo vêm do ambiente operacional em tempo real.</p></div><div className="welcome-symbol"><Gauge size={34} /></div></div>
@@ -291,7 +293,7 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
         <MetricCard label="Avisos" value="Ler" detail="Comunicados da empresa" tone="blue" />
       </> : <>
         <MetricCard label="Equipe ativa" value={indicators.funcionarios_ativos} detail="Abrir funcionários" tone="gold" onClick={() => onNavigate('funcionarios')} />
-        <MetricCard label="Ordens ativas" value={indicators.ordens_ativas} detail="Abrir ordens de serviço" tone="pink" onClick={() => onNavigate('ordens')} />
+        <MetricCard label="Ordens ativas" value={indicators.ordens_ativas} detail={isAdmin ? 'Abrir ordens de serviço' : 'Abrir painel de produção'} tone="pink" onClick={() => onNavigate(isAdmin ? 'ordens' : 'producao')} />
         <MetricCard label="Lotes em costura" value={indicators.lotes_em_costura} detail="Abrir produção" tone="green" onClick={() => onNavigate('producao')} />
         <MetricCard label="Contas pendentes" value={indicators.contas_pendentes} detail="Abrir financeiro" tone="blue" onClick={() => onNavigate('financeiro')} />
       </>}
@@ -299,7 +301,7 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
     <div className="dashboard-columns">
       <SectionCard title={isEmployee ? 'Acesso rápido' : 'Pontos de controle'} caption={isEmployee ? 'O que você pode consultar agora' : 'Atalhos para a decisão do dia'}>
         <div className="quick-list">
-          {(isEmployee ? ([['ponto', 'Meu ponto', 'Veja seus registros de jornada', Fingerprint], ['holerites', 'Holerites', 'Acesse seus comprovantes', Receipt], ['solicitacoes', 'Falar com o RH', 'Abra ou acompanhe uma solicitação', FileText]] as const) : ([['funcionarios', 'Equipe', 'Cadastros e perfis de acesso', UsersRound], ['ordens', 'Ordens de serviço', 'Prazos e andamento', ClipboardList], ['financeiro', 'Financeiro', 'Compromissos e fluxo', CircleDollarSign]] as const)).map(([key, label, detail, Icon]) => <button className="quick-item" key={key} onClick={() => onNavigate(key as ModuleKey)}><span className="quick-icon"><Icon size={18} /></span><span><strong>{label}</strong><small>{detail}</small></span><ChevronRight size={17} /></button>)}
+          {(isEmployee ? ([['ponto', 'Meu ponto', 'Veja seus registros de jornada', Fingerprint], ['holerites', 'Holerites', 'Acesse seus comprovantes', Receipt], ['solicitacoes', 'Falar com o RH', 'Abra ou acompanhe uma solicitação', FileText]] as const) : ([['funcionarios', 'Equipe', 'Cadastros e perfis de acesso', UsersRound], [isAdmin ? 'ordens' : 'producao', isAdmin ? 'Ordens de serviço' : 'Produção', isAdmin ? 'Cadastro e financeiro' : 'Lotes e andamento fabril', isAdmin ? ClipboardList : Factory], ['financeiro', 'Financeiro', 'Compromissos e fluxo', CircleDollarSign]] as const)).map(([key, label, detail, Icon]) => <button className="quick-item" key={key} onClick={() => onNavigate(key as ModuleKey)}><span className="quick-icon"><Icon size={18} /></span><span><strong>{label}</strong><small>{detail}</small></span><ChevronRight size={17} /></button>)}
         </div>
       </SectionCard>
       <SectionCard title="Leitura do ambiente" caption="Acesso e segurança">
@@ -1100,12 +1102,12 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'dashboard') return <DashboardView token={token} user={user} onNavigate={navigate} />
     if (active === 'funcionarios') return <EmployeesView token={token} />
     if (active === 'ordens') return adminProfiles.includes(user.perfil)
-      ? <WorkOrdersDashboard token={token} />
+      ? <WorkOrdersDashboard token={token} onGoToProduction={() => navigate('producao')} />
       : <><PageHeading eyebrow="Acesso restrito" title="Ordens de serviço" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
     if (active === 'financeiro' || active === 'dividas') return <AdminCenter token={token} initialTab="financeiro" />
     if (active === 'relatorios') return <AdminCenter token={token} initialTab="fechamento" />
     if (active === 'rh') return <AdminCenter token={token} initialTab="painel" />
-    if (active === 'producao') return <AdminCenter token={token} initialTab="producao" />
+    if (active === 'producao') return <FactoryProductionDashboard token={token} />
     if (active === 'perfil') return <EmployeeProfileView token={token} onProfileUpdated={setProfile} />
     if (active === 'ponto') return <PointView token={token} user={user} />
     if (active === 'holerites') return <PayslipsView token={token} />
