@@ -1061,11 +1061,6 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
           <div><strong>RF</strong><span>Rafaela Fernandes</span></div>
           <button className="close-mobile" onClick={() => setMobileMenu(false)} aria-label="Fechar menu"><X size={18} /></button>
         </div>
-        <button className="sidebar-user" onClick={() => navigate('perfil')} aria-label="Abrir meu perfil">
-          <UserAvatar name={displayName} url={profile?.avatar_url} />
-          <span><strong>{displayName}</strong><span>{displayCargo || profileLabel(user.perfil)}</span></span>
-          <ChevronRight className="sidebar-user-arrow" size={15} />
-        </button>
         <nav>
           {groups.map((group) => (
             <div className="nav-group" key={group}>

@@ -704,6 +704,10 @@ td strong { color: #2b2328; }
 .point-employee-detail { padding-left: 14px; border-left: 1px solid var(--line); }
 .point-employee-detail > span { color: var(--gold); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .point-employee-detail > strong { color: var(--text); font-size: 12px; }
+.point-employee-detail > .status-pill { justify-self: start; padding: 6px 10px; color: #fff; font-size: 10px; font-weight: 800; }
+.point-employee-detail > .status-trabalhando, .point-employee-detail > .status-ativo { background: #247447; }
+.point-employee-detail > .status-inativo { background: #a83b45; }
+.point-employee-detail > .status-ferias { color: #2b2328; background: #ece7e1; }
 .point-employee-period > strong { line-height: 1.35; }
 .point-filter-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .point-filter-heading > div { display: grid; gap: 4px; }
