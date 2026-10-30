@@ -123,3 +123,8 @@
 @media(max-width:1100px){.debt-record-main{grid-template-columns:minmax(220px,1fr) minmax(270px,1.15fr);gap:14px}.debt-record-controls{grid-column:1/-1;justify-content:flex-start;width:max-content;max-width:100%}}
 @media(max-width:760px){.debt-record-main{grid-template-columns:1fr;gap:12px}.debt-record-controls{grid-column:auto;width:100%;justify-content:flex-start}.debt-health-summary>strong{font-size:18px}}
 @media(max-width:540px){.debt-record-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;padding:5px;gap:5px}.debt-record-controls .debt-action{width:100%;min-height:38px;padding:8px 6px;font-size:10px}.debt-health-row-copy>span{gap:4px;font-size:10px}.debt-health-row-copy>span small{font-size:8px}.debt-health-row-copy>strong{font-size:10px}.debt-health-summary{padding:9px 10px}.debt-health-summary>strong{font-size:16px}.debt-review-note{font-size:9px}}
+
+/* Recuo interno do conteúdo de Visão do passivo em relação às bordas do card. */
+.debt-insights .section-card>.debt-health-list{margin:14px 20px 18px;padding:0}
+@media(max-width:760px){.debt-insights .section-card>.debt-health-list{margin:12px 14px 16px}}
+@media(max-width:540px){.debt-insights .section-card>.debt-health-list{margin:11px 12px 14px}}
