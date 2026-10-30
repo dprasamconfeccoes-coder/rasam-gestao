@@ -88,6 +88,7 @@ export interface RpcListResponse<T> {
 export interface EmployeeProfile {
   nome: string
   cpf: string
+  avatar_url: string | null
   data_nascimento: string | null
   cargo: string | null
   funcao: string | null

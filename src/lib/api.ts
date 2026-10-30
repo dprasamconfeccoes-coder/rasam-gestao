@@ -80,6 +80,13 @@ export function myProfile(token: string) {
   })
 }
 
+export function updateAvatar(token: string, avatarUrl: string | null) {
+  return rpc<{ sucesso: boolean; avatar_url?: string | null; erro?: string }>('app_atualizar_avatar', {
+    p_token: token,
+    p_avatar_url: avatarUrl,
+  })
+}
+
 export function listPoint(token: string) {
   return rpc<{ sucesso: boolean; registros: PointRow[]; erro?: string }>('app_listar_ponto', {
     p_token: token,

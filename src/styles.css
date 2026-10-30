@@ -83,11 +83,17 @@ input:focus, textarea:focus, select:focus { border-color: rgba(215,168,74,.8); b
 .sidebar-brand strong { display: block; font-size: 17px; letter-spacing: -.04em; }
 .sidebar-brand > div > span { display: block; color: var(--gold); text-transform: uppercase; font-weight: 800; letter-spacing: .18em; font-size: 9px; }
 .close-mobile { display: none; margin-left: auto; border: 0; color: var(--muted); background: transparent; }
-.sidebar-user { display: flex; align-items: center; gap: 11px; padding: 20px 22px; margin: 0 10px; border-bottom: 1px solid var(--line); }
+.sidebar-user { display: flex; align-items: center; width: calc(100% - 20px); gap: 11px; padding: 20px 12px; margin: 0 10px; border: 0; border-bottom: 1px solid var(--line); color: inherit; background: transparent; text-align: left; }
+.sidebar-user:hover { background: rgba(255,255,255,.045); }
 .avatar, .topbar-avatar { display: grid; place-items: center; flex: 0 0 auto; width: 35px; height: 35px; border-radius: 12px; color: #17120a; font-weight: 900; background: linear-gradient(135deg, var(--gold), #f1d596); }
+.user-avatar { display: grid; place-items: center; overflow: hidden; flex: 0 0 auto; color: #17120a; font-weight: 900; background: linear-gradient(135deg, var(--gold), #f1d596); }
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.sidebar-user .user-avatar, .topbar-avatar { width: 35px; height: 35px; border-radius: 50%; }
 .sidebar-user strong, .sidebar-user span { display: block; }
+.sidebar-user > span:nth-child(2) { min-width: 0; flex: 1; }
 .sidebar-user strong { font-size: 12px; max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sidebar-user span { margin-top: 3px; color: var(--muted); font-size: 10px; }
+.sidebar-user .sidebar-user-arrow { margin-left: auto; color: var(--gold); flex: 0 0 auto; }
 .sidebar nav { padding: 17px 12px; overflow: auto; }
 .nav-group + .nav-group { margin-top: 16px; }
 .nav-label { display: block; padding: 0 12px 7px; color: var(--muted-2); text-transform: uppercase; letter-spacing: .17em; font-size: 9px; font-weight: 800; }
@@ -105,7 +111,7 @@ input:focus, textarea:focus, select:focus { border-color: rgba(215,168,74,.8); b
 .topbar-actions { display: flex; align-items: center; gap: 20px; }
 .connection-status { color: var(--muted); font-size: 11px; }
 .connection-status .live-dot { margin-right: 6px; }
-.topbar-avatar { width: 31px; height: 31px; border-radius: 10px; font-size: 12px; }
+.topbar-avatar { width: 31px; height: 31px; border-radius: 50%; font-size: 12px; }
 .mobile-menu-button { display: none; border: 0; color: var(--muted); background: transparent; }
 .content-wrap { width: min(1320px, 100%); margin: 0 auto; padding: 46px 44px 30px; }
 .page-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-bottom: 28px; }
@@ -167,7 +173,15 @@ td { color: #cbd1da; } td strong { color: #f0f2f5; font-size: 11px; } tr:last-ch
 .status-vencido, .status-cancelada, .status-recusada, .status-urgente { color: #ffb7bc; background: rgba(239,126,134,.13); }
 .status-importante, .status-alta, .status-gestor, .status-administrador, .status-admin { color: #f3b1d1; background: rgba(217,88,141,.14); }
 .profile-layout { align-items: start; }
-.profile-avatar { display: grid; place-items: center; width: 68px; height: 68px; margin: 21px 20px; border-radius: 22px 22px 22px 6px; color: #19130a; background: linear-gradient(135deg, var(--gold), #f5d899); font-size: 22px; font-weight: 900; }
+.profile-identity { display: flex; align-items: center; gap: 16px; padding: 21px 20px; }
+.profile-avatar { width: 76px; height: 76px; border-radius: 50%; color: #19130a; font-size: 22px; font-weight: 900; }
+.profile-identity > div:not(.profile-avatar) { display: grid; gap: 5px; }
+.profile-identity > div:not(.profile-avatar) > strong { font-size: 13px; }
+.profile-identity > div:not(.profile-avatar) > span { color: var(--muted); font-size: 11px; }
+.profile-avatar-actions { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.profile-avatar-actions .secondary-button { padding: 7px 10px; font-size: 11px; cursor: pointer; }
+.profile-avatar-actions .text-button { padding: 7px 0; font-size: 11px; }
+.profile-error { margin: 0 20px 15px; }
 .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); border-top: 1px solid var(--line); }
 .detail-grid > div { display: grid; gap: 5px; padding: 15px 20px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .detail-grid > div:nth-child(even) { border-right: 0; }

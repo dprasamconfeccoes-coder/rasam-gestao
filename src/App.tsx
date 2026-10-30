@@ -63,6 +63,7 @@ import {
   myProfile,
   setPassword,
   setToken,
+  updateAvatar,
   uploadMedicalLeave,
 } from './lib/api'
 import type {
@@ -139,6 +140,40 @@ function maskCpf(cpf: string) {
 
 function normalizeCpf(value: string) {
   return value.replace(/\D/g, '').slice(0, 11)
+}
+
+function initials(name: string) {
+  return name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'RF'
+}
+
+function UserAvatar({ name, url, className = '' }: { name: string; url?: string | null; className?: string }) {
+  return <div className={`user-avatar ${className}`} aria-label={`Foto de ${name}`}>
+    {url ? <img src={url} alt={`Foto de ${name}`} /> : initials(name)}
+  </div>
+}
+
+async function compressAvatar(file: File) {
+  if (!file.type.startsWith('image/')) throw new Error('Selecione uma imagem válida.')
+  const source = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('Não foi possível ler a imagem.'))
+    image.src = URL.createObjectURL(file)
+  })
+  const size = Math.min(Math.max(source.naturalWidth, source.naturalHeight), 512)
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('Seu navegador não suporta o processamento da imagem.')
+  const scale = Math.max(size / source.naturalWidth, size / source.naturalHeight)
+  const width = source.naturalWidth * scale
+  const height = source.naturalHeight * scale
+  context.fillStyle = '#f3f0eb'
+  context.fillRect(0, 0, size, size)
+  context.drawImage(source, (size - width) / 2, (size - height) / 2, width, height)
+  URL.revokeObjectURL(source.src)
+  return canvas.toDataURL('image/jpeg', 0.78)
 }
 
 function LoginScreen({ onLoggedIn }: { onLoggedIn: (response: LoginResponse) => void }) {
@@ -441,12 +476,34 @@ function OrdersView({ token }: { token: string }) {
   return <><PageHeading eyebrow="Operação · produção" title="Ordens de serviço" description="Acompanhe prazos, prioridade e valor da operação." action={<button className="primary-button" onClick={() => setOpen(!open)}><ClipboardList size={16} /> {open ? 'Fechar cadastro' : 'Nova ordem'}</button>} />{open && <SectionCard title="Nova ordem de serviço" caption="O lançamento já nasce com status recebida"><form className="form-stack" onSubmit={submit}><div className="form-row"><label>Número<input required value={form.numero} onChange={(e) => setForm({ ...form, numero: e.target.value })} placeholder="OS-0001" /></label><label>Prioridade<select value={form.prioridade} onChange={(e) => setForm({ ...form, prioridade: e.target.value })}><option value="normal">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select></label></div><label>Descrição<input required value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></label><div className="form-row"><label>Prazo<input type="date" value={form.prazo} onChange={(e) => setForm({ ...form, prazo: e.target.value })} /></label><label>Quantidade<input type="number" min="1" value={form.quantidade} onChange={(e) => setForm({ ...form, quantidade: e.target.value })} /></label><label>Valor total<input type="number" min="0" step="0.01" value={form.valor} onChange={(e) => setForm({ ...form, valor: e.target.value })} /></label></div><label>Observações<textarea rows={3} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></label><button className="primary-button" type="submit">Criar ordem</button></form></SectionCard>}{error && <ErrorState message={error} />}<SectionCard title="Fila operacional" caption="Dados vindos de ordens_servico">{loading ? <LoadingState /> : rows.length === 0 ? <EmptyState title="A fila está sem ordens cadastradas" description="Use Nova ordem para lançar o primeiro pedido da produção." /> : <div className="table-wrap"><table><thead><tr><th>Ordem</th><th>Cliente</th><th>Descrição</th><th>Status</th><th>Prazo</th><th>Valor</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td className="mono"><strong>{row.numero}</strong></td><td>{row.cliente || '—'}</td><td>{row.descricao}</td><td><StatusPill value={row.status.replaceAll('_', ' ')} /></td><td>{formatDate(row.prazo)}</td><td>{formatMoney(row.valor_total)}</td></tr>)}</tbody></table></div>}</SectionCard></>
 }
 
-function EmployeeProfileView({ token }: { token: string }) {
+function EmployeeProfileView({ token, onProfileUpdated }: { token: string; onProfileUpdated: (profile: EmployeeProfile) => void }) {
   const [profile, setProfile] = useState<EmployeeProfile>()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  useEffect(() => { myProfile(token).then((data) => { if (!data.sucesso) throw new Error(data.erro || 'Falha de sessão'); setProfile(data.funcionario) }).catch((err) => setError(err instanceof Error ? err.message : 'Falha de consulta')).finally(() => setLoading(false)) }, [token])
-  return <><PageHeading eyebrow="Minha área · cadastro" title="Meu perfil" description="Confira os dados que o RH mantém no sistema." />{loading ? <LoadingState /> : error ? <ErrorState message={error} /> : profile ? <div className="profile-layout"><SectionCard title={profile.nome} caption={profile.cargo || 'Cargo não informado'}><div className="profile-avatar">{profile.nome.split(' ').slice(0, 2).map((part) => part[0]).join('')}</div><div className="detail-grid"><div><span>CPF</span><strong>{maskCpf(profile.cpf)}</strong></div><div><span>Data de nascimento</span><strong>{formatDate(profile.data_nascimento)}</strong></div><div><span>Admissão</span><strong>{formatDate(profile.data_admissao)}</strong></div><div><span>Telefone</span><strong>{profile.telefone_celular || 'Não informado'}</strong></div><div className="wide"><span>Endereço</span><strong>{profile.endereco || 'Não informado'}</strong></div></div></SectionCard><SectionCard title="Dados de trabalho" caption="Visão pessoal"><div className="security-row"><span>Cargo</span><strong>{profile.cargo || 'Não informado'}</strong></div><div className="security-row"><span>Função</span><strong>{profile.funcao || 'Não informado'}</strong></div><div className="security-row"><span>Situação</span><strong><StatusPill value={profile.ativo ? 'Ativo' : 'Inativo'} /></strong></div></SectionCard></div> : null}</>
+  const [savingAvatar, setSavingAvatar] = useState(false)
+  useEffect(() => { myProfile(token).then((data) => { if (!data.sucesso || !data.funcionario) throw new Error(data.erro || 'Falha de sessão'); setProfile(data.funcionario); onProfileUpdated(data.funcionario) }).catch((err) => setError(err instanceof Error ? err.message : 'Falha de consulta')).finally(() => setLoading(false)) }, [token])
+  async function changeAvatar(file: File | undefined) {
+    if (!file || !profile) return
+    setSavingAvatar(true); setError('')
+    try {
+      const avatarUrl = await compressAvatar(file)
+      const result = await updateAvatar(token, avatarUrl)
+      if (!result.sucesso) throw new Error(result.erro || 'Não foi possível salvar a foto.')
+      const updated = { ...profile, avatar_url: avatarUrl }
+      setProfile(updated); onProfileUpdated(updated)
+    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao salvar a foto.') } finally { setSavingAvatar(false) }
+  }
+  async function removeAvatar() {
+    if (!profile?.avatar_url) return
+    setSavingAvatar(true); setError('')
+    try {
+      const result = await updateAvatar(token, null)
+      if (!result.sucesso) throw new Error(result.erro || 'Não foi possível remover a foto.')
+      const updated = { ...profile, avatar_url: null }
+      setProfile(updated); onProfileUpdated(updated)
+    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao remover a foto.') } finally { setSavingAvatar(false) }
+  }
+  return <><PageHeading eyebrow="Minha área · cadastro" title="Meu perfil" description="Confira os dados que o RH mantém no sistema." />{loading ? <LoadingState /> : error && !profile ? <ErrorState message={error} /> : profile ? <div className="profile-layout"><SectionCard title={profile.nome} caption={profile.cargo || 'Cargo não informado'}><div className="profile-identity"><UserAvatar name={profile.nome} url={profile.avatar_url} className="profile-avatar" /><div><strong>Foto do perfil</strong><span>JPG, PNG ou WebP · até 800 KB</span><div className="profile-avatar-actions"><label className="secondary-button">{savingAvatar ? <RefreshCw className="spin" size={15} /> : <Upload size={15} />} {profile.avatar_url ? 'Trocar foto' : 'Adicionar foto'}<input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={savingAvatar} onChange={(event) => { void changeAvatar(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>{profile.avatar_url && <button className="text-button" type="button" onClick={() => void removeAvatar()} disabled={savingAvatar}>Remover</button>}</div></div></div>{error && <div className="form-error profile-error"><AlertCircle size={16} />{error}</div>}<div className="detail-grid"><div><span>CPF</span><strong>{maskCpf(profile.cpf)}</strong></div><div><span>Data de nascimento</span><strong>{formatDate(profile.data_nascimento)}</strong></div><div><span>Admissão</span><strong>{formatDate(profile.data_admissao)}</strong></div><div><span>Telefone</span><strong>{profile.telefone_celular || 'Não informado'}</strong></div><div className="wide"><span>Endereço</span><strong>{profile.endereco || 'Não informado'}</strong></div></div></SectionCard><SectionCard title="Dados de trabalho" caption="Visão pessoal"><div className="security-row"><span>Cargo</span><strong>{profile.cargo || 'Não informado'}</strong></div><div className="security-row"><span>Função</span><strong>{profile.funcao || 'Não informado'}</strong></div><div className="security-row"><span>Situação</span><strong><StatusPill value={profile.ativo ? 'Ativo' : 'Inativo'} /></strong></div></SectionCard></div> : null}</>
 }
 
 function PointView({ token }: { token: string }) {
@@ -577,6 +634,10 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
   const allowedItems = navItems.filter((item) => item.profiles.includes(user.perfil))
   const [active, setActive] = useState<ModuleKey>(user.perfil === 'funcionario' ? 'dashboard' : 'dashboard')
   const [mobileMenu, setMobileMenu] = useState(false)
+  const [profile, setProfile] = useState<EmployeeProfile>()
+  useEffect(() => { myProfile(token).then((data) => { if (data.sucesso && data.funcionario) setProfile(data.funcionario) }).catch(() => undefined) }, [token])
+  const displayName = profile?.nome || user.nome
+  const displayCargo = profile?.cargo || user.cargo
   const activeItem = navItems.find((item) => item.key === active) || navItems[0]
   const groups = Array.from(new Set(allowedItems.map((item) => item.group)))
   function navigate(key: ModuleKey) { setActive(key); setMobileMenu(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }
@@ -588,7 +649,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'relatorios') return <AdminCenter token={token} initialTab="fechamento" />
     if (active === 'rh') return <AdminCenter token={token} initialTab="prontuario" />
     if (active === 'producao') return <AdminCenter token={token} initialTab="producao" />
-    if (active === 'perfil') return <EmployeeProfileView token={token} />
+    if (active === 'perfil') return <EmployeeProfileView token={token} onProfileUpdated={setProfile} />
     if (active === 'ponto') return <PointView token={token} />
     if (active === 'holerites') return <PayslipsView token={token} />
     if (active === 'atestados') return <MedicalLeavesView token={token} />
@@ -608,6 +669,11 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
           <div><strong>RF</strong><span>Rafaela Fernandes</span></div>
           <button className="close-mobile" onClick={() => setMobileMenu(false)} aria-label="Fechar menu"><X size={18} /></button>
         </div>
+        <button className="sidebar-user" onClick={() => navigate('perfil')} aria-label="Abrir meu perfil">
+          <UserAvatar name={displayName} url={profile?.avatar_url} />
+          <span><strong>{displayName}</strong><span>{displayCargo || profileLabel(user.perfil)}</span></span>
+          <ChevronRight className="sidebar-user-arrow" size={15} />
+        </button>
         <nav>
           {groups.map((group) => (
             <div className="nav-group" key={group}>
@@ -633,8 +699,8 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
           <div className="topbar-actions">
             <span className="connection-status"><span className="live-dot">●</span> Supabase conectado</span>
             <div className="topbar-user">
-              <div className="topbar-avatar" aria-hidden="true">{user.nome.split(' ').slice(0, 2).map((part) => part[0]).join('')}</div>
-              <div className="topbar-user-meta"><strong>{user.nome}</strong><span>{profileLabel(user.perfil)}</span></div>
+              <UserAvatar name={displayName} url={profile?.avatar_url} className="topbar-avatar" />
+              <div className="topbar-user-meta"><strong>{displayName}</strong><span>{displayCargo || profileLabel(user.perfil)}</span></div>
             </div>
           </div>
         </header>
