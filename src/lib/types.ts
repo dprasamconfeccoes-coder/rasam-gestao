@@ -609,6 +609,72 @@ export interface AdminDebtRow {
   observacoes: string | null
 }
 
+export type DebtCategory = 'trabalhista' | 'previdenciaria' | 'emprestimo_pessoal' | 'consignado' | 'outros'
+export type DebtPaymentMethod = 'pix' | 'transferencia' | 'boleto' | 'outro'
+export type DebtInstallmentKind = 'entrada' | 'parcela' | 'saldo_legado'
+export type DebtInstallmentStatus = 'pendente' | 'paga'
+
+export interface DebtAttachment {
+  id: string
+  tipo: 'documento_pagamento' | 'comprovante'
+  arquivo_nome: string
+  mime_type: string
+  tamanho_bytes: number
+  created_at: string
+}
+
+export interface DebtInstallment {
+  id: string
+  tipo_item: DebtInstallmentKind
+  numero: number
+  valor: number
+  vencimento: string | null
+  status: DebtInstallmentStatus
+  ativo: boolean
+  pago_em: string | null
+  forma_pagamento: DebtPaymentMethod
+  chave_pix: string | null
+  dados_transferencia: string | null
+  legacy_comprovante_nome: string | null
+  arquivos: DebtAttachment[]
+  created_at: string
+  updated_at: string
+}
+
+export interface DebtAuditEntry {
+  id: string
+  evento: string
+  detalhes: Record<string, unknown>
+  usuario_nome: string
+  created_at: string
+}
+
+export interface ManagedDebt {
+  id: string
+  credor: string
+  descricao: string
+  categoria: DebtCategory
+  valor_original: number
+  saldo_devedor: number
+  vencimento: string | null
+  status: 'ativa' | 'quitada' | 'renegociada' | 'inativa'
+  observacoes: string | null
+  data_contratacao: string | null
+  revisao_pendente: boolean
+  origem_legada: string | null
+  modelo_agenda: 'legado' | 'migrado' | 'novo'
+  inativada_em: string | null
+  updated_at: string
+  parcelas: DebtInstallment[]
+  auditoria: DebtAuditEntry[]
+}
+
+export interface DebtDashboardResponse {
+  sucesso: boolean
+  erro?: string
+  dividas: ManagedDebt[]
+}
+
 export interface AdminOrderRow {
   id: string
   numero: string

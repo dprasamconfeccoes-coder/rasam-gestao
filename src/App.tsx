@@ -92,6 +92,7 @@ import type {
   PointImportSummary,
 } from './lib/types'
 import { AdminCenterV2 as AdminCenter } from './features/AdminCenterV2'
+import { DebtManagementDashboard } from './features/DebtManagementDashboard'
 import { InternalDocumentsDashboard } from './features/InternalDocumentsDashboard'
 import { EmployeeFichaPanel } from './features/EmployeeFichaPanel'
 import {
@@ -304,7 +305,7 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
       </SectionCard>
       <SectionCard title="Leitura do ambiente" caption="Acesso e segurança">
         <div className="security-note"><div className="security-icon"><ShieldCheck size={20} /></div><div><strong>Sessão protegida</strong><p>Seu perfil de {profileLabel(user.perfil).toLowerCase()} está validado por RPC e permissões do Supabase.</p></div></div>
-        <div className="security-row"><span>Saldo de dívidas</span><strong>{isEmployee ? 'Restrito ao seu perfil' : formatMoney(indicators.saldo_dividas)}</strong></div>
+        <div className="security-row"><span>Saldo de dívidas</span><strong>{isAdmin ? formatMoney(indicators.saldo_dividas) : 'Restrito a administradores'}</strong></div>
         <div className="security-row"><span>Em férias hoje</span><strong>{isEmployee ? 'Disponível ao RH' : indicators.em_ferias}</strong></div>
         <div className="security-row"><span>Em afastamento</span><strong>{isEmployee ? 'Disponível ao RH' : indicators.em_afastamento}</strong></div>
       </SectionCard>
@@ -1100,7 +1101,10 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'ordens') return adminProfiles.includes(user.perfil)
       ? <WorkOrdersDashboard token={token} onGoToProduction={() => navigate('producao')} />
       : <><PageHeading eyebrow="Acesso restrito" title="Ordens de serviço" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
-    if (active === 'financeiro' || active === 'dividas') return <AdminCenter token={token} initialTab="financeiro" />
+    if (active === 'financeiro') return <AdminCenter token={token} initialTab="financeiro" />
+    if (active === 'dividas') return adminProfiles.includes(user.perfil)
+      ? <DebtManagementDashboard token={token} />
+      : <><PageHeading eyebrow="Acesso restrito" title="Gestão de dívidas" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
     if (active === 'relatorios') return <AdminCenter token={token} initialTab="fechamento" />
     if (active === 'rh') return <AdminCenter token={token} initialTab="painel" />
     if (active === 'producao') return <FactoryProductionDashboard token={token} />

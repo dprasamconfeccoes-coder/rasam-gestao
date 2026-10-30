@@ -21,6 +21,9 @@ import type {
   AdminRequestRow,
   AdminVacationRow,
   CompanyDocument,
+  DebtCategory,
+  DebtDashboardResponse,
+  DebtPaymentMethod,
   EmployeeProfile,
   EmployeeFichaPayload,
   EmployeeRow,
@@ -603,6 +606,108 @@ export function adminRights(token: string) {
 
 export function updateDebt(token: string, id: string, status: string, saldo: number) {
   return rpc<{ sucesso: boolean; erro?: string }>('app_admin_atualizar_divida', { p_token: token, p_id: id, p_status: status, p_saldo: saldo })
+}
+
+export function adminDebtAccess(token: string) {
+  return rpc<boolean>('app_dividas_admin_allowed', { p_token: token })
+}
+
+export function managedDebts(token: string) {
+  return rpc<DebtDashboardResponse>('app_admin_dividas_dashboard', { p_token: token })
+}
+
+export interface DebtScheduleItemPayload {
+  valor: number
+  vencimento: string
+}
+
+export interface DebtDraftPayload {
+  credor: string
+  descricao: string
+  categoria: DebtCategory
+  data_contratacao: string | null
+  observacoes: string
+  valor_total: number
+  entrada: {
+    valor: number
+    vencimento: string | null
+    forma_pagamento: DebtPaymentMethod
+    chave_pix: string
+    dados_transferencia: string
+  }
+  forma_pagamento: DebtPaymentMethod
+  chave_pix: string
+  dados_transferencia: string
+  parcelas: DebtScheduleItemPayload[]
+}
+
+export function createManagedDebt(token: string, payload: DebtDraftPayload) {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_divida_criar', { p_token: token, p_payload: payload })
+}
+
+export function updateManagedDebt(token: string, debtId: string, payload: Pick<DebtDraftPayload, 'credor' | 'descricao' | 'categoria' | 'data_contratacao' | 'observacoes'>) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_divida_atualizar', { p_token: token, p_divida_id: debtId, p_payload: payload })
+}
+
+export function addDebtInstallment(token: string, debtId: string, payload: DebtScheduleItemPayload & { forma_pagamento: DebtPaymentMethod; chave_pix: string; dados_transferencia: string }) {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_divida_parcela_adicionar', { p_token: token, p_divida_id: debtId, p_payload: payload })
+}
+
+export function updateDebtInstallment(token: string, installmentId: string, payload: DebtScheduleItemPayload & { forma_pagamento: DebtPaymentMethod; chave_pix: string; dados_transferencia: string }) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_divida_parcela_atualizar', { p_token: token, p_parcela_id: installmentId, p_payload: payload })
+}
+
+export function changeDebtInstallment(token: string, installmentId: string, action: 'inativar' | 'restaurar' | 'reabrir', reason = '') {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_divida_parcela_status', { p_token: token, p_parcela_id: installmentId, p_acao: action, p_motivo: reason || null })
+}
+
+export function changeManagedDebtStatus(token: string, debtId: string, action: 'inativar' | 'restaurar', reason = '') {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_divida_status', { p_token: token, p_divida_id: debtId, p_acao: action, p_motivo: reason || null })
+}
+
+type DebtFunctionResponse = { sucesso: boolean; erro?: string; url?: string; expires_in?: number; arquivo_nome?: string }
+
+async function callDebtFunction<T extends DebtFunctionResponse>(token: string, body: Record<string, unknown> | FormData): Promise<T> {
+  const isForm = body instanceof FormData
+  const response = await fetch(`${config.supabaseUrl}/functions/v1/gestao-dividas`, {
+    method: 'POST',
+    headers: {
+      apikey: config.supabaseKey,
+      Authorization: `Bearer ${token}`,
+      'x-app-token': token,
+      ...(isForm ? {} : { 'Content-Type': 'application/json' }),
+    },
+    body: isForm ? body : JSON.stringify(body),
+  })
+  const data = await response.json() as T
+  if (!response.ok || !data.sucesso) throw new Error(data.erro || 'Não foi possível concluir a operação de documentos da dívida.')
+  return data
+}
+
+export function uploadDebtPaymentDocument(token: string, installmentId: string, file: File) {
+  const form = new FormData()
+  form.set('action', 'instruction')
+  form.set('parcela_id', installmentId)
+  form.set('arquivo', file)
+  return callDebtFunction<DebtFunctionResponse>(token, form)
+}
+
+export function settleDebtInstallment(token: string, installmentId: string, paidOn: string, method: DebtPaymentMethod, reason: string, proof?: File | null) {
+  if (proof) {
+    const form = new FormData()
+    form.set('action', 'settle')
+    form.set('parcela_id', installmentId)
+    form.set('pago_em', paidOn)
+    form.set('forma_pagamento', method)
+    form.set('motivo', reason)
+    form.set('arquivo', proof)
+    return callDebtFunction<DebtFunctionResponse>(token, form)
+  }
+  return callDebtFunction<DebtFunctionResponse>(token, { action: 'settle', parcela_id: installmentId, pago_em: paidOn, forma_pagamento: method, motivo: reason })
+}
+
+export function debtAttachmentDownload(token: string, attachmentId: string) {
+  return callDebtFunction<DebtFunctionResponse>(token, { action: 'download', arquivo_id: attachmentId })
 }
 
 export function updateOrder(token: string, id: string, status: string) {
