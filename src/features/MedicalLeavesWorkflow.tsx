@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Check, Clock, Eye, ShieldCheck, Upload, X } from 'lucide-react'
-import { decideMedicalLeave, getMedicalLeaveDocumentUrl, listMedicalLeaves, uploadMedicalLeave } from '../lib/api'
-import type { AdminMedicalLeaveRow, MedicalLeaveAuditEvent, MedicalLeaveRow } from '../lib/types'
+import { getMedicalLeaveDocumentUrl, listMedicalLeaves, uploadMedicalLeave } from '../lib/api'
+import type { MedicalLeaveAuditEvent, MedicalLeaveRow } from '../lib/types'
 import { EmptyState, ErrorState, LoadingState, SectionCard, StatusPill, formatDate } from '../components/ui'
 import './medical-leaves.css'
 
@@ -21,7 +21,15 @@ function eventTitle(event: MedicalLeaveAuditEvent) {
   return 'Registro anterior à trilha de auditoria'
 }
 
-async function openSecureDocument(token: string, atestadoId: string) {
+function medicalLeaveStatusGroup(status: string) {
+  const normalized = status.trim().toLowerCase()
+  if (['aguardando', 'pendente', 'em_analise'].includes(normalized)) return 'pendentes'
+  if (['aceito', 'aceita', 'aprovado', 'aprovada'].includes(normalized)) return 'aceitos'
+  if (['recusado', 'recusada', 'reprovado', 'reprovada'].includes(normalized)) return 'recusados'
+  return 'outros'
+}
+
+export async function openSecureDocument(token: string, atestadoId: string) {
   const popup = window.open('about:blank', '_blank')
   try {
     const url = await getMedicalLeaveDocumentUrl(token, atestadoId)
@@ -34,7 +42,7 @@ async function openSecureDocument(token: string, atestadoId: string) {
   }
 }
 
-function AuditTimeline({ events }: { events?: MedicalLeaveAuditEvent[] }) {
+export function AuditTimeline({ events }: { events?: MedicalLeaveAuditEvent[] }) {
   if (!events?.length) return <p className="medical-muted">A trilha de auditoria começa neste envio.</p>
   return (
     <ol className="medical-timeline">
@@ -80,6 +88,14 @@ export function EmployeeMedicalLeaves({ token }: { token: string }) {
   }
 
   useEffect(() => { void reload() }, [token])
+
+  const summary = rows.reduce((counts, row) => {
+    const group = medicalLeaveStatusGroup(row.status)
+    if (group === 'pendentes') counts.pendentes += 1
+    if (group === 'aceitos') counts.aceitos += 1
+    if (group === 'recusados') counts.recusados += 1
+    return counts
+  }, { total: rows.length, pendentes: 0, aceitos: 0, recusados: 0 })
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -163,6 +179,17 @@ export function EmployeeMedicalLeaves({ token }: { token: string }) {
         </form>
       </SectionCard>
 
+      <SectionCard title="Resumo dos seus atestados" caption="Indicadores calculados somente com os seus próprios envios">
+        {loading ? <LoadingState label="Calculando seu resumo…" /> : (
+          <div className="medical-dashboard-grid employee-medical-summary">
+            <article className="medical-dashboard-card"><span>Total enviados</span><strong>{summary.total}</strong></article>
+            <article className="medical-dashboard-card is-pending"><span>Em análise</span><strong>{summary.pendentes}</strong></article>
+            <article className="medical-dashboard-card is-approved"><span>Aprovados</span><strong>{summary.aceitos}</strong></article>
+            <article className="medical-dashboard-card is-rejected"><span>Reprovados</span><strong>{summary.recusados}</strong></article>
+          </div>
+        )}
+      </SectionCard>
+
       <SectionCard title="Histórico de atestados" caption="Acompanhe os envios e cada decisão registrada pelo RH">
         {loading ? <LoadingState label="Carregando sua linha do tempo…" /> : error && rows.length === 0 ? <ErrorState message={error} /> : rows.length === 0 ? <EmptyState title="Nenhum atestado enviado" description="Quando você enviar um atestado, o status e as atualizações aparecerão aqui." /> : (
           <div className="medical-record-list">
@@ -188,104 +215,5 @@ export function EmployeeMedicalLeaves({ token }: { token: string }) {
         )}
       </SectionCard>
     </>
-  )
-}
-
-export function AdminMedicalLeavesPanel({
-  token,
-  leaves,
-  onRefresh,
-}: {
-  token: string
-  leaves: AdminMedicalLeaveRow[]
-  onRefresh: () => Promise<void>
-}) {
-  const [filter, setFilter] = useState<'pendentes' | 'todos'>('pendentes')
-  const [reasons, setReasons] = useState<Record<string, string>>({})
-  const [busyId, setBusyId] = useState('')
-  const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
-
-  const isPending = (row: AdminMedicalLeaveRow) => ['aguardando', 'pendente'].includes(row.status.toLowerCase())
-  const visibleLeaves = filter === 'pendentes' ? leaves.filter(isPending) : leaves
-
-  async function decide(row: AdminMedicalLeaveRow, status: 'aceito' | 'recusado') {
-    const reason = (reasons[row.id] || '').trim()
-    if (status === 'recusado' && reason.length < 5) {
-      setError('Para recusar, informe uma justificativa com pelo menos 5 caracteres.')
-      return
-    }
-    setBusyId(row.id)
-    setError('')
-    setMessage('')
-    try {
-      const result = await decideMedicalLeave(token, row.id, status, reason)
-      if (!result.sucesso) throw new Error(result.erro || 'Não foi possível salvar a decisão.')
-      setMessage(status === 'aceito' ? 'Atestado aceito; a decisão foi registrada na auditoria.' : 'Atestado recusado; a justificativa foi registrada na auditoria.')
-      setReasons((current) => ({ ...current, [row.id]: '' }))
-      await onRefresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível salvar a decisão.')
-    } finally {
-      setBusyId('')
-    }
-  }
-
-  async function viewDocument(id: string) {
-    setError('')
-    try {
-      await openSecureDocument(token, id)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível abrir o documento.')
-    }
-  }
-
-  return (
-    <SectionCard title="Revisão de atestados" caption="Apenas administradores autorizados podem abrir os anexos e decidir. Toda decisão é auditada.">
-      <div className="medical-review-toolbar">
-        <span>{leaves.filter(isPending).length} pendente(s) · {leaves.length} registro(s)</span>
-        <div className="medical-filter-buttons">
-          <button type="button" className={filter === 'pendentes' ? 'active' : ''} onClick={() => setFilter('pendentes')}>Pendentes</button>
-          <button type="button" className={filter === 'todos' ? 'active' : ''} onClick={() => setFilter('todos')}>Todos</button>
-        </div>
-      </div>
-      {error && <div className="medical-inline-error" role="alert">{error}</div>}
-      {message && <div className="medical-inline-success" role="status">{message}</div>}
-      {visibleLeaves.length === 0 ? <EmptyState title={filter === 'pendentes' ? 'Nenhum atestado pendente' : 'Nenhum atestado registrado'} description={filter === 'pendentes' ? 'Novos envios aparecerão aqui para análise.' : 'Os atestados enviados aparecerão aqui.'} /> : (
-        <div className="medical-record-list">
-          {visibleLeaves.map((row) => (
-            <article className="medical-record-card" key={row.id}>
-              <div className="medical-record-heading">
-                <div><strong>{row.nome} · {row.tipo}</strong><small>Consulta em {formatDate(row.data_atendimento)} · {row.dias} dia(s) de afastamento</small></div>
-                <StatusPill value={row.status_label || row.status} />
-              </div>
-              <div className="medical-record-meta">
-                <span><b>CID:</b> {row.cid || 'Não informado'}</span>
-                <span><b>Arquivo:</b> {row.arquivo_nome || 'Anexo enviado'}</span>
-                <span><b>Enviado:</b> {formatDate(row.created_at)}</span>
-              </div>
-              {row.observacao && <div className="medical-review-result"><strong>Observação do funcionário</strong><p>{row.observacao}</p></div>}
-              {row.observacao_rh && <div className="medical-review-result"><strong>Retorno anterior do RH</strong><p>{row.observacao_rh}</p></div>}
-              <button className="secondary-button medical-open-file" type="button" onClick={() => void viewDocument(row.id)}><Eye size={16} /> Abrir anexo privado</button>
-              <details className="medical-audit-details">
-                <summary><Clock size={15} /> Auditoria ({row.timeline?.length || 0})</summary>
-                <AuditTimeline events={row.timeline} />
-              </details>
-              {isPending(row) && (
-                <div className="medical-decision-form">
-                  <label>Justificativa / observação da análise
-                    <textarea rows={3} maxLength={1000} value={reasons[row.id] || ''} onChange={(event) => setReasons((current) => ({ ...current, [row.id]: event.target.value }))} placeholder="Obrigatória para recusar; ficará visível ao funcionário" />
-                  </label>
-                  <div className="medical-decision-actions">
-                    <button className="primary-button" type="button" disabled={busyId === row.id} onClick={() => void decide(row, 'aceito')}><Check size={16} /> Aceitar</button>
-                    <button className="secondary-button danger-button" type="button" disabled={busyId === row.id} onClick={() => void decide(row, 'recusado')}><X size={16} /> Recusar</button>
-                  </div>
-                </div>
-              )}
-            </article>
-          ))}
-        </div>
-      )}
-    </SectionCard>
   )
 }

@@ -284,6 +284,23 @@ export interface AdminMedicalLeaveRow extends MedicalLeaveRow {
   cpf?: string | null
 }
 
+export interface AdminMedicalLeaveDashboardSummary {
+  total: number
+  pendentes: number
+  aceitos: number
+  recusados: number
+}
+
+export interface AdminMedicalLeaveDashboardPage {
+  sucesso: boolean
+  erro?: string
+  atestados: AdminMedicalLeaveRow[]
+  total: number
+  offset: number
+  limite: number
+  resumo: AdminMedicalLeaveDashboardSummary
+}
+
 export interface AdminVacationRow {
   id: string
   funcionario_id: string

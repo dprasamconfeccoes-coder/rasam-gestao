@@ -6,6 +6,7 @@ import type {
   AdminDebtRow,
   AdminJustificationRow,
   AdminLotRow,
+  AdminMedicalLeaveDashboardPage,
   AdminMedicalLeaveRow,
   AdminOrderRow,
   AdminPayslipRow,
@@ -235,6 +236,16 @@ export function decideJustification(token: string, id: string, status: string, r
 
 export function adminMedicalLeaves(token: string) {
   return rpc<{ sucesso: boolean; erro?: string; atestados: AdminMedicalLeaveRow[] }>('app_admin_atestados', { p_token: token })
+}
+
+export function adminMedicalLeavesPage(token: string, mes: string, status: string, offset: number, limite: number) {
+  return rpc<AdminMedicalLeaveDashboardPage>('app_admin_atestados_dashboard', {
+    p_token: token,
+    p_mes: mes || null,
+    p_status: status,
+    p_offset: offset,
+    p_limite: limite,
+  })
 }
 
 export function adminVacations(token: string) {
