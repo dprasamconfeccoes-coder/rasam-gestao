@@ -664,6 +664,10 @@ td strong { color: #2b2328; }
 .point-filter-current > span { display: grid; gap: 2px; color: var(--text); font-size: 11px; font-weight: 750; }
 .point-filter-current small { color: var(--muted); font-size: 10px; font-weight: 500; }
 .table-subtext { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+.point-daily-table th:first-child, .point-daily-table td:first-child { min-width: 112px; }
+.point-daily-table .point-empty-day { background: rgba(255,255,255,.025); }
+.point-daily-table .point-empty-day td { color: var(--muted); }
+.point-daily-table .point-empty-day td:first-child strong { color: var(--text); }
 @media (max-width: 420px) {
   .employee-filter-header { align-items: stretch; flex-direction: column; }
   .employee-filter-fields { grid-template-columns: 1fr; }

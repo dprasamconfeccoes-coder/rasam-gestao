@@ -557,21 +557,22 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
   const isAdministrative = user.perfil === 'admin' || user.perfil === 'administrador'
   const [rows, setRows] = useState<PointRow[]>([])
   const [employees, setEmployees] = useState<EmployeeRow[]>([])
-  const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'custom'>('month')
+  const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'previous_month' | 'custom'>('month')
   const [employeeId, setEmployeeId] = useState('')
+  const [monthReference, setMonthReference] = useState(new Date().toISOString().slice(0, 7))
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const range = useMemo(() => {
-    const now = new Date()
     const toIso = (date: Date) => {
       const year = date.getFullYear()
       const month = String(date.getMonth() + 1).padStart(2, '0')
       const day = String(date.getDate()).padStart(2, '0')
       return `${year}-${month}-${day}`
     }
+    const now = new Date()
     if (period === 'custom') return { inicio: customStart || null, fim: customEnd || null }
     if (period === 'day') return { inicio: toIso(now), fim: toIso(now) }
     if (period === 'week') {
@@ -580,41 +581,59 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
       const end = new Date(start); end.setDate(start.getDate() + 6)
       return { inicio: toIso(start), fim: toIso(end) }
     }
-    return { inicio: toIso(new Date(now.getFullYear(), now.getMonth(), 1)), fim: toIso(new Date(now.getFullYear(), now.getMonth() + 1, 0)) }
-  }, [period, customStart, customEnd])
+    const [year, month] = monthReference.split('-').map(Number)
+    const reference = Number.isFinite(year) && Number.isFinite(month) ? new Date(year, month - 1, 1) : now
+    const monthOffset = period === 'previous_month' ? -1 : 0
+    const firstDay = new Date(reference.getFullYear(), reference.getMonth() + monthOffset, 1)
+    return { inicio: toIso(firstDay), fim: toIso(new Date(firstDay.getFullYear(), firstDay.getMonth() + 1, 0)) }
+  }, [period, customStart, customEnd, monthReference])
 
   useEffect(() => {
     if (!isAdministrative) return
-    listEmployees(token).then(setEmployees).catch(() => undefined)
+    listEmployees(token).then((data) => { setEmployees(data); setEmployeeId((current) => current || data[0]?.id || '') }).catch(() => undefined)
   }, [token, isAdministrative])
 
   useEffect(() => {
-    if (period === 'custom' && (!customStart || !customEnd)) return
+    const targetEmployeeId = isAdministrative ? employeeId : user.funcionario_id
+    if (!targetEmployeeId || (period === 'custom' && (!customStart || !customEnd))) { setLoading(false); return }
     let cancelled = false
     setLoading(true); setError('')
-    listPoint(token, { inicio: range.inicio, fim: range.fim, funcionarioId: isAdministrative ? employeeId || null : null, limite: 1000 })
+    listPoint(token, { inicio: range.inicio, fim: range.fim, funcionarioId: targetEmployeeId, limite: 1000 })
       .then((data) => { if (!data.sucesso) throw new Error(data.erro || 'Falha de consulta'); if (!cancelled) setRows(data.registros || []) })
       .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Falha de consulta') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [token, isAdministrative, employeeId, period, range.inicio, range.fim, customStart, customEnd])
+  }, [token, user.funcionario_id, isAdministrative, employeeId, period, range.inicio, range.fim, customStart, customEnd])
 
   const selectedEmployee = employees.find((employee) => employee.id === employeeId)
-  const periodLabel = period === 'day' ? 'Hoje' : period === 'week' ? 'Esta semana' : period === 'month' ? 'Este mês' : 'Período personalizado'
-  const title = isAdministrative ? 'Ponto da equipe' : 'Meu ponto'
-  const description = isAdministrative ? 'Consulte a jornada de toda a equipe ou filtre um funcionário por período.' : 'Registros de jornada associados exclusivamente ao seu funcionário.'
+  const displayRows = useMemo(() => {
+    if (!range.inicio || !range.fim) return []
+    const recordsByDate = new Map(rows.map((row) => [row.data.slice(0, 10), row]))
+    const start = new Date(`${range.inicio}T00:00:00`)
+    const end = new Date(`${range.fim}T00:00:00`)
+    const result: PointRow[] = []
+    for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+      const date = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`
+      result.push(recordsByDate.get(date) || { id: `sem-registro-${date}`, funcionario_id: isAdministrative ? employeeId : user.funcionario_id, data: date, entrada: null, saida_almoco: null, volta_almoco: null, saida: null, horas_trabalhadas: null, status: null })
+    }
+    return result
+  }, [rows, range.inicio, range.fim, isAdministrative, employeeId, user.funcionario_id])
+  const periodLabel = period === 'day' ? 'Hoje' : period === 'week' ? 'Esta semana' : period === 'month' ? 'Mês selecionado' : period === 'previous_month' ? 'Mês anterior' : 'Período personalizado'
+  const title = isAdministrative ? `Ponto · ${selectedEmployee?.nome || 'Funcionário'}` : 'Meu ponto'
+  const description = isAdministrative ? 'Ficha individual de jornada. Selecione o funcionário e consulte todos os dias do período.' : 'Sua ficha individual de jornada, com todos os dias do período selecionado.'
   return <>
     <PageHeading eyebrow="Minha área · jornada" title={title} description={description} />
-    {isAdministrative ? <div className="point-filter-panel">
-      <div className="point-filter-heading"><div><strong>Filtros de ponto</strong><span>Escolha o período e, se necessário, um funcionário específico.</span></div><span className="point-filter-scope"><UsersRound size={15} /> Visão administrativa</span></div>
+    <div className="point-filter-panel">
+      <div className="point-filter-heading"><div><strong>Filtros da ficha de ponto</strong><span>{isAdministrative ? 'Cada funcionário é consultado em uma ficha individual.' : 'Consulte sua jornada dia a dia.'}</span></div>{isAdministrative ? <span className="point-filter-scope"><UsersRound size={15} /> Visão administrativa</span> : null}</div>
       <div className="point-filter-fields">
-        <label>Período<select value={period} onChange={(event) => setPeriod(event.target.value as typeof period)}><option value="day">Ponto do dia</option><option value="week">Ponto da semana</option><option value="month">Ponto do mês</option><option value="custom">Período personalizado</option></select></label>
-        <label>Funcionário<select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}><option value="">Todos os funcionários</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.nome} · {maskCpf(employee.cpf)}</option>)}</select></label>
+        {isAdministrative ? <label>Funcionário<select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}><option value="">Selecione um funcionário</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.nome} · {maskCpf(employee.cpf)}</option>)}</select></label> : null}
+        <label>Período<select value={period} onChange={(event) => setPeriod(event.target.value as typeof period)}><option value="day">Ponto do dia</option><option value="week">Ponto da semana</option><option value="month">Mês de referência</option><option value="previous_month">Mês anterior</option><option value="custom">Período personalizado</option></select></label>
+        {(period === 'month' || period === 'previous_month') ? <label>Mês de referência<input type="month" value={monthReference} onChange={(event) => setMonthReference(event.target.value)} /></label> : null}
         {period === 'custom' ? <><label>Data inicial<input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} /></label><label>Data final<input type="date" value={customEnd} min={customStart || undefined} onChange={(event) => setCustomEnd(event.target.value)} /></label></> : <div className="point-filter-current"><CalendarDays size={17} /><span>{periodLabel}<small>{range.inicio ? `${formatDate(range.inicio)}${range.fim && range.fim !== range.inicio ? ` até ${formatDate(range.fim)}` : ''}` : 'Selecione as datas'}</small></span></div>}
       </div>
-    </div> : null}
-    <SectionCard title={isAdministrative ? `${rows.length} registros encontrados` : 'Meu histórico de ponto'} caption={isAdministrative ? `${selectedEmployee ? selectedEmployee.nome : 'Todos os funcionários'} · ${periodLabel}` : 'Seus registros de jornada'}>
-      {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : rows.length === 0 ? <EmptyState title="Nenhum registro no período" description={isAdministrative ? 'Altere o período ou o funcionário para ampliar a consulta.' : 'Quando o RH lançar sua jornada, os registros aparecerão aqui.'} /> : <div className="table-wrap"><p className="table-scroll-hint">Deslize para o lado para ver todas as colunas.</p><table><thead><tr>{isAdministrative ? <th>Funcionário</th> : null}<th>Data</th><th>Entrada</th><th>Almoço</th><th>Retorno</th><th>Saída</th><th>Horas</th><th>Status</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}>{isAdministrative ? <td><strong>{row.nome || 'Funcionário'}</strong><small className="table-subtext">{row.cpf ? maskCpf(row.cpf) : 'CPF não informado'}</small></td> : null}<td>{formatDate(row.data)}</td><td>{row.entrada || '—'}</td><td>{row.saida_almoco || '—'}</td><td>{row.volta_almoco || '—'}</td><td>{row.saida || '—'}</td><td>{row.horas_trabalhadas || '—'}</td><td><StatusPill value={row.status || 'normal'} /></td></tr>)}</tbody></table></div>}
+    </div>
+    <SectionCard title={isAdministrative ? `Ficha de ${selectedEmployee?.nome || 'funcionário'}` : 'Minha ficha de ponto'} caption={`${periodLabel} · ${range.inicio ? `${formatDate(range.inicio)} a ${formatDate(range.fim || range.inicio)}` : 'aguardando período'}`}>
+      {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : !displayRows.length ? <EmptyState title={isAdministrative && !employeeId ? 'Selecione um funcionário' : 'Nenhum dia para exibir'} description={isAdministrative && !employeeId ? 'Escolha um funcionário para abrir a ficha individual de ponto.' : 'Ajuste o período para consultar a jornada.'} /> : <div className="table-wrap"><p className="table-scroll-hint">Os dias são exibidos do primeiro ao último dia do período.</p><table className="point-daily-table"><thead><tr><th>Dia</th><th>Entrada</th><th>Almoço</th><th>Retorno</th><th>Saída</th><th>Horas</th><th>Status</th></tr></thead><tbody>{displayRows.map((row) => <tr key={row.id} className={!row.entrada && !row.saida ? 'point-empty-day' : ''}><td><strong>{formatDate(row.data)}</strong></td><td>{row.entrada || '—'}</td><td>{row.saida_almoco || '—'}</td><td>{row.volta_almoco || '—'}</td><td>{row.saida || '—'}</td><td>{row.horas_trabalhadas || '—'}</td><td><StatusPill value={row.status || 'Sem registro'} /></td></tr>)}</tbody></table></div>}
     </SectionCard>
   </>
 }
