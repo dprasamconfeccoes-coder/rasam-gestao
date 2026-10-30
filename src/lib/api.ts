@@ -4,6 +4,9 @@ import type {
   DashboardResponse,
   AgreementInstallment,
   CreateAgreementPayload,
+  CreateWorkOrderPayload,
+  WorkOrderDashboardResponse,
+  WorkOrderProgressPayload,
   AdminNoticePage,
   AdminDebtRow,
   AdminJustificationRow,
@@ -234,6 +237,48 @@ export async function getMedicalLeaveDocumentUrl(token: string, id: string) {
 export function listOrders(token: string) {
   return rpc<{ sucesso: boolean; ordens: OrderRow[]; erro?: string }>('app_listar_ordens', {
     p_token: token,
+  })
+}
+
+export function getWorkOrderDashboard(token: string) {
+  return rpc<WorkOrderDashboardResponse>('app_admin_painel_ordens', { p_token: token })
+}
+
+export function createWorkOrder(token: string, payload: CreateWorkOrderPayload) {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string; numero?: string; quantidade?: number }>('app_admin_criar_ordem_painel', {
+    p_token: token,
+    p_cliente_nome: payload.clienteNome,
+    p_descricao: payload.descricao,
+    p_prioridade: payload.prioridade,
+    p_prazo: payload.prazo,
+    p_valor_total: payload.valorTotal,
+    p_observacoes: payload.observacoes || null,
+    p_tamanhos: payload.tamanhos,
+  })
+}
+
+export function updateWorkOrderStatus(token: string, orderId: string, status: string) {
+  return rpc<{ sucesso: boolean; erro?: string; alterado?: boolean }>('app_admin_atualizar_ordem_status', {
+    p_token: token,
+    p_ordem_id: orderId,
+    p_status: status,
+  })
+}
+
+export function updateWorkOrderFinance(token: string, orderId: string, statusPagamento: 'pendente' | 'pago', notaFiscalNumero: string) {
+  return rpc<{ sucesso: boolean; erro?: string; status_pagamento?: string; nota_fiscal_numero?: string | null }>('app_admin_atualizar_ordem_financeiro', {
+    p_token: token,
+    p_ordem_id: orderId,
+    p_status_pagamento: statusPagamento,
+    p_nota_fiscal_numero: notaFiscalNumero || null,
+  })
+}
+
+export function updateWorkOrderProgress(token: string, orderId: string, tamanhos: WorkOrderProgressPayload[]) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_atualizar_ordem_progresso', {
+    p_token: token,
+    p_ordem_id: orderId,
+    p_tamanhos: tamanhos,
   })
 }
 

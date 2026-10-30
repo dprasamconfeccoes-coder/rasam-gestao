@@ -73,6 +73,7 @@ export interface EmployeeRow {
 export interface OrderRow {
   id: string
   numero: string
+  cliente: string | null
   descricao: string
   status: string
   prioridade: string
@@ -80,7 +81,80 @@ export interface OrderRow {
   prazo: string | null
   quantidade: number
   valor_total: number
-  cliente: string | null
+  status_pagamento: 'pendente' | 'pago'
+  pago_em: string | null
+  nota_fiscal_numero: string | null
+  nota_fiscal_emitida_em: string | null
+  observacoes: string | null
+  created_at: string
+  updated_at: string
+  tamanhos: OrderSizeRow[]
+  historico: OrderAuditRow[]
+}
+
+export interface OrderSizeRow {
+  id: string
+  tamanho: string
+  quantidade: number
+  quantidade_produzida: number
+  quantidade_costurada: number
+  quantidade_entregue: number
+}
+
+export interface OrderAuditRow {
+  evento: string
+  antes: Record<string, unknown> | null
+  depois: Record<string, unknown> | null
+  created_at: string
+  responsavel: string | null
+}
+
+export interface WorkOrderSummary {
+  total_ordens: number
+  ordens_ativas: number
+  recebidas: number
+  em_producao: number
+  costuradas: number
+  expedidas: number
+  entregues: number
+  pagas: number
+  aguardando_pagamento: number
+  notas_fiscais_emitidas: number
+  sem_nota_fiscal: number
+  vencidas: number
+  vencem_em_7_dias: number
+  valor_ordens_ativas: number
+  valor_aguardando_pagamento: number
+  valor_pago: number
+  unidades_total: number
+  unidades_produzidas: number
+  unidades_costuradas: number
+  aguardando_costura: number
+  unidades_entregues: number
+}
+
+export interface WorkOrderDashboardResponse {
+  sucesso: boolean
+  erro?: string
+  resumo: WorkOrderSummary
+  ordens: OrderRow[]
+}
+
+export interface CreateWorkOrderPayload {
+  clienteNome: string
+  descricao: string
+  prioridade: string
+  prazo: string
+  valorTotal: number
+  observacoes: string
+  tamanhos: Array<{ tamanho: string; quantidade: number }>
+}
+
+export interface WorkOrderProgressPayload {
+  id: string
+  quantidade_produzida: number
+  quantidade_costurada: number
+  quantidade_entregue: number
 }
 
 export interface RpcListResponse<T> {

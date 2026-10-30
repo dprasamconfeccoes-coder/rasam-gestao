@@ -53,7 +53,6 @@ import {
   listPointImports,
   dashboard,
   adminProntuario,
-  adminCriarOrdem,
   getSession,
   getToken,
   listEmployees,
@@ -61,7 +60,6 @@ import {
   listNotices,
   listNoticeAttachments,
   markNoticeRead,
-  listOrders,
   listPayslips,
   listPoint,
   unreadNoticeCount,
@@ -77,6 +75,7 @@ import { EmployeeMedicalLeaves } from './features/MedicalLeavesWorkflow'
 import { EmployeeHRRequests } from './features/EmployeeHRRequests'
 import { NoticeAttachments } from './features/NoticeAttachments'
 import { AgreementsDashboard } from './features/AgreementsDashboard'
+import { WorkOrdersDashboard } from './features/WorkOrdersDashboard'
 import type {
   DashboardResponse,
   EmployeeProfile,
@@ -85,7 +84,6 @@ import type {
   MedicalLeaveRow,
   ModuleKey,
   NoticeRow,
-  OrderRow,
   PayslipRow,
   PointRow,
   Profile,
@@ -118,7 +116,7 @@ type NavItem = { key: ModuleKey; label: string; description: string; icon: typeo
 const navItems: NavItem[] = [
   { key: 'dashboard', label: 'Visão geral', description: 'O que precisa de atenção hoje', icon: LayoutDashboard, group: 'Operação', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'funcionarios', label: 'Funcionários', description: 'Equipe e acessos', icon: UsersRound, group: 'Operação', profiles: managerProfiles },
-  { key: 'ordens', label: 'Ordens de serviço', description: 'Prazos e andamento', icon: ClipboardList, group: 'Operação', profiles: managerProfiles },
+  { key: 'ordens', label: 'Ordens de serviço', description: 'Gestão de lotes e produção', icon: ClipboardList, group: 'Operação', profiles: adminProfiles },
   { key: 'producao', label: 'Produção', description: 'Lotes e costura', icon: Factory, group: 'Operação', profiles: managerProfiles },
   { key: 'financeiro', label: 'Financeiro', description: 'Fluxo e compromissos', icon: CircleDollarSign, group: 'Controle', profiles: managerProfiles },
   { key: 'dividas', label: 'Dívidas', description: 'Saldos e vencimentos', icon: WalletCards, group: 'Controle', profiles: adminProfiles },
@@ -519,14 +517,6 @@ function EmployeesView({ token }: { token: string }) {
       </SectionCard>
     </>
   )
-}
-
-function OrdersView({ token }: { token: string }) {
-  const [rows, setRows] = useState<OrderRow[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [open, setOpen] = useState(false); const [form, setForm] = useState({ numero: '', descricao: '', prioridade: 'normal', prazo: '', quantidade: '1', valor: '', observacoes: '' })
-  async function reload() { setLoading(true); try { const data = await listOrders(token); if (!data.sucesso) throw new Error(data.erro || 'Acesso negado'); setRows(data.ordens || []) } catch (err) { setError(err instanceof Error ? err.message : 'Falha de consulta') } finally { setLoading(false) } }
-  useEffect(() => { reload() }, [token])
-  async function submit(event: FormEvent) { event.preventDefault(); setError(''); try { const result = await adminCriarOrdem(token, { numero: form.numero, descricao: form.descricao, prioridade: form.prioridade, prazo: form.prazo, quantidade: Number(form.quantidade), valor: Number(form.valor || 0), observacoes: form.observacoes }); if (!result.sucesso) throw new Error(result.erro || 'Não foi possível criar a ordem'); setOpen(false); setForm({ numero: '', descricao: '', prioridade: 'normal', prazo: '', quantidade: '1', valor: '', observacoes: '' }); await reload() } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao criar ordem') } }
-  return <><PageHeading eyebrow="Operação · produção" title="Ordens de serviço" description="Acompanhe prazos, prioridade e valor da operação." action={<button className="primary-button" onClick={() => setOpen(!open)}><ClipboardList size={16} /> {open ? 'Fechar cadastro' : 'Nova ordem'}</button>} />{open && <SectionCard title="Nova ordem de serviço" caption="O lançamento já nasce com status recebida"><form className="form-stack" onSubmit={submit}><div className="form-row"><label>Número<input required value={form.numero} onChange={(e) => setForm({ ...form, numero: e.target.value })} placeholder="OS-0001" /></label><label>Prioridade<select value={form.prioridade} onChange={(e) => setForm({ ...form, prioridade: e.target.value })}><option value="normal">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select></label></div><label>Descrição<input required value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></label><div className="form-row"><label>Prazo<input type="date" value={form.prazo} onChange={(e) => setForm({ ...form, prazo: e.target.value })} /></label><label>Quantidade<input type="number" min="1" value={form.quantidade} onChange={(e) => setForm({ ...form, quantidade: e.target.value })} /></label><label>Valor total<input type="number" min="0" step="0.01" value={form.valor} onChange={(e) => setForm({ ...form, valor: e.target.value })} /></label></div><label>Observações<textarea rows={3} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></label><button className="primary-button" type="submit">Criar ordem</button></form></SectionCard>}{error && <ErrorState message={error} />}<SectionCard title="Fila operacional" caption="Dados vindos de ordens_servico">{loading ? <LoadingState /> : rows.length === 0 ? <EmptyState title="A fila está sem ordens cadastradas" description="Use Nova ordem para lançar o primeiro pedido da produção." /> : <div className="table-wrap"><table><thead><tr><th>Ordem</th><th>Cliente</th><th>Descrição</th><th>Status</th><th>Prazo</th><th>Valor</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td className="mono"><strong>{row.numero}</strong></td><td>{row.cliente || '—'}</td><td>{row.descricao}</td><td><StatusPill value={row.status.replaceAll('_', ' ')} /></td><td>{formatDate(row.prazo)}</td><td>{formatMoney(row.valor_total)}</td></tr>)}</tbody></table></div>}</SectionCard></>
 }
 
 function EmployeeProfileView({ token, onProfileUpdated }: { token: string; onProfileUpdated: (profile: EmployeeProfile) => void }) {
@@ -1109,7 +1099,9 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
   function renderPage() {
     if (active === 'dashboard') return <DashboardView token={token} user={user} onNavigate={navigate} />
     if (active === 'funcionarios') return <EmployeesView token={token} />
-    if (active === 'ordens') return <OrdersView token={token} />
+    if (active === 'ordens') return adminProfiles.includes(user.perfil)
+      ? <WorkOrdersDashboard token={token} />
+      : <><PageHeading eyebrow="Acesso restrito" title="Ordens de serviço" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
     if (active === 'financeiro' || active === 'dividas') return <AdminCenter token={token} initialTab="financeiro" />
     if (active === 'relatorios') return <AdminCenter token={token} initialTab="fechamento" />
     if (active === 'rh') return <AdminCenter token={token} initialTab="painel" />
