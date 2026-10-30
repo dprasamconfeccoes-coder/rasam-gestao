@@ -208,3 +208,260 @@
   .work-order-size-row { grid-template-columns: minmax(0, 1fr) minmax(82px, .6fr) 30px; gap: 7px; }
   .work-order-remove-size { width: 30px; }
 }
+
+
+/* Refinamento da hierarquia visual e dos respiros internos do painel. */
+.work-orders-page .section-card {
+  border-color: rgba(54, 40, 45, .11);
+  border-radius: 16px;
+  box-shadow: 0 8px 28px rgba(47, 36, 41, .045);
+}
+.work-orders-overview-grid .section-card {
+  border-top: 3px solid rgba(183, 140, 44, .52);
+}
+.work-orders-overview-grid .section-header {
+  padding: 17px 20px 14px;
+  background: linear-gradient(180deg, #fff 0%, #fdfbf8 100%);
+}
+.work-orders-overview-grid .section-header h2 {
+  font-size: 14px;
+  font-weight: 760;
+}
+.work-orders-overview-grid .section-header span {
+  font-size: 11px;
+}
+.work-orders-stage-chart {
+  gap: 11px;
+  padding: 15px 20px 4px;
+}
+.work-orders-stage-row {
+  gap: 7px;
+  padding: 5px 8px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background .16s ease, transform .16s ease;
+}
+.work-orders-stage-row:hover {
+  background: #f7f4ef;
+  transform: translateX(2px);
+}
+.work-orders-stage-row:focus-visible {
+  outline: 2px solid rgba(137, 98, 15, .58);
+  outline-offset: 2px;
+}
+.work-orders-stage-label {
+  align-items: center;
+  color: #5f545a;
+  font-size: 11px;
+  font-weight: 620;
+}
+.work-orders-stage-label b {
+  display: inline-grid;
+  min-width: 25px;
+  min-height: 22px;
+  place-items: center;
+  padding: 0 7px;
+  border: 1px solid rgba(54, 40, 45, .08);
+  border-radius: 7px;
+  color: #493f44;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 760;
+}
+.work-orders-stage-track {
+  height: 9px;
+  border: 1px solid rgba(54, 40, 45, .035);
+  background: #f0ede8;
+  box-shadow: inset 0 1px 2px rgba(47, 36, 41, .045);
+}
+.work-orders-stage-track i {
+  min-width: 0;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .26);
+}
+.work-orders-chart-foot {
+  margin: 6px 20px 17px;
+  padding-top: 12px;
+  color: #655a60;
+  font-size: 10px;
+}
+.work-orders-finance-total {
+  margin: 16px 20px 0;
+  padding: 3px 0 15px;
+}
+.work-orders-finance-total span {
+  font-size: 11px;
+  font-weight: 650;
+}
+.work-orders-finance-total strong {
+  color: #2b2529;
+  font-size: 20px;
+}
+.work-orders-finance-line {
+  margin: 0 20px;
+  padding: 13px 0;
+  border-bottom: 1px solid rgba(54, 40, 45, .07);
+  font-size: 11px;
+}
+.work-orders-finance-line:last-of-type {
+  border-bottom: 0;
+}
+.work-orders-finance-line strong {
+  font-size: 12px;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+}
+.work-orders-finance-note {
+  margin: 12px 20px 18px;
+  padding: 11px 12px;
+  border: 1px solid rgba(137, 98, 15, .1);
+  border-radius: 10px;
+  color: #5b5156;
+  background: linear-gradient(110deg, #fbf8f0, #f7f5f1);
+  font-size: 10px;
+}
+.work-orders-toolbar {
+  margin: 0 0 15px;
+  padding: 14px 20px 15px;
+  border-bottom: 1px solid rgba(54, 40, 45, .08);
+  background: #fdfcfb;
+}
+.work-orders-search {
+  min-height: 42px;
+  border-color: rgba(54, 40, 45, .14);
+  box-shadow: 0 2px 8px rgba(47, 36, 41, .025);
+}
+.work-orders-search input {
+  width: 100%;
+  color: #30292e;
+}
+.work-orders-filter {
+  font-size: 11px;
+}
+.work-orders-filter select {
+  min-height: 42px;
+  border-color: rgba(54, 40, 45, .14);
+}
+.work-orders-list {
+  gap: 14px;
+  padding: 0 20px 2px;
+}
+.work-order-card {
+  padding: 18px;
+  border-color: rgba(54, 40, 45, .12);
+  border-radius: 15px;
+  box-shadow: 0 5px 18px rgba(47, 36, 41, .035);
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.work-order-card:hover {
+  border-color: rgba(137, 98, 15, .24);
+  box-shadow: 0 10px 28px rgba(47, 36, 41, .065);
+  transform: translateY(-1px);
+}
+.work-order-title-block h3 {
+  font-size: 17px;
+}
+.work-order-value > strong {
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+}
+.work-order-progress-summary {
+  gap: 0;
+  margin: 16px 0 14px;
+  padding: 12px 0;
+  border-top-color: rgba(54, 40, 45, .09);
+  border-bottom-color: rgba(54, 40, 45, .09);
+}
+.work-order-progress-summary > div {
+  padding: 2px 12px;
+}
+.work-order-progress-summary > div:first-child {
+  padding-left: 4px;
+  border-left: 0;
+}
+.work-order-progress-summary span {
+  font-size: 10px;
+  font-weight: 600;
+}
+.work-order-progress-summary strong {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.work-order-management-grid {
+  gap: 12px;
+}
+.work-order-control {
+  gap: 7px;
+  color: #4e4449;
+  font-size: 11px;
+}
+.work-order-control > span {
+  min-height: 18px;
+}
+.work-order-control > small {
+  font-size: 10px;
+}
+.work-order-details, .work-order-history {
+  margin-top: 14px;
+  border-color: rgba(54, 40, 45, .11);
+  border-radius: 11px;
+  background: #fff;
+}
+.work-order-details > summary, .work-order-history > summary {
+  padding: 12px 14px;
+  font-size: 11px;
+}
+.work-orders-list-foot {
+  padding: 12px 20px 17px;
+  color: #756a6f;
+  font-size: 10px;
+}
+.work-orders-page .section-card > .state-card {
+  margin: 0 20px 20px;
+}
+.work-order-form {
+  padding: 19px 20px 21px;
+}
+
+@media (max-width: 960px) {
+  .work-orders-overview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .work-orders-overview-grid .section-header {
+    padding: 15px 16px 12px;
+  }
+  .work-orders-stage-chart {
+    padding: 13px 14px 3px;
+  }
+  .work-orders-chart-foot {
+    margin: 5px 14px 14px;
+  }
+  .work-orders-finance-total {
+    margin: 14px 16px 0;
+  }
+  .work-orders-finance-line {
+    margin: 0 16px;
+  }
+  .work-orders-finance-note {
+    margin: 11px 16px 15px;
+  }
+  .work-orders-toolbar {
+    padding: 12px 14px;
+  }
+  .work-orders-list {
+    padding: 0 14px 2px;
+  }
+  .work-order-card {
+    padding: 14px;
+  }
+  .work-order-progress-summary > div {
+    padding: 2px 8px;
+  }
+  .work-orders-list-foot {
+    padding: 10px 14px 14px;
+  }
+  .work-order-form {
+    padding: 15px 14px 16px;
+  }
+}
