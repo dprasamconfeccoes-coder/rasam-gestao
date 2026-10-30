@@ -474,13 +474,19 @@ export interface CreateAgreementPayload {
 
 export interface CompanyDocument {
   id: string
+  grupo_id: string
+  versao: number
   titulo: string
   categoria: string
   arquivo_nome: string | null
   arquivo_url: string | null
+  arquivo_privado: boolean
   conteudo_texto: string | null
   disponivel_funcionarios: boolean
+  mime_type: string | null
+  tamanho_bytes: number | null
   created_at: string
+  updated_at: string
 }
 
 export interface AdminPointRow extends PointRow {

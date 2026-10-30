@@ -48,7 +48,6 @@ import {
   applyPointImport,
   importPoint,
   ignorePointImport,
-  listCompanyDocuments,
   listImportedPoint,
   listPointImports,
   dashboard,
@@ -89,12 +88,11 @@ import type {
   PointRow,
   Profile,
   SessionUser,
-  CompanyDocument,
   PointImportRow,
   PointImportSummary,
 } from './lib/types'
-import { regimentoSections } from './data/regimento'
 import { AdminCenterV2 as AdminCenter } from './features/AdminCenterV2'
+import { InternalDocumentsDashboard } from './features/InternalDocumentsDashboard'
 import { EmployeeFichaPanel } from './features/EmployeeFichaPanel'
 import {
   EmptyState,
@@ -131,7 +129,7 @@ const navItems: NavItem[] = [
   { key: 'avisos', label: 'Avisos', description: 'Comunicados da empresa', icon: Bell, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'importacoes', label: 'Importar ponto', description: 'CSV diário e mensal', icon: FileSpreadsheet, group: 'Administração', profiles: managerProfiles },
   { key: 'acordos', label: 'Acordos e parcelas', description: 'Pagamentos trabalhistas', icon: Scale, group: 'Administração', profiles: adminProfiles },
-  { key: 'documentos', label: 'Documentos internos', description: 'Regimento e CCT', icon: BookOpen, group: 'Administração', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
+  { key: 'documentos', label: 'Documentos internos', description: 'Biblioteca compartilhada da empresa', icon: BookOpen, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'central', label: 'Central operacional', description: 'RH, ponto, holerites e gestão total', icon: ShieldCheck, group: 'Administração', profiles: adminProfiles },
 ]
 
@@ -1060,8 +1058,6 @@ function PointImportsView({ token }: { token: string }) {
 }
 
 
-function DocumentsView({ token }: { token: string }) { const [docs, setDocs] = useState<CompanyDocument[]>([]); const [query, setQuery] = useState(''); useEffect(() => { listCompanyDocuments(token).then((data) => setDocs(data.documentos || [])).catch(() => undefined) }, [token]); const sections = regimentoSections.filter((section) => !query || `${section.title} ${section.items.join(' ')}`.toLowerCase().includes(query.toLowerCase())); return <><PageHeading eyebrow="Minha área · normas" title="Documentos internos" description="Consulte o regimento e a Convenção Coletiva disponibilizados pela empresa." action={<div className="search-box"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar no regimento" /></div>} /><div className="document-list">{docs.map((doc) => <div className="document-row" key={doc.id}><span className="document-icon"><BookOpen size={18} /></span><div><strong>{doc.titulo}</strong><small>{doc.arquivo_nome || 'Documento interno'} · {doc.disponivel_funcionarios ? 'Disponível aos funcionários' : 'Administrativo'}</small></div>{doc.arquivo_url && <a className="icon-button" href={doc.arquivo_url} target="_blank" rel="noreferrer" aria-label="Abrir documento"><ArrowRight size={17} /></a>}</div>)}</div><SectionCard title="Regimento Interno · consulta rápida" caption={`${sections.length} seções encontradas`}><div className="policy-list">{sections.map((section) => <details key={section.title} open={Boolean(query)}><summary>{section.title}</summary><div className="policy-content">{section.items.map((item, index) => <p key={`${section.title}-${index}`}>{item}</p>)}</div></details>)}</div></SectionCard></> }
-
 function ControlModuleView({ token, module }: { token: string; module: ModuleKey }) {
   const [data, setData] = useState<DashboardResponse>(); const [loading, setLoading] = useState(true); const [error, setError] = useState('')
   useEffect(() => { dashboard(token).then(setData).catch((err) => setError(err instanceof Error ? err.message : 'Falha de consulta')).finally(() => setLoading(false)) }, [token])
@@ -1116,7 +1112,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'solicitacoes') return <EmployeeHRRequests token={token} />
     if (active === 'importacoes') return <PointImportsView token={token} />
     if (active === 'acordos') return <AgreementsDashboard token={token} />
-    if (active === 'documentos') return <DocumentsView token={token} />
+    if (active === 'documentos') return <InternalDocumentsDashboard token={token} canManage={adminProfiles.includes(user.perfil)} />
     if (active === 'central') return <AdminCenter token={token} />
     return <ControlModuleView token={token} module={active} />
   }

@@ -395,7 +395,65 @@ export function updateAgreementInstallmentStatus(token: string, parcelaId: strin
 }
 
 export function listCompanyDocuments(token: string) {
-  return rpc<{ sucesso: boolean; erro?: string; documentos: CompanyDocument[] }>('app_listar_documentos', { p_token: token })
+  return fetchInternalDocuments<{ sucesso: boolean; erro?: string; documentos: CompanyDocument[] }>(token, { action: 'list' })
+}
+
+export type InternalDocumentCategory = 'regimento' | 'cct' | 'ponto' | 'campanha' | 'comunicado' | 'politica' | 'outro'
+export interface InternalDocumentDraft {
+  grupoId?: string | null
+  titulo: string
+  categoria: InternalDocumentCategory
+  descricao: string
+  disponivelFuncionarios: boolean
+  arquivo: File
+}
+export function updateInternalDocument(token: string, grupoId: string, payload: Omit<InternalDocumentDraft, 'grupoId' | 'arquivo'>) {
+  return fetchInternalDocuments<{ sucesso: boolean; erro?: string }>(token, {
+    action: 'update-metadata',
+    grupo_id: grupoId,
+    titulo: payload.titulo,
+    categoria: payload.categoria,
+    descricao: payload.descricao || null,
+    disponivel_funcionarios: payload.disponivelFuncionarios,
+  })
+}
+async function fetchInternalDocuments<T>(token: string, body: Record<string, unknown>): Promise<T> {
+  const response = await fetch(`${config.supabaseUrl}/functions/v1/documentos-internos`, {
+    method: 'POST',
+    headers: { apikey: config.supabaseKey, Authorization: `Bearer ${token}`, 'x-app-token': token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const data = await response.json() as T & { erro?: string }
+  if (!response.ok) throw new Error(data.erro || 'Não foi possível acessar o acervo de documentos.')
+  return data
+}
+export async function uploadInternalDocument(token: string, payload: InternalDocumentDraft) {
+  const groupId = payload.grupoId || crypto.randomUUID()
+  const form = new FormData()
+  form.set('grupo_id', groupId)
+  form.set('titulo', payload.titulo)
+  form.set('categoria', payload.categoria)
+  form.set('descricao', payload.descricao)
+  form.set('disponivel_funcionarios', String(payload.disponivelFuncionarios))
+  form.set('arquivo', payload.arquivo)
+  const response = await fetch(`${config.supabaseUrl}/functions/v1/documentos-internos`, {
+    method: 'POST',
+    headers: { apikey: config.supabaseKey, Authorization: `Bearer ${token}`, 'x-app-token': token, 'x-document-group-id': groupId },
+    body: form,
+  })
+  const data = (await response.json()) as { sucesso: boolean; erro?: string; documento_id?: string; grupo_id?: string; versao?: number }
+  if (!response.ok || !data.sucesso || !data.documento_id) throw new Error(data.erro || 'Não foi possível enviar o documento')
+  return data
+}
+export async function getInternalDocumentDownloadUrl(token: string, documentId: string) {
+  const response = await fetch(`${config.supabaseUrl}/functions/v1/documentos-internos`, {
+    method: 'POST',
+    headers: { apikey: config.supabaseKey, Authorization: `Bearer ${token}`, 'x-app-token': token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ documento_id: documentId }),
+  })
+  const data = (await response.json()) as { sucesso: boolean; erro?: string; url?: string; nome_arquivo?: string }
+  if (!response.ok || !data.sucesso || !data.url) throw new Error(data.erro || 'Não foi possível preparar o download')
+  return data
 }
 
 export function adminPoint(token: string) {
