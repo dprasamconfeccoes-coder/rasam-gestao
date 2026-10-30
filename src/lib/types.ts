@@ -122,9 +122,12 @@ export interface PointRow {
   justificativas?: string | null
   inconsistencia?: string | null
   inconsistencia_tipo?: string | null
-  inconsistencia_status?: 'pendente' | 'aprovada' | 'justificada' | null
+  inconsistencia_status?: 'pendente' | 'aprovada' | 'justificada' | 'recusada' | null
   inconsistencia_justificativa?: string | null
+  justificativa_id?: string | null
+  justificativa_status?: 'pendente' | 'aceita' | 'recusada' | null
   justificativa_motivo?: string | null
+  justificativa_resposta?: string | null
   justificativa_arquivo_url?: string | null
   justificativa_arquivo_nome?: string | null
 }

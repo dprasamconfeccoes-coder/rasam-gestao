@@ -107,6 +107,12 @@ export function decidePointInconsistency(token: string, funcionarioId: string, d
   })
 }
 
+export function decidePointJustification(token: string, id: string, status: 'aceita' | 'recusada' | 'pendente', resposta = '') {
+  return rpc<{ sucesso: boolean; status?: string; erro?: string }>('app_decidir_justificativa_ponto', {
+    p_token: token, p_id: id, p_status: status, p_resposta: resposta,
+  })
+}
+
 export function createPointJustification(token: string, data: string, tipo: string, motivo: string, arquivoUrl?: string | null, arquivoNome?: string | null) {
   return rpc<{ sucesso: boolean; id?: string; status?: string; erro?: string }>('app_criar_justificativa_ponto', {
     p_token: token, p_data: data, p_tipo: tipo, p_motivo: motivo, p_arquivo_url: arquivoUrl || null, p_arquivo_nome: arquivoNome || null,

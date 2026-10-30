@@ -43,6 +43,7 @@ import rfLogo from './assets/rf-logo.png'
 import {
   clearToken,
   createPointJustification,
+  decidePointJustification,
   decidePointInconsistency,
   applyPointImport,
   importPoint,
@@ -638,8 +639,11 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
   const rowKind = (row: PointRow) => {
     const marked = Boolean(row.entrada || row.saida || row.horas_trabalhadas)
     const note = `${row.justificativas || ''} ${row.inconsistencia_justificativa || ''}`.toLowerCase()
+    const accepted = row.inconsistencia_status === 'justificada' || row.justificativa_status === 'aceita'
+    const rejected = row.inconsistencia_status === 'recusada' || row.justificativa_status === 'recusada'
     if (note.includes('férias') || note.includes('ferias')) return 'ferias'
-    if (row.dia_falta && row.dia_falta.trim() && !['não', 'nao', 'n', '0'].includes(row.dia_falta.trim().toLowerCase())) return row.inconsistencia_status === 'justificada' ? 'falta-justificada' : 'falta'
+    if (row.dia_falta && row.dia_falta.trim() && !['não', 'nao', 'n', '0'].includes(row.dia_falta.trim().toLowerCase())) return accepted ? 'falta-justificada' : rejected ? 'falta-recusada' : 'falta'
+    if (hoursToNumber(row.horas_atraso) > 0) return accepted ? 'atraso-justificado' : rejected ? 'atraso-recusado' : 'atraso'
     if (!marked && (!row.previsto || !row.previsto.trim() || note.includes('folga'))) return 'folga'
     if (!marked) return 'sem-marcacao'
     return 'normal'
@@ -650,7 +654,11 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
     if (kind === 'folga') return <StatusPill value="Folga" />
     if (kind === 'ferias') return <StatusPill value="Férias" />
     if (kind === 'falta-justificada') return <StatusPill value="Falta justificada" />
+    if (kind === 'falta-recusada') return <StatusPill value="Falta · justificativa recusada" />
     if (kind === 'falta') return <StatusPill value="Falta injustificada" />
+    if (kind === 'atraso-justificado') return <StatusPill value="Atraso justificado" />
+    if (kind === 'atraso-recusado') return <StatusPill value="Atraso · justificativa recusada" />
+    if (kind === 'atraso') return <StatusPill value="Atraso" />
     return <StatusPill value={row.status || 'normal'} />
   }
   const hoursToNumber = (value: string | null | undefined) => {
@@ -685,6 +693,24 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
   function requestReviewInconsistency(row: PointRow, status: 'aprovada' | 'justificada') {
     setPendingAction({ title: status === 'aprovada' ? 'Aprovar ocorrência?' : 'Salvar justificativa?', description: status === 'aprovada' ? `A ocorrência de ${formatDate(row.data)} será aprovada e registrada na auditoria.` : `A justificativa será encaminhada para ${formatDate(row.data)} e ficará disponível para o funcionário.`, confirmLabel: status === 'aprovada' ? 'Aprovar ocorrência' : 'Salvar justificativa', run: () => persistReviewInconsistency(row, status) })
   }
+  async function persistSubmittedJustificationReview(row: PointRow, status: 'aceita' | 'recusada') {
+    if (!row.justificativa_id) return
+    if (status === 'recusada' && !justificationText.trim()) { setError('Informe o motivo da recusa para o funcionário.'); return }
+    setDecisionBusy(row.data); setError('')
+    try {
+      const result = await decidePointJustification(token, row.justificativa_id, status, justificationText)
+      if (!result.sucesso) throw new Error(result.erro || 'Não foi possível concluir a análise da justificativa.')
+      setJustificationRow(''); setJustificationText(''); setRefreshKey((value) => value + 1)
+    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao analisar a justificativa.') } finally { setDecisionBusy('') }
+  }
+  function requestSubmittedJustificationReview(row: PointRow, status: 'aceita' | 'recusada') {
+    setPendingAction({
+      title: status === 'aceita' ? 'Aceitar justificativa?' : 'Recusar justificativa?',
+      description: status === 'aceita' ? `A justificativa de ${formatDate(row.data)} será aceita e o dia ficará identificado como justificado.` : `A justificativa de ${formatDate(row.data)} será recusada e o ponto permanecerá como lançado. Informe o motivo para o funcionário.`,
+      confirmLabel: status === 'aceita' ? 'Aceitar justificativa' : 'Recusar justificativa',
+      run: () => persistSubmittedJustificationReview(row, status),
+    })
+  }
   async function persistEmployeeJustification(row: PointRow) {
     if (!user.funcionario_id) return
     if (!justificationText.trim()) { setError('Informe o motivo da justificativa.'); return }
@@ -705,6 +731,28 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
   }
   function requestEmployeeJustification(row: PointRow) {
     setJustificationRow(row.data); setJustificationText(''); setJustificationType('Falta de marcação'); setJustificationStart(row.data); setJustificationDays(1); setJustificationFile(null)
+  }
+  const renderEmployeeJustification = (row: PointRow) => {
+    if (!hasInconsistency(row)) return '—'
+    if (row.justificativa_status === 'aceita') return <div className="point-justification-result"><StatusPill value="Justificativa aceita" /><small>{row.justificativa_resposta || 'O dia foi analisado pelo RH.'}</small></div>
+    if (row.justificativa_status === 'pendente') return <div className="point-justification-result"><StatusPill value="Em análise" /><small>Justificativa enviada. Aguarde o retorno do RH.</small></div>
+    if (row.justificativa_status === 'recusada') return <div className="point-justification-result"><StatusPill value="Recusada" /><small>{row.justificativa_resposta || 'O RH recusou a justificativa.'}</small><button className="text-button point-justify-button" type="button" onClick={() => requestEmployeeJustification(row)}>Enviar nova justificativa</button></div>
+    if (justificationRow !== row.data) return <button className="secondary-button point-justify-button" type="button" onClick={() => requestEmployeeJustification(row)}><FileText size={14} /> Justificar dia</button>
+    return <div className="point-justification-form">
+      <select value={justificationType} onChange={(event) => setJustificationType(event.target.value)} aria-label="Tipo de justificativa"><option>Falta de marcação</option><option>Atraso</option><option>Atestado médico</option><option>Outro</option></select>
+      <textarea value={justificationText} onChange={(event) => setJustificationText(event.target.value)} placeholder="Explique o motivo da falta ou atraso" rows={3} />
+      <div className="point-justification-fields"><label>Data inicial<input type="date" value={justificationStart} onChange={(event) => setJustificationStart(event.target.value)} /></label><label>Dias<input type="number" min={1} max={30} value={justificationDays} onChange={(event) => setJustificationDays(Math.max(1, Number(event.target.value) || 1))} /></label></div>
+      <label className="point-file-label"><Upload size={13} /> Anexar foto ou PDF<input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setJustificationFile(event.target.files?.[0] || null)} /></label>
+      {justificationFile ? <small>{justificationFile.name}</small> : <small>Opcional · JPG, PNG, WebP ou PDF</small>}
+      <div className="point-review-actions"><button className="secondary-button" type="button" onClick={() => { setJustificationRow(''); setJustificationFile(null) }}>Cancelar</button><button className="primary-button" type="button" onClick={() => void persistEmployeeJustification(row)} disabled={decisionBusy === row.data}>{decisionBusy === row.data ? 'Enviando…' : 'Enviar justificativa'}</button></div>
+    </div>
+  }
+  const renderAdministrativeReview = (row: PointRow) => {
+    if (!hasInconsistency(row)) return '—'
+    if (row.justificativa_id && row.justificativa_status === 'pendente') return <div className="point-issue-cell point-review-card"><StatusPill value="Justificativa pendente" /><small>{row.justificativa_motivo || 'O funcionário enviou uma justificativa.'}</small>{row.justificativa_arquivo_url ? <a className="point-attachment-link" href={row.justificativa_arquivo_url} target="_blank" rel="noreferrer"><FileText size={13} /> {row.justificativa_arquivo_nome || 'Abrir anexo'}</a> : null}<textarea value={justificationRow === row.data ? justificationText : ''} onChange={(event) => { setJustificationRow(row.data); setJustificationText(event.target.value) }} placeholder="Resposta ao funcionário (obrigatória se recusar)" rows={2} /><div className="point-review-actions"><button className="icon-button" type="button" onClick={() => requestSubmittedJustificationReview(row, 'aceita')} disabled={decisionBusy === row.data} aria-label="Aceitar justificativa"><Check size={15} /></button><button className="icon-button danger" type="button" onClick={() => requestSubmittedJustificationReview(row, 'recusada')} disabled={decisionBusy === row.data} aria-label="Recusar justificativa"><X size={15} /></button></div></div>
+    if (row.justificativa_status === 'aceita') return <div className="point-issue-cell"><StatusPill value="Justificada" /><small>{row.justificativa_resposta || 'Justificativa aceita.'}</small></div>
+    if (row.justificativa_status === 'recusada') return <div className="point-issue-cell"><StatusPill value="Recusada" /><small>{row.justificativa_resposta || 'Justificativa recusada.'}</small></div>
+    return <div className="point-review-actions"><button className="icon-button" type="button" onClick={() => requestReviewInconsistency(row, 'aprovada')} disabled={decisionBusy === row.data} aria-label="Aprovar inconsistência"><Check size={15} /></button><button className="icon-button" type="button" onClick={() => { setJustificationRow(row.data); setJustificationText('') }} aria-label="Registrar análise"><FileText size={15} /></button></div>
   }
   const periodLabel = period === 'day' ? 'Hoje' : period === 'week' ? 'Esta semana' : period === 'month' ? 'Mês selecionado' : period === 'previous_month' ? 'Mês anterior' : 'Período personalizado'
   const title = isAdministrative ? `Ponto · ${selectedEmployee?.nome || 'Funcionário'}` : 'Meu ponto'
@@ -739,7 +787,13 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
       <section className="point-chart-card"><div className="point-chart-heading"><div><span className="eyebrow">Resumo de ocorrências</span><strong>{pointSummary.faltas} faltas identificadas</strong></div><AlertCircle size={18} /></div><div className="point-bar-row"><span>Faltas</span><div className="point-bar-track is-danger"><i style={{ width: `${pointSummary.faltas ? 100 : 0}%` }} /></div><b>{pointSummary.faltas}</b></div><div className="point-bar-row"><span>Atrasos</span><div className="point-bar-track is-gold"><i style={{ width: `${pointSummary.atrasos ? Math.min(100, pointSummary.atrasos / Math.max(pointSummary.faltas, pointSummary.atrasos) * 100) : 0}%` }} /></div><b>{pointSummary.atrasos}</b></div></section>
     </div>
     <SectionCard title={isAdministrative ? `Ficha de ${selectedEmployee?.nome || 'funcionário'}` : 'Minha ficha de ponto'} caption={`${periodLabel} · ${range.inicio ? `${formatDate(range.inicio)} a ${formatDate(range.fim || range.inicio)}` : 'aguardando período'} · ${pointSummary.diasComMarcacao} com marcação · ${pointSummary.diasSemMarcacao} sem marcação`}>
-      {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : !displayRows.length ? <EmptyState title={isAdministrative && !employeeId ? 'Selecione um funcionário' : 'Nenhum dia para exibir'} description={isAdministrative && !employeeId ? 'Escolha um funcionário para abrir a ficha individual de ponto.' : 'Ajuste o período para consultar a jornada.'} /> : <div className="table-wrap"><p className="table-scroll-hint">Os dias são exibidos do primeiro ao último dia do período. Dias sem horário aparecem como “Sem marcação”.</p><table className="point-daily-table"><thead><tr><th rowSpan={2}>Dia</th><th colSpan={2}>Entrada e almoço</th><th colSpan={2}>Retorno e saída</th><th rowSpan={2}>Horas</th><th rowSpan={2}>Status</th><th colSpan={4}>Ocorrências do arquivo</th>{isAdministrative ? <><th rowSpan={2}>Inconsistência</th><th rowSpan={2}>Análise</th></> : null}</tr><tr><th>Entrada</th><th>Almoço</th><th>Retorno</th><th>Saída</th><th>Dia falta</th><th>Atraso</th><th>Extra 50%</th><th>Desconto DSR</th></tr></thead><tbody>{displayRows.map((row) => { const kind = rowKind(row); return <tr key={row.id} className={`point-row-${kind}`}><td><strong>{formatDate(row.data)}</strong></td><td>{shortTime(row.entrada)}</td><td>{shortTime(row.saida_almoco)}</td><td>{shortTime(row.volta_almoco)}</td><td>{shortTime(row.saida)}</td><td>{row.horas_trabalhadas ? String(row.horas_trabalhadas).slice(0, 5) : '—'}</td><td>{renderPointStatus(row)}</td><td>{row.dia_falta || '—'}</td><td>{row.horas_atraso || '—'}</td><td>{row.extra_50 || '—'}</td><td>{row.desconta_dsr || '—'}</td>{isAdministrative ? <><td>{hasInconsistency(row) ? <div className="point-issue-cell"><StatusPill value={row.inconsistencia_status === 'aprovada' ? 'Aprovada' : row.inconsistencia_status === 'justificada' ? 'Justificada' : row.inconsistencia_tipo === 'falta' ? 'Falta' : 'Atraso'} /><small>{row.horas_atraso ? `Atraso: ${row.horas_atraso}` : row.dia_falta ? `Falta: ${row.dia_falta}` : row.inconsistencia}</small></div> : '—'}</td><td>{hasInconsistency(row) && row.inconsistencia_status === 'pendente' ? <div className="point-review-actions">{justificationRow === row.data ? <><input value={justificationText} onChange={(event) => setJustificationText(event.target.value)} placeholder="Motivo da justificativa" /><button className="icon-button" type="button" onClick={() => requestReviewInconsistency(row, 'justificada')} disabled={decisionBusy === row.data} aria-label="Salvar justificativa"><Check size={15} /></button></> : <><button className="icon-button" type="button" onClick={() => requestReviewInconsistency(row, 'aprovada')} disabled={decisionBusy === row.data} aria-label="Aprovar inconsistência"><Check size={15} /></button><button className="icon-button" type="button" onClick={() => { setJustificationRow(row.data); setJustificationText('') }} aria-label="Justificar inconsistência"><FileText size={15} /></button></>}</div> : hasInconsistency(row) ? <small className="reviewed-note">{row.inconsistencia_justificativa || 'Tratada'}</small> : '—'}</td></> : null}</tr> })}</tbody></table></div>}
+      {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : !displayRows.length ? <EmptyState title={isAdministrative && !employeeId ? 'Selecione um funcionário' : 'Nenhum dia para exibir'} description={isAdministrative && !employeeId ? 'Escolha um funcionário para abrir a ficha individual de ponto.' : 'Ajuste o período para consultar a jornada.'} /> : <div className="table-wrap">
+        <p className="table-scroll-hint">Os dias são exibidos do primeiro ao último dia do período. Dias sem horário aparecem como “Sem marcação”.</p>
+        <table className="point-daily-table">
+          <thead><tr><th rowSpan={2}>Dia</th><th colSpan={2}>Entrada e almoço</th><th colSpan={2}>Retorno e saída</th><th rowSpan={2}>Horas</th><th rowSpan={2}>Status</th><th colSpan={4}>Ocorrências do arquivo</th>{isAdministrative ? <><th rowSpan={2}>Inconsistência</th><th rowSpan={2}>Análise</th></> : <th rowSpan={2}>Justificativa</th>}</tr><tr><th>Entrada</th><th>Almoço</th><th>Retorno</th><th>Saída</th><th>Dia falta</th><th>Atraso</th><th>Extra 50%</th><th>Desconto DSR</th></tr></thead>
+          <tbody>{displayRows.map((row) => { const kind = rowKind(row); return <tr key={row.id} className={`point-row-${kind}`}><td><strong>{formatDate(row.data)}</strong></td><td>{shortTime(row.entrada)}</td><td>{shortTime(row.saida_almoco)}</td><td>{shortTime(row.volta_almoco)}</td><td>{shortTime(row.saida)}</td><td>{row.horas_trabalhadas ? String(row.horas_trabalhadas).slice(0, 5) : '—'}</td><td>{renderPointStatus(row)}</td><td>{row.dia_falta || '—'}</td><td>{row.horas_atraso || '—'}</td><td>{row.extra_50 || '—'}</td><td>{row.desconta_dsr || '—'}</td>{isAdministrative ? <><td>{hasInconsistency(row) ? <div className="point-issue-cell"><StatusPill value={row.inconsistencia_status === 'recusada' ? 'Recusada' : row.inconsistencia_status === 'justificada' ? 'Justificada' : row.inconsistencia_tipo === 'falta' ? 'Falta' : 'Atraso'} /><small>{row.horas_atraso ? `Atraso: ${row.horas_atraso}` : row.dia_falta ? `Falta: ${row.dia_falta}` : row.inconsistencia}</small></div> : '—'}</td><td>{renderAdministrativeReview(row)}</td></> : <td>{renderEmployeeJustification(row)}</td>}</tr> })}</tbody>
+        </table>
+      </div>}
     </SectionCard>
     {pendingAction ? <div className="point-confirm-backdrop" role="dialog" aria-modal="true" aria-labelledby="point-confirm-title"><div className="point-confirm-dialog"><div className="point-confirm-icon"><ShieldCheck size={22} /></div><div><h3 id="point-confirm-title">{pendingAction.title}</h3><p>{pendingAction.description}</p></div><div className="point-confirm-actions"><button className="secondary-button" type="button" onClick={() => setPendingAction(null)}>Cancelar</button><button className="primary-button" type="button" onClick={async () => { const action = pendingAction; setPendingAction(null); await action.run() }}><Check size={15} /> {pendingAction.confirmLabel}</button></div></div></div> : null}
   </>

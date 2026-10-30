@@ -718,10 +718,19 @@ td strong { color: #2b2328; }
 .point-bar-track.is-danger i { background: var(--danger); }
 .point-issue-cell { display: grid; gap: 4px; min-width: 100px; }
 .point-issue-cell small, .reviewed-note { color: var(--muted); font-size: 10px; white-space: normal; }
+.point-justification-result { display: grid; min-width: 180px; gap: 6px; }
+.point-justification-result small { color: var(--muted); font-size: 10px; line-height: 1.4; white-space: normal; }
+.point-review-card { min-width: 235px; }
+.point-review-card textarea { width: 100%; box-sizing: border-box; min-height: 50px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--text); font: inherit; font-size: 11px; resize: vertical; }
+.point-review-card .point-review-actions { justify-content: flex-end; }
+.point-review-card .point-review-actions .icon-button { width: 30px; height: 30px; }
 .point-review-actions { display: flex; align-items: center; gap: 5px; min-width: 92px; }
 .point-review-actions input { min-width: 150px; max-width: 210px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 11px; }
 .point-row-falta { background: rgba(239, 107, 93, .16) !important; box-shadow: inset 3px 0 0 var(--danger); }
 .point-row-falta-justificada { background: rgba(215, 168, 74, .13) !important; box-shadow: inset 3px 0 0 var(--gold); }
+.point-row-falta-recusada, .point-row-atraso-recusado { background: rgba(239, 107, 93, .13) !important; box-shadow: inset 3px 0 0 var(--danger); }
+.point-row-atraso { background: rgba(224, 147, 53, .12) !important; box-shadow: inset 3px 0 0 #e09335; }
+.point-row-atraso-justificado { background: rgba(215, 168, 74, .10) !important; box-shadow: inset 3px 0 0 var(--gold); }
 .point-row-sem-marcacao { background: rgba(224, 147, 53, .09) !important; box-shadow: inset 3px 0 0 #e09335; }
 .point-row-ferias { background: rgba(93, 151, 239, .08) !important; }
 .point-row-folga { opacity: .72; }
