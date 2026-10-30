@@ -10,3 +10,70 @@
 @media(max-width:540px){.debt-metrics{gap:8px}.debt-metric{min-height:100px;padding:12px;gap:9px}.debt-metric-icon{width:32px;height:32px;flex-basis:32px}.debt-metric strong{font-size:17px}.debt-metric small{font-size:10px}.debt-metric span:last-child{font-size:9px}.debt-heading-actions .secondary-button{display:none}.debt-form-grid{grid-template-columns:1fr}.debt-span-two{grid-column:auto}.debt-schedule-summary{grid-template-columns:repeat(2,1fr)}.debt-schedule-summary>div:nth-child(2){border-right:0}.debt-schedule-summary>div{padding:4px 7px}.debt-schedule-heading{align-items:flex-start;flex-direction:column;gap:3px}.debt-schedule-row{grid-template-columns:65px 1fr;gap:7px}.debt-schedule-row label{grid-column:span 1;display:grid;grid-template-columns:55px 1fr}.debt-schedule-row label:last-child{grid-column:2}.debt-record-amounts{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.debt-record-amounts>div:last-child{grid-column:1/-1}.debt-record-controls{justify-content:flex-start}.debt-record-controls .secondary-button,.debt-record-controls .icon-button{padding:7px}.debt-installments-heading{align-items:flex-start}.debt-chart{gap:6px}.debt-chart-column>strong{font-size:9px}.debt-list-heading h2{font-size:18px}.debt-form-actions{align-items:stretch;flex-direction:column-reverse}.debt-form-actions button{width:100%}.debt-installment-actions .primary-button{flex:1}.debt-payment-details{font-size:9px}}
 
 .debt-audit-panel{margin-top:14px;padding:12px 14px 10px;border:1px solid #e7ebe6;border-radius:10px;background:#fff}.debt-audit-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-bottom:9px;border-bottom:1px solid #eef1ed}.debt-audit-heading>div{display:flex;align-items:center;gap:7px;color:#52775f}.debt-audit-heading h4{margin:0;color:#35463b;font-size:12px}.debt-audit-heading>span{color:#87928b;font-size:10px}.debt-audit-list{display:grid;gap:0;margin:0;padding:0;list-style:none}.debt-audit-list li{position:relative;display:flex;gap:10px;padding:10px 0 2px}.debt-audit-list li:not(:last-child):after{position:absolute;top:19px;bottom:-8px;left:4px;width:1px;background:#dce8de;content:""}.debt-audit-marker{position:relative;z-index:1;width:9px;height:9px;flex:0 0 9px;margin-top:3px;border:2px solid #72a182;border-radius:50%;background:#fff}.debt-audit-list li>div{min-width:0;display:grid;gap:3px}.debt-audit-list li strong{font-size:10px;color:#425349}.debt-audit-list li small{font-size:9px;color:#8a958e}.debt-audit-list li p{margin:1px 0 5px;color:#69766e;font-size:9px;line-height:1.45;overflow-wrap:anywhere}.debt-audit-empty{margin:10px 0 1px;color:#8b968f;font-size:10px}
+
+
+/* Refinamento visual: maior legibilidade, hierarquia e equilíbrio do formulário. */
+.debt-management-page{gap:22px}
+.debt-metrics{gap:14px}
+.debt-metric{min-height:122px;padding:18px 19px;border-radius:16px}
+.debt-metric-icon{width:40px;height:40px;flex-basis:40px}
+.debt-metric small{font-size:12px;letter-spacing:.01em}
+.debt-metric strong{font-size:clamp(20px,1.75vw,26px);letter-spacing:-.04em}
+.debt-metric span:last-child{font-size:11px;line-height:1.4}
+.debt-insights{gap:16px}
+.debt-chart{height:198px;padding:15px 7px 0}
+.debt-chart-column{gap:8px}
+.debt-chart-column>strong,.debt-chart-column small{font-size:11px}
+.debt-chart-track{height:130px}
+.debt-chart-track span{width:min(38px,68%);border-radius:8px 8px 2px 2px}
+.debt-health-list{gap:13px;padding:8px 3px 3px}
+.debt-health-row>div:first-child{font-size:12px}
+.debt-health-row>div:first-child strong{font-size:12px}
+.debt-health-track{height:6px}
+.debt-review-note{padding:11px 12px;font-size:12px}
+.debt-form{gap:18px}
+.debt-form-section{padding-bottom:17px}
+.debt-form-section>h3{gap:10px;margin-bottom:15px;font-size:15px}
+.debt-form-section>h3>span{width:26px;height:26px;border-radius:9px;font-size:12px}
+.debt-form-grid{gap:14px 18px}
+.debt-form-grid label,.debt-confirm-fields label{gap:7px;font-size:12px}
+.debt-form-grid input,.debt-form-grid select,.debt-form-grid textarea,.debt-confirm-fields input,.debt-confirm-fields select,.debt-confirm-fields textarea{min-height:42px;padding:11px 12px;border-radius:10px;font-size:14px;line-height:1.4}
+.debt-form-grid textarea,.debt-confirm-fields textarea{min-height:86px}
+.debt-form-grid label small,.debt-confirm-fields small{font-size:11px;line-height:1.45}
+.debt-form-grid label:focus-within,.debt-confirm-fields label:focus-within{color:#315d44}
+.debt-schedule-summary{gap:10px;margin:16px 0;padding:13px}
+.debt-schedule-summary>div{gap:5px;padding:3px 10px}
+.debt-schedule-summary small{font-size:11px}
+.debt-schedule-summary strong{font-size:14px}
+.debt-schedule-heading{padding:11px 13px}
+.debt-schedule-heading strong{font-size:12px}
+.debt-schedule-heading span{font-size:11px}
+.debt-schedule-row>strong{font-size:12px}
+.debt-schedule-row label{font-size:11px}
+.debt-schedule-row input{min-height:38px;font-size:12px}
+.debt-form-note{font-size:12px}
+.debt-form-actions .primary-button,.debt-form-actions .secondary-button{min-height:38px;padding:8px 12px;font-size:13px}
+.debt-list-heading .eyebrow{font-size:11px}
+.debt-list-heading h2{font-size:23px}
+.debt-list-heading p{font-size:12px}
+.debt-filters{gap:11px;padding:11px}
+.debt-filters>label:not(.debt-search){font-size:11px}
+.debt-filters select{font-size:12px}
+.debt-search input{font-size:13px}
+.debt-category-chip,.debt-review-chip,.debt-legacy-chip{font-size:10px}
+.debt-record-copy p{font-size:12px}
+.debt-record-copy>small{font-size:11px}
+.debt-record-amounts small{font-size:10px}
+.debt-record-amounts strong{font-size:13px}
+.debt-record-controls .secondary-button,.debt-record-controls .icon-button{padding:8px 10px;font-size:11px}
+.debt-record-controls .icon-button span{font-size:11px}
+.debt-installments-heading h4{font-size:14px}
+.debt-installments-heading p,.debt-installments-heading .secondary-button{font-size:11px}
+.debt-installment-number{font-size:10px}
+.debt-installment-status small{font-size:10px}
+.debt-payment-details{font-size:11px}
+.debt-installment-actions .primary-button,.debt-installment-actions .secondary-button{min-height:34px;padding:7px 9px;font-size:11px}
+.debt-management-page .state-card{padding:18px}
+.debt-management-page .status-pill{font-size:10px}
+@media(max-width:760px){.debt-management-page{gap:17px}.debt-metric{min-height:112px;padding:14px}.debt-form-grid{gap:12px}.debt-schedule-summary{padding:10px}.debt-list-heading h2{font-size:21px}}
+@media(max-width:540px){.debt-metric{min-height:104px;padding:11px;gap:8px}.debt-metric strong{font-size:17px}.debt-metric small{font-size:10px}.debt-metric span:last-child{font-size:9px}.debt-form-grid input,.debt-form-grid select,.debt-form-grid textarea{font-size:16px}.debt-form-section>h3{font-size:14px}.debt-schedule-summary strong{font-size:13px}.debt-list-heading h2{font-size:19px}}

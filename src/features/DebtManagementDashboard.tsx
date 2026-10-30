@@ -416,7 +416,7 @@ export function DebtManagementDashboard({ token }: { token: string }) {
             <label>Natureza da dívida<select value={draft.categoria} onChange={(event) => updateDraft('categoria', event.target.value as DebtCategory)}>{Object.entries(categoryLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
             <label className="debt-span-two">Descrição<input value={draft.descricao} maxLength={500} onChange={(event) => updateDraft('descricao', event.target.value)} placeholder="Ex.: parcelamento de encargos previdenciários" /></label>
             <label>Data da contratação / origem<input type="date" value={draft.dataContratacao} onChange={(event) => updateDraft('dataContratacao', event.target.value)} /><small>Permite registrar data retroativa.</small></label>
-            <label className="debt-span-two">Observações<textarea rows={2} value={draft.observacoes} onChange={(event) => updateDraft('observacoes', event.target.value)} placeholder="Referência, número do processo, condições negociadas…" /></label>
+            <label>Observações<textarea rows={3} value={draft.observacoes} onChange={(event) => updateDraft('observacoes', event.target.value)} placeholder="Referência, número do processo, condições negociadas…" /></label>
           </div></div>
           <div className="debt-form-section"><h3><span>2</span> Valor e agenda</h3><div className="debt-form-grid">
             <label>Valor total contratado (R$)<input type="number" min="0.01" step="0.01" value={draft.valorTotal} onChange={(event) => updateDraft('valorTotal', event.target.value)} placeholder="0,00" /></label>
