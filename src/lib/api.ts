@@ -97,6 +97,16 @@ export function listPoint(token: string, filters: { inicio?: string | null; fim?
   })
 }
 
+export function decidePointInconsistency(token: string, funcionarioId: string, data: string, status: 'aprovada' | 'justificada', justificativa = '') {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_decidir_inconsistencia_ponto', {
+    p_token: token,
+    p_funcionario_id: funcionarioId,
+    p_data: data,
+    p_status: status,
+    p_justificativa: justificativa,
+  })
+}
+
 export function listPayslips(token: string) {
   return rpc<{ sucesso: boolean; holerites: PayslipRow[]; erro?: string }>('app_listar_holerites', {
     p_token: token,

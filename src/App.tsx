@@ -41,6 +41,7 @@ import {
 import rfLogo from './assets/rf-logo.png'
 import {
   clearToken,
+  decidePointInconsistency,
   applyPointImport,
   importPoint,
   ignorePointImport,
@@ -554,7 +555,7 @@ function EmployeeProfileView({ token, onProfileUpdated }: { token: string; onPro
 }
 
 function PointView({ token, user }: { token: string; user: SessionUser }) {
-  const isAdministrative = user.perfil === 'admin' || user.perfil === 'administrador'
+  const isAdministrative = user.perfil === 'admin' || user.perfil === 'administrador' || user.perfil === 'gestor'
   const [rows, setRows] = useState<PointRow[]>([])
   const [employees, setEmployees] = useState<EmployeeRow[]>([])
   const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'previous_month' | 'custom'>('month')
@@ -564,6 +565,10 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
   const [customEnd, setCustomEnd] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [decisionBusy, setDecisionBusy] = useState('')
+  const [justificationRow, setJustificationRow] = useState('')
+  const [justificationText, setJustificationText] = useState('')
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const range = useMemo(() => {
     const toIso = (date: Date) => {
@@ -603,7 +608,7 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
       .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Falha de consulta') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [token, user.funcionario_id, isAdministrative, employeeId, period, range.inicio, range.fim, customStart, customEnd])
+  }, [token, user.funcionario_id, isAdministrative, employeeId, period, range.inicio, range.fim, customStart, customEnd, refreshKey])
 
   const selectedEmployee = employees.find((employee) => employee.id === employeeId)
   const displayRows = useMemo(() => {
@@ -618,6 +623,33 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
     }
     return result
   }, [rows, range.inicio, range.fim, isAdministrative, employeeId, user.funcionario_id])
+  const hoursToNumber = (value: string | null | undefined) => {
+    const raw = String(value || '').trim().replace(',', '.')
+    if (!raw) return 0
+    if (raw.includes(':')) { const [hours, minutes] = raw.split(':').map(Number); return (hours || 0) + (minutes || 0) / 60 }
+    const parsed = Number(raw.replace(/[^0-9.-]/g, ''))
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  const pointSummary = useMemo(() => {
+    const extra50 = displayRows.reduce((sum, row) => sum + hoursToNumber(row.extra_50), 0)
+    const extra100 = displayRows.reduce((sum, row) => sum + hoursToNumber(row.extra_100), 0)
+    const faltas = displayRows.filter((row) => Boolean(row.dia_falta && !['não', 'nao', 'n', '0'].includes(row.dia_falta.trim().toLowerCase())) || row.status === 'falta').length
+    const atrasos = displayRows.filter((row) => hoursToNumber(row.horas_atraso) > 0).length
+    return { extra50, extra100, faltas, atrasos, totalExtras: extra50 + extra100 }
+  }, [displayRows])
+  const hasInconsistency = (row: PointRow) => Boolean(row.inconsistencia_tipo || row.dia_falta || row.horas_atraso)
+  async function reviewInconsistency(row: PointRow, status: 'aprovada' | 'justificada') {
+    const funcionarioId = row.funcionario_id || (isAdministrative ? employeeId : user.funcionario_id)
+    if (!funcionarioId) return
+    if (status === 'justificada' && !justificationText.trim()) { setError('Informe a justificativa da inconsistência.'); return }
+    const key = row.data
+    setDecisionBusy(key); setError('')
+    try {
+      const result = await decidePointInconsistency(token, funcionarioId, row.data, status, justificationText)
+      if (!result.sucesso) throw new Error(result.erro || 'Não foi possível analisar a inconsistência.')
+      setJustificationRow(''); setJustificationText(''); setRefreshKey((value) => value + 1)
+    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao analisar a inconsistência.') } finally { setDecisionBusy('') }
+  }
   const periodLabel = period === 'day' ? 'Hoje' : period === 'week' ? 'Esta semana' : period === 'month' ? 'Mês selecionado' : period === 'previous_month' ? 'Mês anterior' : 'Período personalizado'
   const title = isAdministrative ? `Ponto · ${selectedEmployee?.nome || 'Funcionário'}` : 'Meu ponto'
   const description = isAdministrative ? 'Ficha individual de jornada. Selecione o funcionário e consulte todos os dias do período.' : 'Sua ficha individual de jornada, com todos os dias do período selecionado.'
@@ -632,8 +664,12 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
         {period === 'custom' ? <><label>Data inicial<input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} /></label><label>Data final<input type="date" value={customEnd} min={customStart || undefined} onChange={(event) => setCustomEnd(event.target.value)} /></label></> : <div className="point-filter-current"><CalendarDays size={17} /><span>{periodLabel}<small>{range.inicio ? `${formatDate(range.inicio)}${range.fim && range.fim !== range.inicio ? ` até ${formatDate(range.fim)}` : ''}` : 'Selecione as datas'}</small></span></div>}
       </div>
     </div>
+    <div className="point-summary-grid">
+      <section className="point-chart-card"><div className="point-chart-heading"><div><span className="eyebrow">Resumo de horas</span><strong>{pointSummary.totalExtras.toFixed(1)} h extras</strong></div><CalendarDays size={18} /></div><div className="point-bar-row"><span>Extra 50%</span><div className="point-bar-track"><i style={{ width: `${pointSummary.totalExtras ? Math.max(4, pointSummary.extra50 / pointSummary.totalExtras * 100) : 0}%` }} /></div><b>{pointSummary.extra50.toFixed(1)} h</b></div><div className="point-bar-row"><span>Extra 100%</span><div className="point-bar-track is-pink"><i style={{ width: `${pointSummary.totalExtras ? Math.max(4, pointSummary.extra100 / pointSummary.totalExtras * 100) : 0}%` }} /></div><b>{pointSummary.extra100.toFixed(1)} h</b></div></section>
+      <section className="point-chart-card"><div className="point-chart-heading"><div><span className="eyebrow">Resumo de ocorrências</span><strong>{pointSummary.faltas} faltas identificadas</strong></div><AlertCircle size={18} /></div><div className="point-bar-row"><span>Faltas</span><div className="point-bar-track is-danger"><i style={{ width: `${pointSummary.faltas ? 100 : 0}%` }} /></div><b>{pointSummary.faltas}</b></div><div className="point-bar-row"><span>Atrasos</span><div className="point-bar-track is-gold"><i style={{ width: `${pointSummary.atrasos ? Math.min(100, pointSummary.atrasos / Math.max(pointSummary.faltas, pointSummary.atrasos) * 100) : 0}%` }} /></div><b>{pointSummary.atrasos}</b></div></section>
+    </div>
     <SectionCard title={isAdministrative ? `Ficha de ${selectedEmployee?.nome || 'funcionário'}` : 'Minha ficha de ponto'} caption={`${periodLabel} · ${range.inicio ? `${formatDate(range.inicio)} a ${formatDate(range.fim || range.inicio)}` : 'aguardando período'}`}>
-      {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : !displayRows.length ? <EmptyState title={isAdministrative && !employeeId ? 'Selecione um funcionário' : 'Nenhum dia para exibir'} description={isAdministrative && !employeeId ? 'Escolha um funcionário para abrir a ficha individual de ponto.' : 'Ajuste o período para consultar a jornada.'} /> : <div className="table-wrap"><p className="table-scroll-hint">Os dias são exibidos do primeiro ao último dia do período.</p><table className="point-daily-table"><thead><tr><th>Dia</th><th>Entrada</th><th>Almoço</th><th>Retorno</th><th>Saída</th><th>Horas</th><th>Status</th></tr></thead><tbody>{displayRows.map((row) => <tr key={row.id} className={!row.entrada && !row.saida ? 'point-empty-day' : ''}><td><strong>{formatDate(row.data)}</strong></td><td>{row.entrada || '—'}</td><td>{row.saida_almoco || '—'}</td><td>{row.volta_almoco || '—'}</td><td>{row.saida || '—'}</td><td>{row.horas_trabalhadas || '—'}</td><td><StatusPill value={row.status || 'Sem registro'} /></td></tr>)}</tbody></table></div>}
+      {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : !displayRows.length ? <EmptyState title={isAdministrative && !employeeId ? 'Selecione um funcionário' : 'Nenhum dia para exibir'} description={isAdministrative && !employeeId ? 'Escolha um funcionário para abrir a ficha individual de ponto.' : 'Ajuste o período para consultar a jornada.'} /> : <div className="table-wrap"><p className="table-scroll-hint">Os dias são exibidos do primeiro ao último dia do período.</p><table className="point-daily-table"><thead><tr><th>Dia</th><th>Entrada</th><th>Almoço</th><th>Retorno</th><th>Saída</th><th>Horas</th><th>Status</th>{isAdministrative ? <><th>Inconsistência</th><th>Análise</th></> : null}</tr></thead><tbody>{displayRows.map((row) => <tr key={row.id} className={!row.entrada && !row.saida ? 'point-empty-day' : ''}><td><strong>{formatDate(row.data)}</strong></td><td>{row.entrada || '—'}</td><td>{row.saida_almoco || '—'}</td><td>{row.volta_almoco || '—'}</td><td>{row.saida || '—'}</td><td>{row.horas_trabalhadas || '—'}</td><td><StatusPill value={row.status || 'Sem registro'} /></td>{isAdministrative ? <><td>{hasInconsistency(row) ? <div className="point-issue-cell"><StatusPill value={row.inconsistencia_status === 'aprovada' ? 'Aprovada' : row.inconsistencia_status === 'justificada' ? 'Justificada' : row.inconsistencia_tipo === 'falta' ? 'Falta' : 'Atraso'} /><small>{row.horas_atraso ? `Atraso: ${row.horas_atraso}` : row.dia_falta ? `Falta: ${row.dia_falta}` : row.inconsistencia}</small></div> : '—'}</td><td>{hasInconsistency(row) && row.inconsistencia_status === 'pendente' ? <div className="point-review-actions">{justificationRow === row.data ? <><input value={justificationText} onChange={(event) => setJustificationText(event.target.value)} placeholder="Motivo da justificativa" /><button className="icon-button" type="button" onClick={() => void reviewInconsistency(row, 'justificada')} disabled={decisionBusy === row.data} aria-label="Salvar justificativa"><Check size={15} /></button></> : <><button className="icon-button" type="button" onClick={() => void reviewInconsistency(row, 'aprovada')} disabled={decisionBusy === row.data} aria-label="Aprovar inconsistência"><Check size={15} /></button><button className="icon-button" type="button" onClick={() => { setJustificationRow(row.data); setJustificationText('') }} aria-label="Justificar inconsistência"><FileText size={15} /></button></>}</div> : hasInconsistency(row) ? <small className="reviewed-note">{row.inconsistencia_justificativa || 'Tratada'}</small> : '—'}</td></> : null}</tr>)}</tbody></table></div>}
     </SectionCard>
   </>
 }

@@ -668,6 +668,21 @@ td strong { color: #2b2328; }
 .point-daily-table .point-empty-day { background: rgba(255,255,255,.025); }
 .point-daily-table .point-empty-day td { color: var(--muted); }
 .point-daily-table .point-empty-day td:first-child strong { color: var(--text); }
+.point-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; margin-bottom: 18px; }
+.point-chart-card { display: grid; gap: 14px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+.point-chart-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; color: var(--gold); }
+.point-chart-heading > div { display: grid; gap: 4px; }
+.point-chart-heading strong { color: var(--text); font-size: 16px; }
+.point-bar-row { display: grid; grid-template-columns: 78px 1fr 48px; align-items: center; gap: 9px; color: var(--muted); font-size: 10px; }
+.point-bar-row b { color: var(--text); font-size: 11px; text-align: right; }
+.point-bar-track { height: 8px; overflow: hidden; border-radius: 99px; background: rgba(183,140,44,.14); }
+.point-bar-track i { display: block; height: 100%; border-radius: inherit; background: var(--gold); transition: width .25s ease; }
+.point-bar-track.is-pink i { background: var(--pink); }
+.point-bar-track.is-danger i { background: var(--danger); }
+.point-issue-cell { display: grid; gap: 4px; min-width: 100px; }
+.point-issue-cell small, .reviewed-note { color: var(--muted); font-size: 10px; white-space: normal; }
+.point-review-actions { display: flex; align-items: center; gap: 5px; min-width: 92px; }
+.point-review-actions input { min-width: 150px; max-width: 210px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 11px; }
 @media (max-width: 420px) {
   .employee-filter-header { align-items: stretch; flex-direction: column; }
   .employee-filter-fields { grid-template-columns: 1fr; }
@@ -677,6 +692,8 @@ td strong { color: #2b2328; }
   .point-filter-heading { align-items: stretch; flex-direction: column; }
   .point-filter-fields { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .point-filter-current { grid-column: 1 / -1; }
+  .point-summary-grid { grid-template-columns: 1fr; }
+  .point-review-actions input { min-width: 120px; max-width: 160px; }
 }
 @media (max-width: 420px) {
   .point-filter-fields { grid-template-columns: 1fr; }
