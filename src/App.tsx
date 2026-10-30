@@ -472,6 +472,8 @@ function EmployeesView({ token }: { token: string }) {
           <EmployeeFichaPanel
             token={token}
             employee={selected.funcionario}
+            onDownloadPdf={() => void generateEmployeeReport(String(selected.funcionario?.id || ''))}
+            downloadingPdf={generatingReportId === String(selected.funcionario.id)}
             onClose={() => { setSelected(null); setSelectedId('') }}
             onSaved={(updated) => {
               setSelected((current) => current ? { ...current, funcionario: updated } : current)

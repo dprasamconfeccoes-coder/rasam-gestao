@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { X } from 'lucide-react'
+import { FileDown, X } from 'lucide-react'
 import { adminAtualizarFichaFuncionario, adminProntuario } from '../lib/api'
 import type { EmployeeFichaPayload, EmployeeFichaRecord } from '../lib/types'
 
@@ -178,12 +178,16 @@ export function EmployeeFichaPanel({
   employee,
   onSaved,
   onClose,
+  onDownloadPdf,
+  downloadingPdf = false,
   children,
 }: {
   token: string
   employee: EmployeeFichaRecord
   onSaved: (updated: EmployeeFichaRecord) => void
   onClose: () => void
+  onDownloadPdf?: () => void
+  downloadingPdf?: boolean
   children?: ReactNode
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -289,6 +293,12 @@ export function EmployeeFichaPanel({
             <p>Dados de {String(employee.nome || 'funcionário')} · conforme a ficha funcional.</p>
           </div>
           <div className="employee-ficha-heading-actions">
+            {onDownloadPdf ? (
+              <button className="secondary-button employee-ficha-pdf-action" type="button" onClick={onDownloadPdf} disabled={saving || downloadingPdf} title="Gerar PDF da ficha" aria-label={downloadingPdf ? 'Gerando PDF da ficha' : 'Gerar PDF da ficha'}>
+                {downloadingPdf ? <span className="button-spinner" aria-hidden="true" /> : <FileDown size={16} aria-hidden="true" />}
+                <span>{downloadingPdf ? 'Gerando PDF…' : 'Gerar PDF'}</span>
+              </button>
+            ) : null}
             {!editing ? (
               <button className="secondary-button" type="button" onClick={beginEditing}>
                 Editar ficha
