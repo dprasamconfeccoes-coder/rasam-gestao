@@ -269,6 +269,22 @@ export interface AdminMedicalLeaveRow extends MedicalLeaveRow {
   cpf: string
 }
 
+export interface AdminVacationRow {
+  id: string
+  funcionario_id: string
+  nome: string
+  cpf: string
+  cargo: string | null
+  periodo_aquisitivo_inicio: string
+  periodo_aquisitivo_fim: string
+  inicio: string | null
+  fim: string | null
+  status: 'agendada' | 'em_gozo' | 'concluida' | 'cancelada'
+  observacoes: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface AdminRequestRow extends RequestRow {
   funcionario_id: string
   analisado_em: string | null
