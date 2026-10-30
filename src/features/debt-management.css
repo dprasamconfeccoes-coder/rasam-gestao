@@ -128,3 +128,30 @@
 .debt-insights .section-card>.debt-health-list{margin:14px 20px 18px;padding:0}
 @media(max-width:760px){.debt-insights .section-card>.debt-health-list{margin:12px 14px 16px}}
 @media(max-width:540px){.debt-insights .section-card>.debt-health-list{margin:11px 12px 14px}}
+
+
+/* Agenda dupla: barras de pagamentos + linha de evolução, com eixo mensal compartilhado. */
+.debt-chart-stack{display:grid;gap:7px;margin:9px 20px 16px}
+.debt-chart-series{min-width:0}
+.debt-chart-series>h3{display:flex;align-items:center;gap:7px;margin:0 4px 1px;color:#66736b;font-size:10px;font-weight:700;letter-spacing:.015em}
+.debt-series-symbol{position:relative;display:inline-block;width:13px;height:11px;flex:0 0 13px}
+.debt-series-symbol-bars{border-bottom:1px solid #9ab9a5}
+.debt-series-symbol-bars:before,.debt-series-symbol-bars:after{position:absolute;bottom:1px;width:4px;border-radius:3px 3px 0 0;background:#388260;content:""}
+.debt-series-symbol-bars:before{left:1px;height:6px}.debt-series-symbol-bars:after{right:1px;height:9px}
+.debt-series-symbol-line:before{position:absolute;top:5px;left:0;width:13px;border-top:2px solid #a44283;content:"";transform:rotate(-18deg)}
+.debt-series-symbol-line:after{position:absolute;top:3px;left:5px;width:5px;height:5px;border:1.5px solid #a44283;border-radius:50%;background:#fff;content:""}
+.debt-chart{height:133px;gap:12px;padding:7px 5px 0}
+.debt-chart-column{height:100%;gap:6px}
+.debt-chart-column>strong{font-size:9px;font-variant-numeric:tabular-nums}
+.debt-chart-track{height:auto;min-height:0;flex:1}
+.debt-chart-track span{max-width:42px}
+.debt-evolution-chart{display:block;width:100%;height:120px;overflow:visible}
+.debt-evolution-gridline{stroke:#e9ece8;stroke-width:1;stroke-dasharray:3 4;vector-effect:non-scaling-stroke}
+.debt-evolution-path{fill:none;stroke:#a44283;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.debt-evolution-point circle{fill:#fff;stroke:#9a3a7b;stroke-width:2.3;vector-effect:non-scaling-stroke}
+.debt-evolution-point text{fill:#7e3e6d;font:600 8px system-ui,sans-serif}
+.debt-chart-month-legend{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-top:-4px;padding:0 5px}
+.debt-chart-month-legend span{min-width:0;color:#77837b;font-size:10px;text-align:center;text-transform:capitalize;white-space:nowrap}
+.debt-projection-note{margin:2px 5px 1px;color:#8a948d;font-size:9px;line-height:1.45}
+@media(max-width:760px){.debt-chart-stack{margin:8px 14px 14px}.debt-chart{height:125px;gap:7px}.debt-evolution-chart{height:112px}.debt-chart-month-legend{gap:7px}.debt-chart-month-legend span{font-size:9px}.debt-chart-series>h3{font-size:9px}.debt-projection-note{font-size:8px}}
+@media(max-width:540px){.debt-chart-stack{margin:7px 12px 12px;gap:5px}.debt-chart{height:116px;gap:5px;padding-left:2px;padding-right:2px}.debt-chart-column>strong{font-size:8px}.debt-evolution-chart{height:102px}.debt-evolution-point text{font-size:7.5px}.debt-chart-month-legend{gap:5px;padding:0 2px}.debt-chart-month-legend span{font-size:8px}.debt-chart-series>h3{margin-left:2px}.debt-projection-note{margin-left:2px;margin-right:2px}}

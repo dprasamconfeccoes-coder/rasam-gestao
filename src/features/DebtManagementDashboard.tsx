@@ -131,6 +131,9 @@ function toInstallmentDraft(item: DebtInstallment): InstallmentDraft {
 function monthLabel(date: Date) {
   return date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '')
 }
+function compactMoney(value: number) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1 }).format(value)
+}
 function isLate(item: DebtInstallment) {
   return item.ativo && item.status === 'pendente' && !!item.vencimento && item.vencimento < today()
 }
@@ -222,6 +225,20 @@ export function DebtManagementDashboard({ token }: { token: string }) {
     })
   }, [debts])
   const maxMonthly = Math.max(1, ...scheduleByMonth.map((item) => item.amount))
+  const projectedBalanceByMonth = useMemo(() => {
+    let balance = Math.max(0, metrics.openBalance)
+    return scheduleByMonth.map((item) => {
+      balance = Math.max(0, Math.round((balance - item.amount) * 100) / 100)
+      return { ...item, projectedBalance: balance }
+    })
+  }, [metrics.openBalance, scheduleByMonth])
+  const maxProjectedBalance = Math.max(1, metrics.openBalance, ...projectedBalanceByMonth.map((item) => item.projectedBalance))
+  const debtEvolutionPoints = projectedBalanceByMonth.map((item, index) => {
+    const x = 50 + index * 100
+    const y = 105 - (item.projectedBalance / maxProjectedBalance) * 78
+    return { ...item, x, y }
+  })
+  const debtEvolutionPath = debtEvolutionPoints.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')
 
   function updateDraft<K extends keyof DebtDraft>(key: K, value: DebtDraft[K]) {
     setDraft((current) => {
@@ -402,13 +419,32 @@ export function DebtManagementDashboard({ token }: { token: string }) {
       </section>
 
       <section className="debt-insights">
-        <SectionCard title="Agenda de vencimentos" caption="Valores pendentes previstos por mês · próximos 6 meses">
-          <div className="debt-chart" role="img" aria-label="Gráfico de valores pendentes por mês">
-            {scheduleByMonth.map((item) => <div className="debt-chart-column" key={item.key}>
-              <strong>{item.amount ? formatMoney(item.amount) : '—'}</strong>
-              <div className="debt-chart-track"><span style={{ height: `${Math.max(item.amount ? 8 : 3, Math.round(item.amount / maxMonthly * 100))}%` }} /></div>
-              <small>{item.label}</small>
-            </div>)}
+        <SectionCard title="Agenda de vencimentos" caption="Pagamentos previstos e evolução estimada do saldo · próximos 6 meses">
+          <div className="debt-chart-stack">
+            <section className="debt-chart-series" aria-label="Valores mensais previstos">
+              <h3><span className="debt-series-symbol debt-series-symbol-bars" />Parcelas previstas para pagamento</h3>
+              <div className="debt-chart" role="img" aria-label={`Valores de parcelas pendentes em seis meses: ${scheduleByMonth.map((item) => `${item.label}, ${formatMoney(item.amount)}`).join('; ')}`}>
+                {scheduleByMonth.map((item) => <div className="debt-chart-column" key={item.key}>
+                  <strong>{item.amount ? formatMoney(item.amount) : '—'}</strong>
+                  <div className="debt-chart-track"><span style={{ height: `${Math.max(item.amount ? 8 : 3, Math.round(item.amount / maxMonthly * 100))}%` }} /></div>
+                </div>)}
+              </div>
+            </section>
+            <section className="debt-chart-series debt-evolution-series" aria-label="Saldo devedor projetado">
+              <h3><span className="debt-series-symbol debt-series-symbol-line" />Saldo devedor projetado após pagamentos previstos</h3>
+              <svg className="debt-evolution-chart" viewBox="0 0 600 132" preserveAspectRatio="none" role="img" aria-label={`Projeção condicional do saldo: ${projectedBalanceByMonth.map((item) => `${item.label}, ${formatMoney(item.projectedBalance)}`).join('; ')}`}>
+                {[27, 66, 105].map((y) => <line key={y} x1="24" x2="576" y1={y} y2={y} className="debt-evolution-gridline" />)}
+                <path d={debtEvolutionPath} className="debt-evolution-path" />
+                {debtEvolutionPoints.map((point) => <g key={point.key} className="debt-evolution-point">
+                  <text x={point.x} y={Math.max(13, point.y - 10)} textAnchor="middle">{compactMoney(point.projectedBalance)}</text>
+                  <circle cx={point.x} cy={point.y} r="4"><title>{point.label}: {formatMoney(point.projectedBalance)} projetados</title></circle>
+                </g>)}
+              </svg>
+            </section>
+            <div className="debt-chart-month-legend" aria-label="Meses apresentados nos dois gráficos">
+              {scheduleByMonth.map((item) => <span key={item.key}>{item.label}</span>)}
+            </div>
+            <p className="debt-projection-note">Projeção estimada: considera o pagamento integral das parcelas ativas previstas em cada mês. Atrasos, renegociações e novos lançamentos podem alterar o saldo real.</p>
           </div>
         </SectionCard>
         <SectionCard title="Visão do passivo" caption="Saldo em aberto por natureza · registros inativos excluídos">
