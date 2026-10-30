@@ -52,7 +52,6 @@ import {
   listCompanyDocuments,
   listImportedPoint,
   listPointImports,
-  createRequest,
   dashboard,
   adminProntuario,
   adminCriarOrdem,
@@ -64,7 +63,6 @@ import {
   listOrders,
   listPayslips,
   listPoint,
-  listRequests,
   login,
   logout,
   myProfile,
@@ -74,6 +72,7 @@ import {
   uploadMedicalLeave,
 } from './lib/api'
 import { EmployeeMedicalLeaves } from './features/MedicalLeavesWorkflow'
+import { EmployeeHRRequests } from './features/EmployeeHRRequests'
 import type {
   DashboardResponse,
   EmployeeProfile,
@@ -86,7 +85,6 @@ import type {
   PayslipRow,
   PointRow,
   Profile,
-  RequestRow,
   SessionUser,
   AgreementInstallment,
   CompanyDocument,
@@ -868,15 +866,6 @@ function NoticesView({ token }: { token: string }) {
   return <><PageHeading eyebrow="Minha área · comunicação" title="Avisos" description="Comunicados oficiais publicados pela empresa." /><SectionCard title="Comunicados publicados" caption="Somente avisos liberados pelo RH">{loading ? <LoadingState /> : error ? <ErrorState message={error} /> : rows.length === 0 ? <EmptyState title="Nenhum aviso publicado" description="Quando houver um novo comunicado, ele aparecerá nesta lista." /> : <div className="notice-list">{rows.map((row) => <article className="notice-card" key={row.id}><div className="notice-head"><StatusPill value={row.prioridade} /><span>{formatDate(row.publicado_em || row.created_at)}</span></div><h3>{row.titulo}</h3><p>{row.conteudo}</p></article>)}</div>}</SectionCard></>
 }
 
-function RequestsView({ token }: { token: string }) {
-  const [rows, setRows] = useState<RequestRow[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [type, setType] = useState('Dúvida ao RH'); const [description, setDescription] = useState(''); const [saving, setSaving] = useState(false); const [success, setSuccess] = useState('')
-  async function reload() { setLoading(true); try { const data = await listRequests(token); if (!data.sucesso) throw new Error(data.erro || 'Falha de consulta'); setRows(data.solicitacoes || []) } catch (err) { setError(err instanceof Error ? err.message : 'Falha de consulta') } finally { setLoading(false) } }
-  useEffect(() => { reload() }, [token])
-  async function submit(event: FormEvent) { event.preventDefault(); setSaving(true); setSuccess(''); setError(''); try { const data = await createRequest(token, type, description); if (!data.sucesso) throw new Error(data.erro || 'Não foi possível registrar'); setDescription(''); setSuccess('Solicitação registrada no RH.'); await reload() } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao registrar') } finally { setSaving(false) } }
-  return <><PageHeading eyebrow="Minha área · relacionamento" title="Solicitações ao RH" description="Abra um pedido e acompanhe o retorno do departamento pessoal." /><div className="two-column"><SectionCard title="Nova solicitação" caption="O registro será associado ao seu funcionário"><form className="form-stack" onSubmit={submit}><label>Tipo<select value={type} onChange={(event) => setType(event.target.value)}><option>Dúvida ao RH</option><option>Correção cadastral</option><option>Férias</option><option>Documento</option><option>Benefício</option></select></label><label>Descrição<textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Descreva o que você precisa…" rows={6} /></label>{error && <div className="form-error"><AlertCircle size={16} />{error}</div>}{success && <div className="form-success"><Check size={16} />{success}</div>}<button className="primary-button" type="submit" disabled={saving}>{saving ? <><RefreshCw className="spin" size={16} /> Enviando…</> : <>Registrar solicitação <ArrowRight size={16} /></>}</button></form></SectionCard><SectionCard title="Meus pedidos" caption="Status atualizado pelo RH">{loading ? <LoadingState /> : rows.length === 0 ? <EmptyState title="Nenhuma solicitação aberta" description="Seu histórico de pedidos aparecerá aqui." /> : <div className="request-list">{rows.map((row) => <div className="request-row" key={row.id}><div><div className="row-kicker">{row.tipo} · {formatDate(row.created_at)}</div><strong>{row.descricao}</strong>{row.resposta && <p>Resposta: {row.resposta}</p>}</div><StatusPill value={row.status} /></div>)}</div>}</SectionCard></div></>
-}
-
-
 function parseDelimited(text: string) {
   const rows: string[][] = []
   let row: string[] = []; let cell = ''; let quoted = false
@@ -1047,7 +1036,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'holerites') return <PayslipsView token={token} />
     if (active === 'atestados') return <EmployeeMedicalLeaves token={token} />
     if (active === 'avisos') return <NoticesView token={token} />
-    if (active === 'solicitacoes') return <RequestsView token={token} />
+    if (active === 'solicitacoes') return <EmployeeHRRequests token={token} />
     if (active === 'importacoes') return <PointImportsView token={token} />
     if (active === 'acordos') return <AgreementsView token={token} />
     if (active === 'documentos') return <DocumentsView token={token} />

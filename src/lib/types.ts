@@ -169,6 +169,18 @@ export interface RequestRow {
   status: string
   resposta: string | null
   created_at: string
+  updated_at?: string
+  analisado_em?: string | null
+  timeline?: RequestAuditEvent[]
+}
+
+export interface RequestAuditEvent {
+  evento: string
+  status_anterior: string | null
+  status_novo: string
+  comentario: string | null
+  responsavel: string | null
+  created_at: string
 }
 
 export interface MedicalLeaveAuditEvent {
@@ -336,7 +348,27 @@ export interface AdminRequestRow extends RequestRow {
   funcionario_id: string
   analisado_em: string | null
   nome: string
-  cpf: string
+  cpf?: string
+}
+
+export interface AdminRequestsSummary {
+  total: number
+  pendentes: number
+  em_analise: number
+  abertas: number
+  atendidas: number
+  recusadas: number
+  canceladas: number
+}
+
+export interface AdminRequestsPage {
+  sucesso: boolean
+  erro?: string
+  resumo: AdminRequestsSummary
+  solicitacoes: AdminRequestRow[]
+  total: number
+  offset: number
+  limite: number
 }
 
 export interface AdminPayslipRow extends PayslipRow {

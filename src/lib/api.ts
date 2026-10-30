@@ -11,6 +11,7 @@ import type {
   AdminOrderRow,
   AdminPayslipRow,
   AdminPointRow,
+  AdminRequestsPage,
   AdminRequestRow,
   AdminVacationRow,
   CompanyDocument,
@@ -308,6 +309,18 @@ export function decideMedicalLeave(token: string, id: string, status: string, ob
 
 export function adminRequests(token: string) {
   return rpc<{ sucesso: boolean; erro?: string; solicitacoes: AdminRequestRow[] }>('app_admin_solicitacoes', { p_token: token })
+}
+
+export function adminRequestsPage(token: string, mes: string | null, status: string, funcionarioId: string | null, tipo: string | null, offset: number, limite: number) {
+  return rpc<AdminRequestsPage>('app_admin_solicitacoes_dashboard', {
+    p_token: token,
+    p_mes: mes,
+    p_status: status,
+    p_funcionario_id: funcionarioId,
+    p_tipo: tipo,
+    p_offset: offset,
+    p_limite: limite,
+  })
 }
 
 export function answerRequest(token: string, id: string, status: string, resposta: string) {
