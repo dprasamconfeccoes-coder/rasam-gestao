@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Check, Download, FileText, Megaphone, RefreshCw, ShieldCheck, UserPlus, X } from 'lucide-react'
-import { adminCalcularFechamento, adminConfirmarFechamento, adminFinanceiroWorkspace, adminJustifications, adminLeaves, adminMedicalLeaves, adminPayslips, adminPoint, adminProntuario, adminQuitarParcela, adminRelatorioFechamento, adminRequests, adminRights, adminCadastrarFuncionario, adminVacations, adminVisualizarFechamento, answerRequest, decideJustification, decideMedicalLeave, listEmployees, publishNotice, registerPayslip, updateLot, updateOrder } from '../lib/api'
+import { adminCalcularFechamento, adminConfirmarFechamento, adminFinanceiroWorkspace, adminJustifications, adminLeaves, adminMedicalLeaves, adminPayslips, adminPoint, adminProntuario, adminQuitarParcela, adminRelatorioFechamento, adminRequests, adminRights, adminCadastrarFuncionario, adminVacations, adminVisualizarFechamento, answerRequest, decideJustification, listEmployees, publishNotice, registerPayslip, updateLot, updateOrder } from '../lib/api'
 import type { AdminJustificationRow, AdminLeaveRow, AdminLotRow, AdminMedicalLeaveRow, AdminOrderRow, AdminPayslipRow, AdminPointRow, AdminRequestRow, AdminVacationRow, EmployeeRow, FechamentoPreview, FinanceiroWorkspace, ProntuarioResponse } from '../lib/types'
 import { EmptyState, ErrorState, PageHeading, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
 import { FinanceWriteForms } from './FinanceWriteForms'
 import { HRDashboardPanel } from './HRDashboardPanel'
 import { HRLeavePanel } from './HRLeavePanel'
 import { HRLifecyclePanel } from './HRLifecyclePanel'
-import { HRMedicalLeavesPanel } from './HRMedicalLeavesPanel'
+import { AdminMedicalLeavesPanel } from './MedicalLeavesWorkflow'
 import { HRVacationPanel } from './HRVacationPanel'
 
 type Tab = 'painel'|'ponto'|'justificativas'|'atestados'|'ferias'|'afastamentos'|'admissoes'|'solicitacoes'|'cadastro'|'prontuario'|'fechamento'|'holerites'|'avisos'|'financeiro'|'producao'
@@ -29,7 +29,7 @@ export function AdminCenterV2({token,initialTab='ponto'}:{token:string;initialTa
  {tab==='painel'&&<HRDashboardPanel point={point} justifications={justs} leaves={leaves} requests={requests} vacations={vacations} hrLeaves={hrLeaves} employees={employees} onOpenTab={(next) => setTab(next as Tab)} />}
  {tab==='ponto'&&<SectionCard title={`${point.length} registros de ponto`} caption="Todos os funcionários ativos"><button className="secondary-button" onClick={()=>printRows('Ponto geral',['Data','Funcionário','CPF','Entrada','Saída','Horas','Status'],point.map(r=>[formatDate(r.data),r.nome,r.cpf,r.entrada||'',r.saida||'',r.horas_trabalhadas||'',r.status||'']))}><Download size={16}/> Exportar ponto</button><div className="table-wrap"><table><thead><tr><th>Data</th><th>Funcionário</th><th>CPF</th><th>Entrada</th><th>Saída</th><th>Horas</th><th>Status</th></tr></thead><tbody>{point.map(r=><tr key={r.id}><td>{formatDate(r.data)}</td><td><strong>{r.nome}</strong><small>{r.cargo||''}</small></td><td className="mono">{r.cpf}</td><td>{r.entrada||'—'}</td><td>{r.saida||'—'}</td><td>{r.horas_trabalhadas||'—'}</td><td><StatusPill value={r.status}/></td></tr>)}</tbody></table></div></SectionCard>}
  {tab==='justificativas'&&<SectionCard title="Justificativas de ponto" caption="Aceite ou recuse com resposta ao funcionário">{justs.length?<div className="document-list">{justs.map(r=><div className="document-row" key={r.id}><div><strong>{r.nome} · {r.tipo}</strong><small>{formatDate(r.data_registro)} · {r.motivo}</small><input className="inline-input" placeholder="Resposta do RH" value={reply[r.id]||''} onChange={e=>setReply({...reply,[r.id]:e.target.value})}/></div><StatusPill value={r.status}/><button className="icon-button" onClick={()=>act(()=>decideJustification(token,r.id,'aceita',reply[r.id]||''),'Justificativa aceita.')}><Check size={16}/></button><button className="icon-button danger" onClick={()=>act(()=>decideJustification(token,r.id,'recusada',reply[r.id]||''),'Justificativa recusada.')}><X size={16}/></button></div>)}</div>:<EmptyState title="Nenhuma justificativa" description="Novos pedidos aparecerão aqui."/>}</SectionCard>}
- {tab==='atestados'&&<HRMedicalLeavesPanel leaves={leaves} onDecide={(id,status,observation)=>act(()=>decideMedicalLeave(token,id,status,observation),status==='aceito'?'Atestado aceito.':'Atestado recusado.')} />}
+ {tab==='atestados'&&<AdminMedicalLeavesPanel token={token} leaves={leaves} onRefresh={load} />}
  {tab==='ferias'&&<HRVacationPanel token={token} employees={employees} vacations={vacations} onDone={load} />}
  {tab==='afastamentos'&&<HRLeavePanel token={token} employees={employees} leaves={hrLeaves} onDone={load} />}
  {tab==='admissoes'&&<HRLifecyclePanel token={token} employees={employees} onDone={load} />}
