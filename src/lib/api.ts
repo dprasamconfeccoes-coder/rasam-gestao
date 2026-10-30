@@ -13,6 +13,7 @@ import type {
   AdminRequestRow,
   CompanyDocument,
   EmployeeProfile,
+  EmployeeFichaPayload,
   EmployeeRow,
   LoginResponse,
   MedicalLeaveRow,
@@ -228,6 +229,15 @@ export function adminProntuario(token: string, funcionarioId: string) {
   return rpc<import('./types').ProntuarioResponse>('app_admin_prontuario', { p_token: token, p_funcionario_id: funcionarioId })
 }
 
+export function adminAtualizarFichaFuncionario(token: string, funcionarioId: string, payload: EmployeeFichaPayload) {
+  return rpc<{ sucesso: boolean; erro?: string; funcionario_id?: string }>('app_admin_atualizar_funcionario', {
+    p_token: token,
+    p_funcionario_id: funcionarioId,
+    p_dados: payload,
+  })
+}
+
+
 export function adminCadastrarFuncionario(token: string, payload: { nome: string; cpf: string; dataNascimento: string; tipoVinculo: string; cargo: string; telefone: string; endereco: string; valorMensal: number | null; valorDiaria: number | null; liberarAcesso: boolean }) {
   return rpc<{ sucesso: boolean; erro?: string; funcionario_id?: string }>('app_admin_cadastrar_funcionario', {
     p_token: token, p_nome: payload.nome, p_cpf: payload.cpf, p_data_nascimento: payload.dataNascimento, p_tipo_vinculo: payload.tipoVinculo,
@@ -250,20 +260,6 @@ export function adminFinanceiroWorkspace(token: string) {
 
 export function adminQuitarParcela(token: string, id: string, comprovanteUrl?: string, comprovanteNome?: string) {
   return rpc<{ sucesso: boolean; erro?: string }>('app_admin_quitar_parcela', { p_token: token, p_id: id, p_comprovante_url: comprovanteUrl || null, p_comprovante_nome: comprovanteNome || null })
-}
-
-export async function uploadFinancialReceipt(token: string, parcelaId: string, file: File) {
-  const form = new FormData()
-  form.set('parcela_id', parcelaId)
-  form.set('arquivo', file)
-  const response = await fetch(`${config.supabaseUrl}/functions/v1/financeiro-comprovante-upload`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'x-app-token': token },
-    body: form,
-  })
-  const data = (await response.json()) as { sucesso: boolean; erro?: string; caminho?: string; nome?: string }
-  if (!response.ok || !data.sucesso || !data.caminho) throw new Error(data.erro || 'Não foi possível enviar o comprovante')
-  return { caminho: data.caminho, nome: data.nome || file.name }
 }
 
 export function adminCriarRecorrencia(token: string, payload: { descricao: string; categoria: string; fornecedor: string; valor: number; periodicidade: string; proximoVencimento: string }) {

@@ -86,17 +86,14 @@ export interface RpcListResponse<T> {
 }
 
 export interface EmployeeProfile {
-  id: string
   nome: string
   cpf: string
-  data_nascimento: string
+  data_nascimento: string | null
   cargo: string | null
   funcao: string | null
   data_admissao: string | null
-  salario: number | null
   endereco: string | null
   telefone_celular: string | null
-  email?: string | null
   ativo: boolean
 }
 
@@ -278,10 +275,21 @@ export interface AdminLotRow {
 }
 
 
+export interface EmployeeFichaRecord extends Record<string, unknown> {
+  id: string
+  nome: string
+  cpf: string
+  data_nascimento: string | null
+  tipo_vinculo?: string
+  registrado?: boolean
+}
+
+export type EmployeeFichaPayload = Record<string, string | number | null>
+
 export interface ProntuarioResponse {
   sucesso: boolean
   erro?: string
-  funcionario?: Record<string, unknown> & { id: string; nome: string; cpf: string; tipo_vinculo?: string; registrado?: boolean }
+  funcionario?: EmployeeFichaRecord
   documentos: Array<Record<string, unknown>>
   advertencias: Array<Record<string, unknown>>
   timeline: Array<Record<string, unknown>>
