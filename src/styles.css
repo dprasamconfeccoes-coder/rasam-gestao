@@ -678,6 +678,15 @@ td strong { color: #2b2328; }
 .point-employee-nav span { color: var(--gold); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .point-employee-nav strong { font-size: 13px; }
 .point-employee-nav small { color: var(--muted); font-size: 10px; }
+.point-employee-heading { display: grid; grid-template-columns: auto minmax(180px, 1.4fr) repeat(3, minmax(125px, .75fr)); align-items: center; gap: 14px; margin-bottom: 16px; padding: 15px 17px; border: 1px solid rgba(215,168,74,.24); border-radius: 14px; background: linear-gradient(100deg, rgba(215,168,74,.10), rgba(217,88,141,.05) 58%, rgba(255,255,255,.025)); }
+.point-employee-avatar { width: 58px; height: 58px; border-radius: 50%; font-size: 17px; }
+.point-employee-identity, .point-employee-detail { display: grid; gap: 4px; min-width: 0; }
+.point-employee-identity > strong { overflow: hidden; color: var(--text); font-size: 17px; letter-spacing: -.03em; text-overflow: ellipsis; white-space: nowrap; }
+.point-employee-identity > small, .point-employee-detail > span { color: var(--muted); font-size: 10px; line-height: 1.4; }
+.point-employee-detail { padding-left: 14px; border-left: 1px solid var(--line); }
+.point-employee-detail > span { color: var(--gold); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.point-employee-detail > strong { color: var(--text); font-size: 12px; }
+.point-employee-period > strong { line-height: 1.35; }
 .point-filter-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .point-filter-heading > div { display: grid; gap: 4px; }
 .point-filter-heading strong { font-size: 12px; }
@@ -729,10 +738,15 @@ td strong { color: #2b2328; }
   .point-summary-grid { grid-template-columns: 1fr; }
   .point-review-actions input { min-width: 120px; max-width: 160px; }
   .point-employee-nav strong { font-size: 12px; }
+  .point-employee-heading { grid-template-columns: auto minmax(0, 1fr) repeat(2, minmax(120px, 1fr)); gap: 11px; }
+  .point-employee-heading .point-employee-period { grid-column: 2 / -1; }
 }
-@media (max-width: 420px) {
+@media (max-width: 560px) {
   .point-filter-fields { grid-template-columns: 1fr; }
   .point-filter-current { grid-column: auto; }
+  .point-employee-heading { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+  .point-employee-detail { padding-left: 0; border-left: 0; }
+  .point-employee-heading .point-employee-period { grid-column: 2; }
 }
 .employee-ficha-identity { display: flex; align-items: center; gap: 14px; }
 .employee-ficha-avatar { width: 58px; height: 58px; border-radius: 50%; font-size: 17px; }

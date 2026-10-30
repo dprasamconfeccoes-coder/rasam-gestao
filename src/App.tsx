@@ -711,7 +711,20 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
   const description = isAdministrative ? 'Ficha individual de jornada. Selecione o funcionário e consulte todos os dias do período.' : 'Sua ficha individual de jornada, com todos os dias do período selecionado.'
   return <>
     <PageHeading eyebrow="Minha área · jornada" title={title} description={description} />
-    {isAdministrative ? <div className="point-employee-nav"><button className="icon-button" type="button" onClick={() => moveEmployee(-1)} disabled={selectedEmployeeIndex <= 0} aria-label="Funcionário anterior"><ChevronLeft size={18} /></button><div><span>Ficha individual</span><strong>{selectedEmployee?.nome || 'Selecione um funcionário'}</strong><small>{selectedEmployeeIndex >= 0 ? `${selectedEmployeeIndex + 1} de ${employees.length} funcionários · ordem alfabética` : 'Selecione um funcionário'}</small></div><button className="icon-button" type="button" onClick={() => moveEmployee(1)} disabled={selectedEmployeeIndex < 0 || selectedEmployeeIndex >= employees.length - 1} aria-label="Próximo funcionário"><ChevronRight size={18} /></button></div> : null}
+    {isAdministrative ? <>
+      <div className="point-employee-nav"><button className="icon-button" type="button" onClick={() => moveEmployee(-1)} disabled={selectedEmployeeIndex <= 0} aria-label="Funcionário anterior"><ChevronLeft size={18} /></button><div><span>Ficha individual</span><strong>{selectedEmployee?.nome || 'Selecione um funcionário'}</strong><small>{selectedEmployeeIndex >= 0 ? `${selectedEmployeeIndex + 1} de ${employees.length} funcionários · ordem alfabética` : 'Selecione um funcionário'}</small></div><button className="icon-button" type="button" onClick={() => moveEmployee(1)} disabled={selectedEmployeeIndex < 0 || selectedEmployeeIndex >= employees.length - 1} aria-label="Próximo funcionário"><ChevronRight size={18} /></button></div>
+      {selectedEmployee ? <section className="point-employee-heading" aria-label="Resumo do funcionário e período do ponto">
+        <UserAvatar name={selectedEmployee.nome} url={selectedEmployee.avatar_url} className="point-employee-avatar" />
+        <div className="point-employee-identity">
+          <span className="eyebrow">Ficha mensal de ponto</span>
+          <strong>{selectedEmployee.nome}</strong>
+          <small>{selectedEmployee.cargo || 'Cargo não informado'} · CPF {maskCpf(selectedEmployee.cpf)}</small>
+        </div>
+        <div className="point-employee-detail"><span>Admissão</span><strong>{formatDate(selectedEmployee.data_admissao)}</strong></div>
+        <div className="point-employee-detail"><span>Situação</span><StatusPill value={selectedEmployee.situacao || (selectedEmployee.ativo ? 'Trabalhando' : 'Inativo')} /></div>
+        <div className="point-employee-detail point-employee-period"><span>{periodLabel}</span><strong>{range.inicio ? `${formatDate(range.inicio)}${range.fim && range.fim !== range.inicio ? ` até ${formatDate(range.fim)}` : ''}` : 'Selecione as datas'}</strong></div>
+      </section> : null}
+    </> : null}
     <div className="point-filter-panel">
       <div className="point-filter-heading"><div><strong>Filtros da ficha de ponto</strong><span>{isAdministrative ? 'Cada funcionário é consultado em uma ficha individual.' : 'Consulte sua jornada dia a dia.'}</span></div>{isAdministrative ? <span className="point-filter-scope"><UsersRound size={15} /> Visão administrativa</span> : null}</div>
       <div className="point-filter-fields">
