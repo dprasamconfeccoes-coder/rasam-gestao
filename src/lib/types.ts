@@ -156,9 +156,55 @@ export interface NoticeRow {
   id: string
   titulo: string
   conteudo: string
+  categoria: string
   prioridade: string
   publicado_em: string | null
   created_at: string
+  lido_em?: string | null
+  is_lido?: boolean
+}
+
+export interface NoticeAuditRow {
+  evento: string
+  antes: Record<string, unknown> | null
+  depois: Record<string, unknown>
+  responsavel: string
+  created_at: string
+}
+
+export interface AdminNoticeRow extends NoticeRow {
+  status: 'rascunho' | 'publicado' | 'arquivado' | string
+  updated_at: string
+  funcionarios_ativos: number
+  lidos: number
+  nao_lidos: number
+  auditoria: NoticeAuditRow[]
+}
+
+export interface AdminNoticeSummary {
+  total: number
+  publicados: number
+  rascunhos: number
+  arquivados: number
+  leituras: number
+  funcionarios_ativos: number
+}
+
+export interface AdminNoticePage {
+  sucesso: boolean
+  erro?: string
+  resumo: AdminNoticeSummary
+  avisos: AdminNoticeRow[]
+  total: number
+  offset: number
+  limite: number
+}
+
+export interface NoticeEmployeeReadRow {
+  funcionario_id: string
+  nome: string
+  lido: boolean
+  lido_em: string | null
 }
 
 export interface RequestRow {

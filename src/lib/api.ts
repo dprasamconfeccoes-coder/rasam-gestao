@@ -3,6 +3,7 @@ import { config } from './config'
 import type {
   DashboardResponse,
   AgreementInstallment,
+  AdminNoticePage,
   AdminDebtRow,
   AdminJustificationRow,
   AdminLotRow,
@@ -21,6 +22,7 @@ import type {
   LoginResponse,
   MedicalLeaveRow,
   NoticeRow,
+  NoticeEmployeeReadRow,
   OrderRow,
   PayslipRow,
   PointRow,
@@ -129,9 +131,17 @@ export function listPayslips(token: string) {
 }
 
 export function listNotices(token: string) {
-  return rpc<{ sucesso: boolean; avisos: NoticeRow[]; erro?: string }>('app_listar_avisos', {
+  return rpc<{ sucesso: boolean; avisos: NoticeRow[]; nao_lidos: number; erro?: string }>('app_listar_avisos', {
     p_token: token,
   })
+}
+
+export function unreadNoticeCount(token: string) {
+  return rpc<{ sucesso: boolean; nao_lidos: number; erro?: string }>('app_contar_avisos_nao_lidos', { p_token: token })
+}
+
+export function markNoticeRead(token: string, id: string) {
+  return rpc<{ sucesso: boolean; lido_em?: string; erro?: string }>('app_marcar_aviso_lido', { p_token: token, p_aviso_id: id })
 }
 
 export function listRequests(token: string) {
@@ -329,6 +339,25 @@ export function answerRequest(token: string, id: string, status: string, respost
 
 export function publishNotice(token: string, titulo: string, conteudo: string, prioridade: string) {
   return rpc<{ sucesso: boolean; erro?: string }>('app_admin_publicar_aviso', { p_token: token, p_titulo: titulo, p_conteudo: conteudo, p_prioridade: prioridade })
+}
+
+export function adminNoticesPage(token: string, status: string, categoria: string | null, offset: number, limite: number) {
+  return rpc<AdminNoticePage>('app_admin_avisos_dashboard', {
+    p_token: token, p_status: status, p_categoria: categoria, p_offset: offset, p_limite: limite,
+  })
+}
+
+export function adminNoticeReaders(token: string, avisoId: string, offset = 0, limite = 100) {
+  return rpc<{ sucesso: boolean; funcionarios: NoticeEmployeeReadRow[]; total: number; erro?: string }>(
+    'app_admin_aviso_leituras', { p_token: token, p_aviso_id: avisoId, p_offset: offset, p_limite: limite },
+  )
+}
+
+export function saveNotice(token: string, id: string | null, notice: { titulo: string; conteudo: string; categoria: string; prioridade: string; status: string }) {
+  return rpc<{ sucesso: boolean; id?: string; status?: string; erro?: string }>('app_admin_salvar_aviso', {
+    p_token: token, p_id: id, p_titulo: notice.titulo, p_conteudo: notice.conteudo,
+    p_categoria: notice.categoria, p_prioridade: notice.prioridade, p_status: notice.status,
+  })
 }
 
 export function adminPayslips(token: string) {

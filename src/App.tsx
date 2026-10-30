@@ -60,9 +60,11 @@ import {
   listEmployees,
   listMedicalLeaves,
   listNotices,
+  markNoticeRead,
   listOrders,
   listPayslips,
   listPoint,
+  unreadNoticeCount,
   login,
   logout,
   myProfile,
@@ -126,7 +128,7 @@ const navItems: NavItem[] = [
   { key: 'holerites', label: 'Holerites', description: 'Comprovantes disponíveis', icon: Receipt, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'atestados', label: 'Atestados', description: 'Histórico e conferência', icon: HeartPulse, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'solicitacoes', label: 'Solicitações ao RH', description: 'Acompanhe seus pedidos', icon: FileCheck2, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
-  { key: 'avisos', label: 'Avisos', description: 'Comunicados da empresa', icon: Bell, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
+  { key: 'avisos', label: 'Avisos', description: 'Comunicados da empresa', icon: Bell, group: 'Minha área', profiles: ['funcionario'] },
   { key: 'importacoes', label: 'Importar ponto', description: 'CSV diário e mensal', icon: FileSpreadsheet, group: 'Administração', profiles: managerProfiles },
   { key: 'acordos', label: 'Acordos e parcelas', description: 'Pagamentos trabalhistas', icon: Scale, group: 'Administração', profiles: adminProfiles },
   { key: 'documentos', label: 'Documentos internos', description: 'Regimento e CCT', icon: BookOpen, group: 'Administração', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
@@ -860,10 +862,69 @@ function MedicalLeavesView({ token }: { token: string }) {
   </>
 }
 
-function NoticesView({ token }: { token: string }) {
-  const [rows, setRows] = useState<NoticeRow[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('')
-  useEffect(() => { listNotices(token).then((data) => { if (!data.sucesso) throw new Error(data.erro || 'Falha de consulta'); setRows(data.avisos || []) }).catch((err) => setError(err instanceof Error ? err.message : 'Falha de consulta')).finally(() => setLoading(false)) }, [token])
-  return <><PageHeading eyebrow="Minha área · comunicação" title="Avisos" description="Comunicados oficiais publicados pela empresa." /><SectionCard title="Comunicados publicados" caption="Somente avisos liberados pelo RH">{loading ? <LoadingState /> : error ? <ErrorState message={error} /> : rows.length === 0 ? <EmptyState title="Nenhum aviso publicado" description="Quando houver um novo comunicado, ele aparecerá nesta lista." /> : <div className="notice-list">{rows.map((row) => <article className="notice-card" key={row.id}><div className="notice-head"><StatusPill value={row.prioridade} /><span>{formatDate(row.publicado_em || row.created_at)}</span></div><h3>{row.titulo}</h3><p>{row.conteudo}</p></article>)}</div>}</SectionCard></>
+const noticeCategoryLabels: Record<string, string> = {
+  jornada_trabalho: 'Jornada de trabalho', holerite: 'Holerite', beneficios: 'Benefícios',
+  reuniao: 'Reunião', sindicato: 'Sindicato', prevencao: 'Prevenção e saúde',
+  informativo: 'Informativo', outro: 'Outro',
+}
+
+function NoticesView({ token, onUnreadChange }: { token: string; onUnreadChange: (count: number) => void }) {
+  const [rows, setRows] = useState<NoticeRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [busyId, setBusyId] = useState('')
+  useEffect(() => {
+    listNotices(token)
+      .then((data) => {
+        if (!data.sucesso) throw new Error(data.erro || 'Falha de consulta')
+        const notices = data.avisos || []
+        setRows(notices)
+        onUnreadChange(data.nao_lidos ?? notices.filter((row) => !row.is_lido && !row.lido_em).length)
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Falha de consulta'))
+      .finally(() => setLoading(false))
+  }, [token, onUnreadChange])
+
+  async function markRead(row: NoticeRow) {
+    if (row.is_lido || row.lido_em || busyId) return
+    setBusyId(row.id)
+    setError('')
+    try {
+      const result = await markNoticeRead(token, row.id)
+      if (!result.sucesso) throw new Error(result.erro || 'Não foi possível registrar a leitura.')
+      const updated = rows.map((item) => item.id === row.id ? { ...item, is_lido: true, lido_em: result.lido_em || new Date().toISOString() } : item)
+      setRows(updated)
+      onUnreadChange(updated.filter((item) => !item.is_lido && !item.lido_em).length)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao registrar leitura.')
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  const unreadCount = rows.filter((row) => !row.is_lido && !row.lido_em).length
+  const readCount = rows.length - unreadCount
+  return <div className="employee-notices-page">
+    <PageHeading eyebrow="Minha área · comunicação" title="Avisos" description="Comunicados oficiais da empresa. Marque cada aviso como lido para atualizar seu acompanhamento." />
+    <div className="notice-personal-summary">
+      <div className="notice-personal-count is-unread"><span>Não lidos</span><strong>{unreadCount}</strong></div>
+      <div className="notice-personal-count"><span>Já lidos</span><strong>{readCount}</strong></div>
+      <div className="notice-personal-count"><span>Total publicado</span><strong>{rows.length}</strong></div>
+    </div>
+    <SectionCard title="Comunicados publicados" caption="Avisos enviados pelo RH para os funcionários da empresa">
+      {loading ? <LoadingState /> : error && rows.length === 0 ? <ErrorState message={error} /> : rows.length === 0 ? <EmptyState title="Nenhum aviso publicado" description="Quando o RH publicar um comunicado, ele aparecerá aqui." /> : <div className="notice-list employee-notice-list">
+        {rows.map((row) => {
+          const isRead = Boolean(row.is_lido || row.lido_em)
+          return <article className={`notice-card employee-notice-card ${isRead ? 'is-read' : 'is-unread'}`} key={row.id}>
+            <div className="notice-head"><div className="notice-tags"><StatusPill value={row.prioridade} /><span className="notice-category-tag">{noticeCategoryLabels[row.categoria] || 'Informativo'}</span>{!isRead && <span className="notice-unread-tag">Novo · não lido</span>}</div><time>{formatDate(row.publicado_em || row.created_at)}</time></div>
+            <h3>{row.titulo}</h3><p>{row.conteudo}</p>
+            <div className="employee-notice-footer">{isRead ? <span className="notice-read-receipt"><Check size={14} /> Lido em {formatDate(row.lido_em || '')}</span> : <button className="primary-button notice-read-button" type="button" onClick={() => void markRead(row)} disabled={busyId === row.id}>{busyId === row.id ? <><RefreshCw size={14} className="spin" /> Registrando…</> : <><Check size={14} /> Marcar como lido</>}</button>}</div>
+          </article>
+        })}
+      </div>}
+      {error && rows.length > 0 && <div className="form-error notice-inline-error"><AlertCircle size={15} />{error}</div>}
+    </SectionCard>
+  </div>
 }
 
 function parseDelimited(text: string) {
@@ -1017,7 +1078,17 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
   const [active, setActive] = useState<ModuleKey>(user.perfil === 'funcionario' ? 'dashboard' : 'dashboard')
   const [mobileMenu, setMobileMenu] = useState(false)
   const [profile, setProfile] = useState<EmployeeProfile>()
+  const [unreadNotices, setUnreadNotices] = useState(0)
   useEffect(() => { myProfile(token).then((data) => { if (data.sucesso && data.funcionario) setProfile(data.funcionario) }).catch(() => undefined) }, [token])
+  useEffect(() => {
+    if (user.perfil !== 'funcionario') { setUnreadNotices(0); return }
+    let cancelled = false
+    const refreshCount = () => { unreadNoticeCount(token).then((data) => { if (!cancelled && data.sucesso) setUnreadNotices(Math.max(0, data.nao_lidos || 0)) }).catch(() => undefined) }
+    refreshCount()
+    const timer = window.setInterval(refreshCount, 60000)
+    window.addEventListener('focus', refreshCount)
+    return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener('focus', refreshCount) }
+  }, [token, user.perfil])
   const displayName = profile?.nome || user.nome
   const displayCargo = profile?.cargo || user.cargo
   const activeItem = navItems.find((item) => item.key === active) || navItems[0]
@@ -1035,7 +1106,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'ponto') return <PointView token={token} user={user} />
     if (active === 'holerites') return <PayslipsView token={token} />
     if (active === 'atestados') return <EmployeeMedicalLeaves token={token} />
-    if (active === 'avisos') return <NoticesView token={token} />
+    if (active === 'avisos') return <NoticesView token={token} onUnreadChange={setUnreadNotices} />
     if (active === 'solicitacoes') return <EmployeeHRRequests token={token} />
     if (active === 'importacoes') return <PointImportsView token={token} />
     if (active === 'acordos') return <AgreementsView token={token} />
@@ -1059,7 +1130,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
                 const Icon = item.icon
                 return (
                   <button key={item.key} className={`nav-item ${active === item.key ? 'active' : ''}`} onClick={() => navigate(item.key)}>
-                    <Icon size={17} /><span>{item.label}</span>{active === item.key && <ChevronRight className="nav-arrow" size={14} />}
+                    <Icon size={17} /><span>{item.label}</span>{item.key === 'avisos' && unreadNotices > 0 && <span className="nav-badge" aria-label={`${unreadNotices} avisos não lidos`}>{unreadNotices > 99 ? '99+' : unreadNotices}</span>}{active === item.key && <ChevronRight className="nav-arrow" size={14} />}
                   </button>
                 )
               })}
