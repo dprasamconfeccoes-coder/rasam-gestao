@@ -268,6 +268,24 @@ td { color: #cbd1da; } td strong { color: #f0f2f5; font-size: 11px; } tr:last-ch
 .point-justification-form > small { color: var(--muted); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .point-justify-button { white-space: nowrap; font-size: 11px; padding: 7px 9px; }
 .point-attachment-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; color: var(--accent); font-size: 10px; text-decoration: none; }
+.point-review-trigger { width: 31px; height: 31px; }
+.point-review-backdrop { position: fixed; inset: 0; z-index: 75; display: grid; place-items: center; padding: 20px; background: rgba(20, 16, 22, .55); backdrop-filter: blur(4px); }
+.point-review-dialog { width: min(480px, 100%); max-height: min(680px, calc(100dvh - 40px)); overflow: auto; border: 1px solid rgba(215,168,74,.3); border-radius: 16px; background: var(--surface); box-shadow: 0 24px 70px rgba(20, 16, 22, .3); }
+.point-review-dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
+.point-review-dialog-head h3 { margin: 5px 0 0; color: var(--text); font-size: 20px; }
+.point-review-dialog-body { display: grid; gap: 14px; padding: 18px 20px; }
+.point-review-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.point-review-summary > div, .point-review-message { display: grid; gap: 5px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.025); }
+.point-review-summary span, .point-review-message > span, .point-review-response > span { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.point-review-summary strong { color: var(--text); font-size: 12px; }
+.point-review-message p { margin: 0; color: var(--text); font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.point-review-attachment { display: inline-flex; align-items: center; gap: 7px; width: fit-content; color: var(--accent); font-size: 11px; text-decoration: none; }
+.point-review-no-attachment { color: var(--muted); font-size: 11px; }
+.point-review-response { display: grid; gap: 7px; }
+.point-review-response textarea { width: 100%; box-sizing: border-box; padding: 10px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; resize: vertical; }
+.point-review-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 20px 18px; border-top: 1px solid var(--line); }
+.danger-button { color: var(--danger); border-color: rgba(163,61,73,.35); }
+.danger-button:hover { border-color: var(--danger); background: rgba(163,61,73,.08); }
 .point-confirm-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 20px; background: rgba(20, 16, 22, .55); backdrop-filter: blur(4px); }
 .point-confirm-dialog { width: min(440px, 100%); display: grid; grid-template-columns: auto 1fr; gap: 12px; padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: 0 24px 70px rgba(20, 16, 22, .28); }
 .point-confirm-icon { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; color: var(--accent); background: color-mix(in srgb, var(--accent) 13%, transparent); }
