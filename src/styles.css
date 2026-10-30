@@ -726,6 +726,11 @@ td strong { color: #2b2328; }
 .point-daily-table tbody td:nth-child(2), .point-daily-table tbody td:nth-child(3), .point-daily-table tbody td:nth-child(4), .point-daily-table tbody td:nth-child(5), .point-daily-table tbody td:nth-child(6), .point-daily-table tbody td:nth-child(8), .point-daily-table tbody td:nth-child(9), .point-daily-table tbody td:nth-child(10), .point-daily-table tbody td:nth-child(11) { min-width: 58px; }
 .point-daily-table tbody td:nth-child(7) { min-width: 82px; }
 .point-daily-table .point-review-actions { min-width: 0; }
+.point-daily-table .status-normal, .point-daily-table .status-folga, .point-daily-table .status-ferias { color: #2b2328; background: #ece7e1; }
+.point-daily-table .status-hora-extra { color: #fff; background: #247447; }
+.point-daily-table .status-atraso, .point-daily-table .status-atraso-justificado, .point-daily-table .status-atraso-justificativa-recusada, .point-daily-table .status-falta, .point-daily-table .status-falta-injustificada, .point-daily-table .status-falta-justificada, .point-daily-table .status-falta-justificativa-recusada, .point-daily-table .status-injustificado, .point-daily-table .status-recusada { color: #fff; background: #a83b45; }
+.point-daily-table [class*="status-atraso-"], .point-daily-table [class*="status-falta-"] { color: #fff; background: #a83b45; }
+.point-daily-table .status-aprovada-sem-justificativa, .point-daily-table .status-justificada { color: #fff; background: #247447; }
 .point-daily-table thead tr:first-child th { color: var(--gold); background: rgba(215,168,74,.08); text-align: center; }
 .point-daily-table thead tr:nth-child(2) th { font-size: 9px; white-space: nowrap; }
 .point-daily-table .point-empty-day { background: rgba(255,255,255,.025); }
