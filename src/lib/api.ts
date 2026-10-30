@@ -341,6 +341,23 @@ export function adminCadastrarFuncionario(token: string, payload: { nome: string
   })
 }
 
+export function registerAdmission(token: string, payload: { funcionarioId: string; dataAdmissao: string; tipoVinculo?: string; cargo?: string; valorMensal?: number | null; valorDiaria?: number | null; registrado?: boolean | null }) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_registrar_admissao', {
+    p_token: token, p_funcionario_id: payload.funcionarioId, p_data_admissao: payload.dataAdmissao,
+    p_tipo_vinculo: payload.tipoVinculo || null, p_cargo: payload.cargo || null,
+    p_valor_mensal: payload.valorMensal ?? null, p_valor_diaria: payload.valorDiaria ?? null,
+    p_registrado: payload.registrado ?? null,
+  })
+}
+
+export function dismissEmployee(token: string, funcionarioId: string, dataDemissao: string, motivo: string) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_demitir_funcionario', { p_token: token, p_funcionario_id: funcionarioId, p_data_demissao: dataDemissao, p_motivo: motivo })
+}
+
+export function reinstateEmployee(token: string, funcionarioId: string, dataAdmissao: string) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_reintegrar_funcionario', { p_token: token, p_funcionario_id: funcionarioId, p_data_admissao: dataAdmissao })
+}
+
 export function adminCalcularFechamento(token: string, competencia: string, incluirInformaisVale: boolean) {
   return rpc<import('./types').FechamentoResult>('app_admin_calcular_fechamento', { p_token: token, p_competencia: competencia, p_incluir_informais_vale: incluirInformaisVale })
 }

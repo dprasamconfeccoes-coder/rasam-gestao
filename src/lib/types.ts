@@ -60,6 +60,9 @@ export interface EmployeeRow {
   cpf: string
   cargo: string | null
   data_admissao: string | null
+  data_demissao: string | null
+  motivo_demissao: string | null
+  tipo_vinculo: string | null
   salario: number | null
   ativo: boolean
   perfil: Profile

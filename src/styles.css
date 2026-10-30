@@ -710,8 +710,24 @@ td strong { color: #2b2328; }
 .hr-medical-actions { display: flex; align-items: center; gap: 7px; flex: 0 0 auto; }
 .hr-medical-actions .status-pill { margin-right: 3px; }
 .hr-medical-main .inline-input { margin-top: 4px; max-width: 520px; }
+.lifecycle-legend { display: flex; gap: 12px; color: var(--muted); font-size: 10px; }
+.lifecycle-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.lifecycle-legend i { width: 7px; height: 7px; display: inline-block; border-radius: 50%; background: var(--gold); }
+.lifecycle-legend i.is-inactive { background: var(--muted); }
+.lifecycle-list { display: grid; gap: 0; }
+.lifecycle-row { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid var(--line); border-left: 3px solid var(--gold); padding-left: 10px; }
+.lifecycle-row.is-inactive { border-left-color: var(--muted); opacity: .78; }
+.lifecycle-avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: rgba(215,168,74,.14); color: var(--gold); font-weight: 700; }
+.lifecycle-row.is-inactive .lifecycle-avatar { background: rgba(120,120,120,.12); color: var(--muted); }
+.lifecycle-main { display: grid; min-width: 0; flex: 1; gap: 4px; }
+.lifecycle-main strong { color: var(--text); font-size: 12px; }
+.lifecycle-main small { color: var(--muted); font-size: 10px; line-height: 1.35; }
+.lifecycle-actions { display: flex; gap: 6px; }
+.lifecycle-form { display: grid; gap: 12px; margin-top: 18px; padding: 16px; border: 1px solid var(--gold); border-radius: 12px; background: rgba(215,168,74,.06); }
+.lifecycle-form > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lifecycle-form > div strong { color: var(--text); font-size: 13px; }
 @media (max-width: 900px) { .hr-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hr-dashboard-columns { grid-template-columns: 1fr; } }
-@media (max-width: 760px) { .hr-dashboard-intro { align-items: stretch; flex-direction: column; } .hr-metric-grid { gap: 9px; } .hr-metric-card { min-height: 112px; padding: 13px; } .hr-overview-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 0; } .hr-overview-strip > div, .hr-overview-strip > div:first-child, .hr-overview-strip > div:last-child { padding: 0 12px; border-right: 1px solid var(--line); } .hr-overview-strip > div:nth-child(2n) { border-right: 0; } .hr-panel-toolbar { align-items: stretch; flex-direction: column; } .hr-vacation-row, .hr-medical-row { align-items: flex-start; flex-wrap: wrap; } .hr-vacation-row .status-pill, .hr-vacation-row select { margin-left: 44px; } .hr-medical-actions { width: 100%; margin-left: 44px; } }
+@media (max-width: 760px) { .hr-dashboard-intro { align-items: stretch; flex-direction: column; } .hr-metric-grid { gap: 9px; } .hr-metric-card { min-height: 112px; padding: 13px; } .hr-overview-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 0; } .hr-overview-strip > div, .hr-overview-strip > div:first-child, .hr-overview-strip > div:last-child { padding: 0 12px; border-right: 1px solid var(--line); } .hr-overview-strip > div:nth-child(2n) { border-right: 0; } .hr-panel-toolbar { align-items: stretch; flex-direction: column; } .hr-vacation-row, .hr-medical-row, .lifecycle-row { align-items: flex-start; flex-wrap: wrap; } .hr-vacation-row .status-pill, .hr-vacation-row select { margin-left: 44px; } .hr-medical-actions { width: 100%; margin-left: 44px; } .lifecycle-row .status-pill, .lifecycle-actions { margin-left: 44px; } .lifecycle-legend { align-self: flex-start; } }
 .icon-button.danger { color: var(--danger); }
 .employee-ficha-dialog { color: #262024; box-shadow: 0 24px 80px rgba(33,25,30,.24); }
 .employee-ficha-dialog::backdrop { background: rgba(33,25,30,.46); }
