@@ -666,13 +666,20 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
     return Number.isFinite(parsed) ? parsed : 0
   }
   const shortTime = (value: string | null | undefined) => value ? String(value).slice(0, 5) : '—'
+  const formatDelayMinutes = (minutes: number) => {
+    const rounded = Math.max(0, Math.round(minutes))
+    const hours = Math.floor(rounded / 60)
+    const remainder = rounded % 60
+    return hours > 0 ? `${hours}h ${String(remainder).padStart(2, '0')}min` : `${remainder} min`
+  }
   const pointSummary = useMemo(() => {
     const extra50 = displayRows.reduce((sum, row) => sum + hoursToNumber(row.extra_50), 0)
     const extra100 = displayRows.reduce((sum, row) => sum + hoursToNumber(row.extra_100), 0)
     const faltas = displayRows.filter((row) => Boolean(row.dia_falta && !['não', 'nao', 'n', '0'].includes(row.dia_falta.trim().toLowerCase())) || row.status === 'falta').length
     const atrasos = displayRows.filter((row) => hoursToNumber(row.horas_atraso) > 0).length
+    const totalAtrasoMinutos = displayRows.reduce((sum, row) => sum + hoursToNumber(row.horas_atraso) * 60, 0)
     const diasComMarcacao = displayRows.filter((row) => row.entrada || row.saida || row.horas_trabalhadas).length
-    return { extra50, extra100, faltas, atrasos, diasComMarcacao, diasSemMarcacao: displayRows.length - diasComMarcacao, totalExtras: extra50 + extra100 }
+    return { extra50, extra100, faltas, atrasos, totalAtrasoMinutos, diasComMarcacao, diasSemMarcacao: displayRows.length - diasComMarcacao, totalExtras: extra50 + extra100 }
   }, [displayRows])
   const hasInconsistency = (row: PointRow) => Boolean(row.inconsistencia_tipo || row.dia_falta || row.horas_atraso)
   async function persistReviewInconsistency(row: PointRow, status: 'aprovada' | 'justificada') {
@@ -785,7 +792,7 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
     </div>
     <div className="point-summary-grid">
       <section className="point-chart-card"><div className="point-chart-heading"><div><span className="eyebrow">Resumo de horas</span><strong>{pointSummary.totalExtras.toFixed(1)} h extras</strong></div><CalendarDays size={18} /></div><div className="point-bar-row"><span>Extra 50%</span><div className="point-bar-track"><i style={{ width: `${pointSummary.totalExtras ? Math.max(4, pointSummary.extra50 / pointSummary.totalExtras * 100) : 0}%` }} /></div><b>{pointSummary.extra50.toFixed(1)} h</b></div><div className="point-bar-row"><span>Extra 100%</span><div className="point-bar-track is-pink"><i style={{ width: `${pointSummary.totalExtras ? Math.max(4, pointSummary.extra100 / pointSummary.totalExtras * 100) : 0}%` }} /></div><b>{pointSummary.extra100.toFixed(1)} h</b></div></section>
-      <section className="point-chart-card"><div className="point-chart-heading"><div><span className="eyebrow">Resumo de ocorrências</span><strong>{pointSummary.faltas} faltas identificadas</strong></div><AlertCircle size={18} /></div><div className="point-bar-row"><span>Faltas</span><div className="point-bar-track is-danger"><i style={{ width: `${pointSummary.faltas ? 100 : 0}%` }} /></div><b>{pointSummary.faltas}</b></div><div className="point-bar-row"><span>Atrasos</span><div className="point-bar-track is-gold"><i style={{ width: `${pointSummary.atrasos ? Math.min(100, pointSummary.atrasos / Math.max(pointSummary.faltas, pointSummary.atrasos) * 100) : 0}%` }} /></div><b>{pointSummary.atrasos}</b></div></section>
+      <section className="point-chart-card"><div className="point-chart-heading"><div><span className="eyebrow">Resumo de ocorrências</span><strong>{pointSummary.faltas} faltas identificadas</strong><small className="point-chart-detail">{pointSummary.atrasos} {pointSummary.atrasos === 1 ? 'dia com atraso' : 'dias com atraso'} · {formatDelayMinutes(pointSummary.totalAtrasoMinutos)} acumulados</small></div><AlertCircle size={18} /></div><div className="point-bar-row"><span>Faltas</span><div className="point-bar-track is-danger"><i style={{ width: `${pointSummary.faltas ? 100 : 0}%` }} /></div><b>{pointSummary.faltas}</b></div><div className="point-bar-row"><span>Atrasos</span><div className="point-bar-track is-gold"><i style={{ width: `${pointSummary.atrasos ? Math.min(100, pointSummary.atrasos / Math.max(pointSummary.faltas, pointSummary.atrasos) * 100) : 0}%` }} /></div><b>{pointSummary.atrasos} dias</b></div></section>
     </div>
     <SectionCard title={isAdministrative ? `Ficha de ${selectedEmployee?.nome || 'funcionário'}` : 'Minha ficha de ponto'} caption={`${periodLabel} · ${range.inicio ? `${formatDate(range.inicio)} a ${formatDate(range.fim || range.inicio)}` : 'aguardando período'} · ${pointSummary.diasComMarcacao} com marcação · ${pointSummary.diasSemMarcacao} sem marcação`}>
       {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : !displayRows.length ? <EmptyState title={isAdministrative && !employeeId ? 'Selecione um funcionário' : 'Nenhum dia para exibir'} description={isAdministrative && !employeeId ? 'Escolha um funcionário para abrir a ficha individual de ponto.' : 'Ajuste o período para consultar a jornada.'} /> : <div className="table-wrap">

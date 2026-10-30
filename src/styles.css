@@ -741,6 +741,7 @@ td strong { color: #2b2328; }
 .point-chart-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; color: var(--gold); }
 .point-chart-heading > div { display: grid; gap: 4px; }
 .point-chart-heading strong { color: var(--text); font-size: 16px; }
+.point-chart-detail { color: var(--muted); font-size: 10px; line-height: 1.35; }
 .point-bar-row { display: grid; grid-template-columns: 78px 1fr 48px; align-items: center; gap: 9px; color: var(--muted); font-size: 10px; }
 .point-bar-row b { color: var(--text); font-size: 11px; text-align: right; }
 .point-bar-track { height: 8px; overflow: hidden; border-radius: 99px; background: rgba(183,140,44,.14); }
