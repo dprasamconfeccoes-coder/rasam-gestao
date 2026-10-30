@@ -717,7 +717,15 @@ td strong { color: #2b2328; }
 .point-filter-current > span { display: grid; gap: 2px; color: var(--text); font-size: 11px; font-weight: 750; }
 .point-filter-current small { color: var(--muted); font-size: 10px; font-weight: 500; }
 .table-subtext { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
-.point-daily-table th:first-child, .point-daily-table td:first-child { min-width: 112px; }
+.point-daily-table { min-width: 980px; table-layout: auto; }
+.point-daily-table th, .point-daily-table td { padding: 10px 10px; font-size: 10px; }
+.point-daily-table th:first-child, .point-daily-table td:first-child { position: sticky; left: 0; z-index: 4; min-width: 104px; background: var(--surface); box-shadow: 8px 0 12px -12px rgba(20,16,22,.55); }
+.point-daily-table thead tr:first-child th:last-child, .point-daily-table tbody td:last-child { position: sticky; right: 0; z-index: 4; min-width: 126px; background: var(--surface); box-shadow: -8px 0 12px -12px rgba(20,16,22,.6); }
+.point-daily-table thead tr:first-child th:first-child, .point-daily-table thead tr:first-child th:last-child { z-index: 6; }
+.point-daily-table tbody td:last-child { max-width: 150px; white-space: normal; vertical-align: middle; }
+.point-daily-table tbody td:nth-child(2), .point-daily-table tbody td:nth-child(3), .point-daily-table tbody td:nth-child(4), .point-daily-table tbody td:nth-child(5), .point-daily-table tbody td:nth-child(6), .point-daily-table tbody td:nth-child(8), .point-daily-table tbody td:nth-child(9), .point-daily-table tbody td:nth-child(10), .point-daily-table tbody td:nth-child(11) { min-width: 58px; }
+.point-daily-table tbody td:nth-child(7) { min-width: 82px; }
+.point-daily-table .point-review-actions { min-width: 0; }
 .point-daily-table thead tr:first-child th { color: var(--gold); background: rgba(215,168,74,.08); text-align: center; }
 .point-daily-table thead tr:nth-child(2) th { font-size: 9px; white-space: nowrap; }
 .point-daily-table .point-empty-day { background: rgba(255,255,255,.025); }
@@ -762,6 +770,11 @@ td strong { color: #2b2328; }
   .point-filter-current { grid-column: 1 / -1; }
   .point-summary-grid { grid-template-columns: 1fr; }
   .point-review-actions input { min-width: 120px; max-width: 160px; }
+  .point-daily-table { min-width: 760px; }
+  .point-daily-table th, .point-daily-table td { padding: 8px 7px; font-size: 9px; }
+  .point-daily-table th:first-child, .point-daily-table td:first-child { min-width: 86px; }
+  .point-daily-table thead tr:first-child th:last-child, .point-daily-table tbody td:last-child { min-width: 112px; max-width: 124px; }
+  .point-daily-table tbody td:nth-child(2), .point-daily-table tbody td:nth-child(3), .point-daily-table tbody td:nth-child(4), .point-daily-table tbody td:nth-child(5), .point-daily-table tbody td:nth-child(6), .point-daily-table tbody td:nth-child(8), .point-daily-table tbody td:nth-child(9), .point-daily-table tbody td:nth-child(10), .point-daily-table tbody td:nth-child(11) { min-width: 48px; }
   .point-employee-nav strong { font-size: 12px; }
   .point-employee-heading { grid-template-columns: auto minmax(0, 1fr) repeat(2, minmax(120px, 1fr)); gap: 11px; }
   .point-employee-heading .point-employee-period { grid-column: 2 / -1; }
