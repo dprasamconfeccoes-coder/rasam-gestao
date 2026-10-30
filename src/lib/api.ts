@@ -777,6 +777,18 @@ export function adminFinanceiroWorkspace(token: string) {
   return rpc<import('./types').FinanceiroWorkspace>('app_admin_financeiro', { p_token: token })
 }
 
+export function adminFinanceiroLancamentoSalvar(token: string, payload: { id?: string; tipo: 'pagar'|'receber'; categoria: string; descricao: string; valor: number; vencimento: string; observacoes?: string }) {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_financeiro_lancamento_salvar', { p_token: token, p_id: payload.id || null, p_tipo: payload.tipo, p_categoria: payload.categoria, p_descricao: payload.descricao, p_valor: payload.valor, p_vencimento: payload.vencimento, p_observacoes: payload.observacoes || null })
+}
+
+export function adminFinanceiroLancamentoStatus(token: string, id: string, status: 'pendente'|'pago'|'cancelado') {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_financeiro_lancamento_status', { p_token: token, p_id: id, p_status: status })
+}
+
+export function adminFinanceiroLancamentoExcluir(token: string, id: string) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_financeiro_lancamento_excluir', { p_token: token, p_id: id })
+}
+
 export function adminQuitarParcela(token: string, id: string, comprovanteUrl?: string, comprovanteNome?: string) {
   return rpc<{ sucesso: boolean; erro?: string }>('app_admin_quitar_parcela', { p_token: token, p_id: id, p_comprovante_url: comprovanteUrl || null, p_comprovante_nome: comprovanteNome || null })
 }
