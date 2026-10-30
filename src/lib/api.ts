@@ -278,6 +278,14 @@ export function adminCalcularFechamento(token: string, competencia: string, incl
   return rpc<import('./types').FechamentoResult>('app_admin_calcular_fechamento', { p_token: token, p_competencia: competencia, p_incluir_informais_vale: incluirInformaisVale })
 }
 
+export function adminVisualizarFechamento(token: string, competencia: string) {
+  return rpc<import('./types').FechamentoPreview>('app_admin_visualizar_fechamento', { p_token: token, p_competencia: competencia })
+}
+
+export function adminConfirmarFechamento(token: string, competencia: string, confirmacao: string) {
+  return rpc<import('./types').FechamentoResult>('app_admin_confirmar_fechamento', { p_token: token, p_competencia: competencia, p_confirmacao: confirmacao })
+}
+
 export function adminRelatorioFechamento(token: string, competencia: string, tipo: 'escritorio' | 'vale', incluirInformaisVale = false) {
   return rpc<import('./types').FechamentoReport>('app_admin_relatorio_fechamento', { p_token: token, p_competencia: competencia, p_tipo: tipo, p_incluir_informais_vale: incluirInformaisVale })
 }

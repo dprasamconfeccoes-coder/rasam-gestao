@@ -333,6 +333,8 @@ export interface ProntuarioResponse {
   afastamentos: Array<Record<string, unknown>>
 }
 
-export interface FechamentoResult { sucesso: boolean; erro?: string; fechamento_id?: string; competencia?: string }
+export interface FechamentoSummary { funcionarios?: number; faltas_injustificadas?: number; faltas_justificadas?: number; horas_extras_50?: number; horas_extras_100?: number; extras_50_valor?: number; extras_100_valor?: number; dsr_desconto?: number }
+export interface FechamentoResult { sucesso: boolean; erro?: string; fechamento_id?: string; competencia?: string; status?: string; mensagem?: string; resumo?: FechamentoSummary }
+export interface FechamentoPreview extends FechamentoResult { confirmado_at?: string | null; regras?: Record<string, unknown>; linhas?: Array<Record<string, unknown>> }
 export interface FechamentoReport { sucesso: boolean; erro?: string; competencia?: string; tipo?: string; linhas?: Array<Record<string, unknown>> }
 export interface FinanceiroWorkspace { sucesso: boolean; erro?: string; contas: Array<Record<string, unknown>>; dividas: Array<Record<string, unknown>>; recorrencias: Array<Record<string, unknown>>; parcelas: Array<Record<string, unknown>> }
