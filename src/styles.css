@@ -743,15 +743,13 @@ td strong { color: #2b2328; }
 .point-review-card .point-review-actions { justify-content: flex-end; }
 .point-review-card .point-review-actions .icon-button { width: 30px; height: 30px; }
 .point-review-actions { display: flex; align-items: center; gap: 5px; min-width: 92px; }
+.point-unjustified-label { color: var(--danger); font-size: 10px; font-weight: 800; white-space: nowrap; }
 .point-review-actions input { min-width: 150px; max-width: 210px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 11px; }
-.point-row-falta { background: rgba(239, 107, 93, .16) !important; box-shadow: inset 3px 0 0 var(--danger); }
-.point-row-falta-justificada { background: rgba(215, 168, 74, .13) !important; box-shadow: inset 3px 0 0 var(--gold); }
-.point-row-falta-recusada, .point-row-atraso-recusado { background: rgba(239, 107, 93, .13) !important; box-shadow: inset 3px 0 0 var(--danger); }
-.point-row-atraso { background: rgba(224, 147, 53, .12) !important; box-shadow: inset 3px 0 0 #e09335; }
-.point-row-atraso-justificado { background: rgba(215, 168, 74, .10) !important; box-shadow: inset 3px 0 0 var(--gold); }
+.point-row-falta, .point-row-atraso { background: rgba(239, 107, 93, .16) !important; box-shadow: inset 3px 0 0 var(--danger); }
+.point-row-extra { background: rgba(71, 170, 111, .14) !important; box-shadow: inset 3px 0 0 #47aa6f; }
 .point-row-sem-marcacao { background: rgba(224, 147, 53, .09) !important; box-shadow: inset 3px 0 0 #e09335; }
 .point-row-ferias { background: rgba(93, 151, 239, .08) !important; }
-.point-row-folga { opacity: .72; }
+.point-row-folga { opacity: .72; filter: grayscale(.55); background: rgba(120, 125, 135, .08) !important; box-shadow: inset 3px 0 0 rgba(120,125,135,.55); }
 .point-unmarked-status { display: inline-flex; align-items: center; gap: 5px; color: #e09335; font-size: 10px; font-weight: 800; white-space: nowrap; }
 @media (max-width: 420px) {
   .employee-filter-header { align-items: stretch; flex-direction: column; }
