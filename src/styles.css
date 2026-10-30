@@ -719,12 +719,25 @@ td strong { color: #2b2328; }
 .hr-analysis-card.is-gold { border-top-color: var(--gold); }
 .hr-analysis-card.is-danger { border-top-color: var(--danger); }
 .hr-analysis-card.is-blue { border-top-color: var(--blue); }
+.hr-analysis-card.is-pink { border-top-color: var(--pink); }
+.hr-analysis-card.is-green { border-top-color: var(--green); }
 .hr-finance-analysis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
 .hr-analysis-list { display: grid; margin: 0 20px 8px; }
 .hr-analysis-list > div { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 0; border-bottom: 1px solid var(--line); }
 .hr-analysis-list > div:last-child { border-bottom: 0; }
 .hr-analysis-list span { color: var(--muted); font-size: 10px; }
 .hr-analysis-list strong { color: var(--text); font-size: 12px; white-space: nowrap; }
+.hr-turnover-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+.hr-turnover-analysis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
+.hr-movement-list { display: grid; margin: 0 20px 8px; }
+.hr-movement-row { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.hr-movement-row:last-child { border-bottom: 0; }
+.hr-movement-dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--gold); }
+.hr-movement-dot.is-admission { background: var(--green); }
+.hr-movement-dot.is-dismissal { background: var(--danger); }
+.hr-movement-row div { display: grid; gap: 3px; min-width: 0; }
+.hr-movement-row strong { overflow: hidden; color: var(--text); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.hr-movement-row small { color: var(--muted); font-size: 10px; }
 .hr-panel-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .hr-panel-toolbar > div { display: grid; gap: 4px; }
 .hr-panel-toolbar strong { color: var(--text); font-size: 13px; }
@@ -764,8 +777,8 @@ td strong { color: #2b2328; }
 .hr-insight-list strong { font-size: 11px; }
 .hr-insight-list small { color: var(--muted); font-size: 10px; }
 .hr-insight-list button > svg:last-child { color: var(--muted); }
-@media (max-width: 900px) { .hr-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hr-dashboard-columns { grid-template-columns: 1fr; } .hr-cost-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 760px) { .hr-dashboard-intro { align-items: stretch; flex-direction: column; } .hr-dashboard-period { min-width: 0; } .hr-metric-grid, .hr-executive-grid { gap: 9px; } .hr-executive-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hr-metric-card { min-height: 112px; padding: 13px; } .hr-overview-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 0; } .hr-overview-strip > div, .hr-overview-strip > div:first-child, .hr-overview-strip > div:last-child { padding: 0 12px; border-right: 1px solid var(--line); } .hr-overview-strip > div:nth-child(2n) { border-right: 0; } .hr-panel-toolbar { align-items: stretch; flex-direction: column; } .section-card > .hr-alert-list, .section-card > .hr-quick-actions, .section-card > .hr-overview-strip, .section-card > .hr-panel-toolbar, .section-card > .hr-vacation-list, .section-card > .hr-medical-list, .section-card > .lifecycle-list { margin-left: 14px; margin-right: 14px; } .section-card > .form-error, .section-card > .form-success { margin-left: 14px; margin-right: 14px; } .hr-vacation-form, .lifecycle-form { margin-left: 14px; margin-right: 14px; } .hr-alert-copy strong, .hr-alert-copy small { white-space: normal; } .hr-finance-analysis { grid-template-columns: 1fr; gap: 12px; } .hr-analysis-list { margin-left: 14px; margin-right: 14px; } .hr-vacation-row, .hr-medical-row, .lifecycle-row { align-items: flex-start; flex-wrap: wrap; } .hr-vacation-row .status-pill, .hr-vacation-row select { margin-left: 44px; } .hr-medical-actions { width: 100%; margin-left: 44px; } .lifecycle-row .status-pill, .lifecycle-actions { margin-left: 44px; } .lifecycle-legend { align-self: flex-start; } }
+@media (max-width: 900px) { .hr-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hr-dashboard-columns { grid-template-columns: 1fr; } .hr-cost-grid, .hr-turnover-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .hr-dashboard-intro { align-items: stretch; flex-direction: column; } .hr-dashboard-period { min-width: 0; } .hr-metric-grid, .hr-executive-grid { gap: 9px; } .hr-executive-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hr-metric-card { min-height: 112px; padding: 13px; } .hr-overview-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 0; } .hr-overview-strip > div, .hr-overview-strip > div:first-child, .hr-overview-strip > div:last-child { padding: 0 12px; border-right: 1px solid var(--line); } .hr-overview-strip > div:nth-child(2n) { border-right: 0; } .hr-panel-toolbar { align-items: stretch; flex-direction: column; } .section-card > .hr-alert-list, .section-card > .hr-quick-actions, .section-card > .hr-overview-strip, .section-card > .hr-panel-toolbar, .section-card > .hr-vacation-list, .section-card > .hr-medical-list, .section-card > .lifecycle-list { margin-left: 14px; margin-right: 14px; } .section-card > .form-error, .section-card > .form-success { margin-left: 14px; margin-right: 14px; } .hr-vacation-form, .lifecycle-form { margin-left: 14px; margin-right: 14px; } .hr-alert-copy strong, .hr-alert-copy small { white-space: normal; } .hr-finance-analysis, .hr-turnover-analysis { grid-template-columns: 1fr; gap: 12px; } .hr-cost-grid, .hr-turnover-grid { grid-template-columns: 1fr 1fr; } .hr-analysis-list, .hr-movement-list { margin-left: 14px; margin-right: 14px; } .hr-vacation-row, .hr-medical-row, .lifecycle-row { align-items: flex-start; flex-wrap: wrap; } .hr-vacation-row .status-pill, .hr-vacation-row select { margin-left: 44px; } .hr-medical-actions { width: 100%; margin-left: 44px; } .lifecycle-row .status-pill, .lifecycle-actions { margin-left: 44px; } .lifecycle-legend { align-self: flex-start; } }
 .icon-button.danger { color: var(--danger); }
 .employee-ficha-dialog { color: #262024; box-shadow: 0 24px 80px rgba(33,25,30,.24); }
 .employee-ficha-dialog::backdrop { background: rgba(33,25,30,.46); }
