@@ -572,3 +572,8 @@ td strong { color: #2b2328; }
 }
 
 .field-note { color: var(--muted); }
+
+/* Cursor de leitura padrão sobre textos estáticos; os controles mantêm sua affordance. */
+body { cursor: default; }
+button, a, select, summary, label, [role="button"], input[type="button"], input[type="submit"], input[type="reset"], input[type="checkbox"], input[type="radio"], input[type="file"], input[type="image"], input[type="range"] { cursor: pointer; }
+input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="image"]):not([type="range"]), textarea, [contenteditable="true"], [contenteditable=""], [role="textbox"] { cursor: text; }
