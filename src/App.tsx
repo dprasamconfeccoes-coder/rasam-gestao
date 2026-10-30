@@ -271,43 +271,166 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
 }
 
 function EmployeesView({ token }: { token: string }) {
-  const [rows, setRows] = useState<EmployeeRow[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [search, setSearch] = useState(''); const [selected, setSelected] = useState<import('./lib/types').ProntuarioResponse | null>(null); const [selectedId, setSelectedId] = useState('')
-  useEffect(() => { listEmployees(token).then(setRows).catch((err) => setError(err instanceof Error ? err.message : 'Falha de consulta')).finally(() => setLoading(false)) }, [token])
-  const filtered = useMemo(() => rows.filter((row) => `${row.nome} ${row.cargo || ''} ${row.cpf}`.toLowerCase().includes(search.toLowerCase())), [rows, search])
-  async function openEmployee(id: string) { setSelectedId(id); setSelected(null); try { const result = await adminProntuario(token, id); if (!result.sucesso) throw new Error(result.erro || 'Não foi possível abrir a ficha'); setSelected(result) } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao abrir a ficha') } }
-  return <><PageHeading eyebrow="Pessoas · equipe" title="Funcionários" description="Cadastros reais importados da ficha e perfis de acesso." action={<div className="search-box"><Search size={16} /><input placeholder="Buscar pessoa ou cargo" value={search} onChange={(event) => setSearch(event.target.value)} /></div>} /><SectionCard title={`${filtered.length} registros visíveis`} caption="Selecione uma pessoa para abrir ações e dados de RH">{loading ? <LoadingState /> : error ? <ErrorState message={error} /> : filtered.length === 0 ? <EmptyState title="Nenhum funcionário encontrado" description={search ? 'Ajuste a busca para tentar novamente.' : 'Ainda não existem registros para exibir.'} /> : <div className="table-wrap"><p className="table-scroll-hint">Deslize para o lado para ver todas as colunas.</p><table><thead><tr><th>Nome</th><th>CPF</th><th>Cargo</th><th>Admissão</th><th>Perfil</th><th>Status</th><th>Ações</th></tr></thead><tbody>{filtered.map((row) => <tr key={row.id}><td><strong>{row.nome}</strong></td><td className="mono">{maskCpf(row.cpf)}</td><td>{row.cargo || 'Não informado'}</td><td>{formatDate(row.data_admissao)}</td><td><StatusPill value={profileLabel(row.perfil)} /></td><td><StatusPill value={row.ativo ? 'Ativo' : 'Inativo'} /></td><td><button className="secondary-button compact-button" onClick={() => openEmployee(row.id)}>{selectedId === row.id ? 'Atualizando…' : 'Abrir ficha'}</button></td></tr>)}</tbody></table></div>}{selected?.funcionario && (
-  <EmployeeFichaPanel
-    token={token}
-    employee={selected.funcionario}
-    onClose={() => { setSelected(null); setSelectedId('') }}
-    onSaved={(updated) => {
-      setSelected((current) => current ? { ...current, funcionario: updated } : current)
-      void listEmployees(token).then(setRows).catch(() => undefined)
-    }}
-  >
-    <div className="employee-ficha-summary employee-action-panel">
-      <div>
-        <span className="eyebrow">Ficha operacional</span>
-        <h3>{String(selected.funcionario.nome)}</h3>
-        <p>{String(selected.funcionario.cargo || 'Cargo não informado')} · {String(selected.funcionario.tipo_vinculo || 'vínculo')}</p>
-      </div>
-      <div className="metric-grid compact">
-        <div><b>{selected.ponto.length}</b><small>pontos</small></div>
-        <div><b>{selected.atestados.length}</b><small>atestados</small></div>
-        <div><b>{selected.ferias.length}</b><small>férias lançadas</small></div>
-        <div><b>{selected.afastamentos.length}</b><small>afastamentos</small></div>
-      </div>
-      <div className="quick-list">
-        <div className="quick-item">
-          <span><strong>Próximas férias</strong><small>{selected.ferias[0] ? `${formatDate(String(selected.ferias[0].inicio))} até ${formatDate(String(selected.ferias[0].fim))} · ${String(selected.ferias[0].status || 'sem status')}` : 'Nenhum período lançado'}</small></span>
-        </div>
-        <div className="quick-item">
-          <span><strong>Retorno / situação</strong><small>{selected.afastamentos[0] ? `${String(selected.afastamentos[0].tipo)} até ${formatDate(String(selected.afastamentos[0].fim))}` : 'Sem afastamento vigente'}</small></span>
-        </div>
-      </div>
-    </div>
-  </EmployeeFichaPanel>
-)}</SectionCard></>
+  const [rows, setRows] = useState<EmployeeRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [reportError, setReportError] = useState('')
+  const [fichaError, setFichaError] = useState('')
+  const [search, setSearch] = useState('')
+  const [selected, setSelected] = useState<import('./lib/types').ProntuarioResponse | null>(null)
+  const [selectedId, setSelectedId] = useState('')
+  const [generatingReportId, setGeneratingReportId] = useState('')
+
+  useEffect(() => {
+    listEmployees(token)
+      .then(setRows)
+      .catch((err) => setError(err instanceof Error ? err.message : 'Falha de consulta'))
+      .finally(() => setLoading(false))
+  }, [token])
+
+  const filtered = useMemo(
+    () => rows.filter((row) => `${row.nome} ${row.cargo || ''} ${row.cpf}`.toLowerCase().includes(search.toLowerCase())),
+    [rows, search],
+  )
+
+  async function openEmployee(id: string) {
+    setSelectedId(id)
+    setSelected(null)
+    setFichaError('')
+    try {
+      const result = await adminProntuario(token, id)
+      if (!result.sucesso || !result.funcionario) throw new Error(result.erro || 'Não foi possível abrir a ficha')
+      setSelected(result)
+    } catch (err) {
+      setFichaError(err instanceof Error ? err.message : 'Falha ao abrir a ficha')
+    } finally {
+      setSelectedId('')
+    }
+  }
+
+  async function generateEmployeeReport(id: string) {
+    setGeneratingReportId(id)
+    setReportError('')
+    try {
+      const result = await adminProntuario(token, id)
+      if (!result.sucesso || !result.funcionario) throw new Error(result.erro || 'Não foi possível consultar a ficha do funcionário.')
+      const { downloadEmployeeFichaPdf } = await import('./features/employee-ficha-pdf')
+      await downloadEmployeeFichaPdf(result.funcionario)
+    } catch (err) {
+      setReportError(err instanceof Error ? err.message : 'Não foi possível gerar o relatório.')
+    } finally {
+      setGeneratingReportId('')
+    }
+  }
+
+  return (
+    <>
+      <PageHeading
+        eyebrow="Pessoas · equipe"
+        title="Funcionários"
+        description="Consulte a equipe, abra a ficha completa ou gere o relatório individual."
+        action={
+          <div className="search-box">
+            <Search size={16} />
+            <input placeholder="Buscar pessoa ou cargo" value={search} onChange={(event) => setSearch(event.target.value)} />
+          </div>
+        }
+      />
+      <SectionCard title={`${filtered.length} registros visíveis`} caption="Abra a ficha no modal ou gere o PDF individual">
+        {loading ? (
+          <LoadingState />
+        ) : error ? (
+          <ErrorState message={error} />
+        ) : filtered.length === 0 ? (
+          <EmptyState title="Nenhum funcionário encontrado" description={search ? 'Ajuste a busca para tentar novamente.' : 'Ainda não existem registros para exibir.'} />
+        ) : (
+          <div className="table-wrap">
+            <p className="table-scroll-hint">Deslize para o lado para ver todas as colunas.</p>
+            <table className="employees-table">
+              <thead>
+                <tr><th>Nome</th><th>CPF</th><th>Cargo</th><th>Admissão</th><th>Ações</th></tr>
+              </thead>
+              <tbody>
+                {filtered.map((row) => (
+                  <tr key={row.id}>
+                    <td>
+                      <div className="employee-name-cell">
+                        <strong>{row.nome}</strong>
+                        <span className={`employee-status-tag ${row.ativo ? 'is-active' : 'is-inactive'}`}>
+                          <i aria-hidden="true" />{row.ativo ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="mono">{maskCpf(row.cpf)}</td>
+                    <td>{row.cargo || 'Não informado'}</td>
+                    <td>{formatDate(row.data_admissao)}</td>
+                    <td>
+                      <div className="employee-row-actions">
+                        <button
+                          className="secondary-button compact-button"
+                          type="button"
+                          onClick={() => void openEmployee(row.id)}
+                          disabled={Boolean(selectedId)}
+                          aria-label={`Abrir ficha de ${row.nome}`}
+                        >
+                          <FileText size={15} />{selectedId === row.id ? 'Abrindo…' : 'Abrir ficha'}
+                        </button>
+                        <button
+                          className="secondary-button compact-button employee-pdf-button"
+                          type="button"
+                          onClick={() => void generateEmployeeReport(row.id)}
+                          disabled={Boolean(generatingReportId)}
+                          aria-label={`Gerar PDF da ficha de ${row.nome}`}
+                        >
+                          {generatingReportId === row.id ? <RefreshCw className="spin" size={15} /> : <Download size={15} />}
+                          {generatingReportId === row.id ? 'Gerando…' : 'Gerar PDF'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {fichaError ? <div className="form-error employee-report-error" role="alert"><AlertCircle size={16} />{fichaError}</div> : null}
+        {reportError ? <div className="form-error employee-report-error" role="alert"><AlertCircle size={16} />{reportError}</div> : null}
+        {selected?.funcionario ? (
+          <EmployeeFichaPanel
+            token={token}
+            employee={selected.funcionario}
+            onClose={() => { setSelected(null); setSelectedId('') }}
+            onSaved={(updated) => {
+              setSelected((current) => current ? { ...current, funcionario: updated } : current)
+              void listEmployees(token).then(setRows).catch(() => undefined)
+            }}
+          >
+            <div className="employee-ficha-summary employee-action-panel">
+              <div>
+                <span className="eyebrow">Ficha operacional</span>
+                <h3>{String(selected.funcionario.nome)}</h3>
+                <p>{String(selected.funcionario.cargo || 'Cargo não informado')} · {String(selected.funcionario.tipo_vinculo || 'vínculo')}</p>
+              </div>
+              <div className="metric-grid compact">
+                <div><b>{selected.ponto.length}</b><small>pontos</small></div>
+                <div><b>{selected.atestados.length}</b><small>atestados</small></div>
+                <div><b>{selected.ferias.length}</b><small>férias lançadas</small></div>
+                <div><b>{selected.afastamentos.length}</b><small>afastamentos</small></div>
+              </div>
+              <div className="quick-list">
+                <div className="quick-item">
+                  <span><strong>Próximas férias</strong><small>{selected.ferias[0] ? `${formatDate(String(selected.ferias[0].inicio))} até ${formatDate(String(selected.ferias[0].fim))} · ${String(selected.ferias[0].status || 'sem status')}` : 'Nenhum período lançado'}</small></span>
+                </div>
+                <div className="quick-item">
+                  <span><strong>Retorno / situação</strong><small>{selected.afastamentos[0] ? `${String(selected.afastamentos[0].tipo)} até ${formatDate(String(selected.afastamentos[0].fim))}` : 'Sem afastamento vigente'}</small></span>
+                </div>
+              </div>
+            </div>
+          </EmployeeFichaPanel>
+        ) : null}
+      </SectionCard>
+    </>
+  )
 }
 
 function OrdersView({ token }: { token: string }) {
@@ -477,7 +600,49 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'central') return <AdminCenter token={token} />
     return <ControlModuleView token={token} module={active} />
   }
-  return <div className="app-shell"><aside className={`sidebar ${mobileMenu ? 'is-open' : ''}`}><div className="sidebar-brand"><img className="brand-logo" src={rfLogo} alt="RF — Rafaela Fernandes" /><div><strong>RF</strong><span>Rafaela Fernandes</span></div><button className="close-mobile" onClick={() => setMobileMenu(false)}><X size={18} /></button></div><div className="sidebar-user"><div className="avatar">{user.nome.split(' ').slice(0, 2).map((part) => part[0]).join('')}</div><div><strong>{user.nome.split(' ').slice(0, 2).join(' ')}</strong><span>{profileLabel(user.perfil)}</span></div></div><nav>{groups.map((group) => <div className="nav-group" key={group}><span className="nav-label">{group}</span>{allowedItems.filter((item) => item.group === group).map((item) => { const Icon = item.icon; return <button key={item.key} className={`nav-item ${active === item.key ? 'active' : ''}`} onClick={() => navigate(item.key)}><Icon size={17} /><span>{item.label}</span>{active === item.key && <ChevronRight className="nav-arrow" size={14} />}</button> })}</div>)}</nav><button className="logout-button" onClick={onLogout}><LogOut size={17} /> Sair da sessão</button></aside><div className={`shell-backdrop ${mobileMenu ? 'visible' : ''}`} onClick={() => setMobileMenu(false)} /><main className="main-area"><header className="topbar"><button className="mobile-menu-button" onClick={() => setMobileMenu(true)}><Menu size={20} /></button><div className="breadcrumbs"><span>RF Gestão</span><ChevronRight size={14} /><strong>{activeItem.label}</strong></div><div className="topbar-actions"><span className="connection-status"><span className="live-dot">●</span> Supabase conectado</span><div className="topbar-avatar">{user.nome[0]}</div></div></header><div className="content-wrap">{renderPage()}</div><footer className="app-footer"><span>RF Gestão · {new Date().getFullYear()}</span><span>Perfil: {profileLabel(user.perfil)} · sessão segura</span></footer></main></div>
+  return (
+    <div className="app-shell">
+      <aside className={`sidebar ${mobileMenu ? 'is-open' : ''}`}>
+        <div className="sidebar-brand">
+          <img className="brand-logo" src={rfLogo} alt="RF — Rafaela Fernandes" />
+          <div><strong>RF</strong><span>Rafaela Fernandes</span></div>
+          <button className="close-mobile" onClick={() => setMobileMenu(false)} aria-label="Fechar menu"><X size={18} /></button>
+        </div>
+        <nav>
+          {groups.map((group) => (
+            <div className="nav-group" key={group}>
+              <span className="nav-label">{group}</span>
+              {allowedItems.filter((item) => item.group === group).map((item) => {
+                const Icon = item.icon
+                return (
+                  <button key={item.key} className={`nav-item ${active === item.key ? 'active' : ''}`} onClick={() => navigate(item.key)}>
+                    <Icon size={17} /><span>{item.label}</span>{active === item.key && <ChevronRight className="nav-arrow" size={14} />}
+                  </button>
+                )
+              })}
+            </div>
+          ))}
+        </nav>
+        <button className="logout-button" onClick={onLogout}><LogOut size={17} /> Sair da sessão</button>
+      </aside>
+      <div className={`shell-backdrop ${mobileMenu ? 'visible' : ''}`} onClick={() => setMobileMenu(false)} />
+      <main className="main-area">
+        <header className="topbar">
+          <button className="mobile-menu-button" onClick={() => setMobileMenu(true)} aria-label="Abrir menu"><Menu size={20} /></button>
+          <div className="breadcrumbs"><span>RF Gestão</span><ChevronRight size={14} /><strong>{activeItem.label}</strong></div>
+          <div className="topbar-actions">
+            <span className="connection-status"><span className="live-dot">●</span> Supabase conectado</span>
+            <div className="topbar-user">
+              <div className="topbar-avatar" aria-hidden="true">{user.nome.split(' ').slice(0, 2).map((part) => part[0]).join('')}</div>
+              <div className="topbar-user-meta"><strong>{user.nome}</strong><span>{profileLabel(user.perfil)}</span></div>
+            </div>
+          </div>
+        </header>
+        <div className="content-wrap">{renderPage()}</div>
+        <footer className="app-footer"><span>RF Gestão · {new Date().getFullYear()}</span><span>Sessão segura</span></footer>
+      </main>
+    </div>
+  )
 }
 
 export default function App() {

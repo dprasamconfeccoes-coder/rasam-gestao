@@ -1,24 +1,24 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #eef0f4;
-  background: #0b0d11;
+  color: #262024;
+  background: #f8f6f2;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --bg: #0b0d11;
-  --surface: #11151c;
-  --surface-2: #171c25;
-  --surface-3: #1e2530;
-  --line: rgba(255,255,255,.09);
-  --muted: #8993a3;
-  --muted-2: #5e6878;
-  --gold: #d7a84a;
-  --gold-soft: rgba(215,168,74,.16);
-  --pink: #d9588d;
-  --pink-soft: rgba(217,88,141,.15);
-  --green: #6fca9b;
-  --blue: #79aeea;
-  --danger: #ef7e86;
+  --bg: #f8f6f2;
+  --surface: #ffffff;
+  --surface-2: #fffaf3;
+  --surface-3: #f2eee8;
+  --line: rgba(54,40,45,.12);
+  --muted: #665a60;
+  --muted-2: #8a7d82;
+  --gold: #89620f;
+  --gold-soft: rgba(183,140,44,.14);
+  --pink: #a23f69;
+  --pink-soft: rgba(162,63,105,.12);
+  --green: #2e714e;
+  --blue: #356993;
+  --danger: #a33d49;
 }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; background: var(--bg); }
@@ -465,3 +465,110 @@ button:focus-visible, a:focus-visible, summary:focus-visible {
   .employee-ficha-actions { flex-direction: column-reverse; }
   .employee-ficha-actions button { width: 100%; }
 }
+
+
+/* Refinamento visual: tema claro corporativo com acentos dourados e rosados. */
+body, .app-shell { color: #262024; background: var(--bg); }
+.auth-page, .boot-screen {
+  background: radial-gradient(circle at 12% 20%, rgba(162,63,105,.07), transparent 32%), radial-gradient(circle at 90% 90%, rgba(183,140,44,.09), transparent 38%), var(--bg);
+}
+.auth-grid {
+  opacity: .18;
+  background-image: linear-gradient(rgba(50,39,44,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(50,39,44,.04) 1px, transparent 1px);
+}
+.auth-card, .first-access-card {
+  color: #262024;
+  background: rgba(255,255,255,.96);
+  border-color: var(--line);
+  box-shadow: 0 26px 70px rgba(53,40,45,.12);
+  backdrop-filter: blur(12px);
+}
+.auth-card-head h2, .first-access-card h1, .page-heading h1 { color: #262024; }
+.form-stack label, .employee-ficha-field > span { color: #4b4045; }
+input, textarea, select {
+  color: #262024;
+  background: #fff;
+  border-color: rgba(54,40,45,.18);
+}
+input::placeholder, textarea::placeholder { color: #8a7d82; opacity: 1; }
+input:focus, textarea:focus, select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(137,98,15,.12); }
+.form-hint { color: #5d5157; background: #f7f3ed; }
+.form-error { color: #8f2f3b; background: #fff0f1; border-color: #f1c9ce; }
+.form-success { color: #216443; background: #edf7f0; border-color: #c9e5d2; }
+.primary-button { color: #2f240e; background: #c6a04b; }
+.primary-button:hover { background: #d2b164; }
+.secondary-button { color: #352b30; background: #fffaf3; border-color: rgba(54,40,45,.16); }
+.secondary-button:hover { color: #211a1e; border-color: rgba(137,98,15,.48); background: #fff6e5; }
+.text-button:hover { color: #2b2227; }
+.sidebar { background: #fff; border-right-color: rgba(54,40,45,.12); }
+.sidebar-brand { border-bottom-color: var(--line); }
+.sidebar nav { padding-top: 20px; }
+.nav-label { color: #887a80; }
+.nav-item { color: #5e5358; }
+.nav-item:hover { color: #30262b; background: rgba(162,63,105,.07); }
+.nav-item.active { color: #46340e; background: linear-gradient(90deg, rgba(183,140,44,.18), rgba(183,140,44,.05)); box-shadow: inset 2px 0 var(--gold); }
+.logout-button { color: #665a60; border-top-color: var(--line); }
+.logout-button:hover { color: var(--danger); }
+.topbar { background: rgba(255,255,255,.94); border-bottom-color: var(--line); }
+.breadcrumbs { color: #70646a; }
+.breadcrumbs strong { color: #292126; }
+.topbar-user { display: flex; align-items: center; gap: 9px; min-width: 0; padding-left: 14px; border-left: 1px solid var(--line); }
+.topbar-user-meta { display: grid; min-width: 0; gap: 2px; }
+.topbar-user-meta strong { max-width: 190px; overflow: hidden; color: #292126; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-user-meta span { color: var(--muted); font-size: 10px; }
+.quick-item { color: #3a3035; }
+.quick-item:hover { color: var(--gold); }
+.security-row strong { color: #30272c; }
+.error-state { color: #8f2f3b; background: #fff5f5; }
+.error-state strong { color: #8f2f3b; }
+td { color: #51474c; }
+td strong { color: #2b2328; }
+.status-pill { color: #51464b; background: #f0ece7; }
+.status-ativo, .status-conferido, .status-pago, .status-entregue, .status-atendida { color: #216443; background: #e8f4ec; }
+.status-pendente, .status-aguardando, .status-em-costura, .status-recebida, .status-em-producao { color: #76570d; background: #fff4d8; }
+.status-vencido, .status-cancelada, .status-recusada, .status-urgente { color: #963744; background: #fbe9ec; }
+.status-importante, .status-alta, .status-gestor, .status-administrador, .status-admin { color: #8f355d; background: #f8eaf0; }
+.detail-grid strong { color: #30272c; }
+.policy-list details { background: #fff; }
+.policy-list summary { color: #30272c; }
+.policy-list summary::after { color: var(--pink); }
+.policy-content { color: #51474c; }
+.admin-tabs button { color: #5e5358; background: #fffaf3; border-color: var(--line); }
+.admin-tabs button.active { color: #fff; background: var(--pink); border-color: var(--pink); }
+.icon-button.danger { color: var(--danger); }
+.employee-ficha-dialog { color: #262024; box-shadow: 0 24px 80px rgba(33,25,30,.24); }
+.employee-ficha-dialog::backdrop { background: rgba(33,25,30,.46); }
+.employee-ficha-heading { background: rgba(255,255,255,.97); }
+.employee-ficha-heading h4, .employee-ficha-summary .metric-grid > div > b, .employee-ficha-value > strong { color: #292126; }
+.employee-ficha-summary .metric-grid > div { background: #fff; }
+.employee-ficha-group { background: #fff; }
+.employee-ficha-group summary { color: #342a2f; }
+.employee-ficha-form .form-hint { background: #f7f3ed; }
+.employee-name-cell { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.employee-name-cell > strong { max-width: 330px; white-space: normal; overflow-wrap: anywhere; }
+.employee-status-tag { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 99px; font-size: 9px; font-weight: 800; line-height: 1; white-space: nowrap; }
+.employee-status-tag i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.employee-status-tag.is-active { color: #76570d; background: #fff3d6; }
+.employee-status-tag.is-inactive { color: #8f355d; background: #f8eaf0; }
+.employee-row-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.employee-row-actions .compact-button { margin: 0; }
+.employee-pdf-button { color: #8f355d; background: #fff7fa; }
+.employee-report-error { margin: 14px 18px; }
+@media (max-width: 760px) {
+  .topbar-user { padding-left: 10px; }
+  .topbar-user-meta strong { max-width: 120px; }
+  .employee-row-actions { min-width: 150px; }
+}
+@media (max-width: 420px) {
+  .topbar { gap: 8px; padding: 0 10px; }
+  .topbar-actions { min-width: 0; }
+  .breadcrumbs { min-width: 0; }
+  .breadcrumbs strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar-user { gap: 6px; max-width: 150px; padding-left: 8px; }
+  .topbar-avatar { display: grid; width: 28px; height: 28px; border-radius: 9px; }
+  .topbar-user-meta { display: grid; max-width: 106px; }
+  .topbar-user-meta strong { max-width: 106px; font-size: 10px; }
+  .topbar-user-meta span { max-width: 106px; font-size: 9px; line-height: 1.2; white-space: normal; }
+}
+
+.field-note { color: var(--muted); }

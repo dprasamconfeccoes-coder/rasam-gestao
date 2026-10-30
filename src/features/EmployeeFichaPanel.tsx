@@ -4,17 +4,17 @@ import { X } from 'lucide-react'
 import { adminAtualizarFichaFuncionario, adminProntuario } from '../lib/api'
 import type { EmployeeFichaPayload, EmployeeFichaRecord } from '../lib/types'
 
-type FieldKind = 'text' | 'date' | 'number' | 'textarea'
-type FieldDefinition = {
+export type FieldKind = 'text' | 'date' | 'number' | 'textarea'
+export type FieldDefinition = {
   key: string
   label: string
   kind?: FieldKind
   required?: boolean
   maxLength?: number
 }
-type FieldGroup = { title: string; fields: FieldDefinition[] }
+export type FieldGroup = { title: string; fields: FieldDefinition[] }
 
-const fieldGroups: FieldGroup[] = [
+export const fieldGroups: FieldGroup[] = [
   {
     title: 'Identificação do empregador',
     fields: [
@@ -128,7 +128,7 @@ function initialDraft(employee: EmployeeFichaRecord): Record<string, string> {
   )
 }
 
-function displayValue(field: FieldDefinition, raw: unknown) {
+export function displayValue(field: FieldDefinition, raw: unknown) {
   if (raw === null || raw === undefined || String(raw).trim() === '') return 'Não informado'
   const value = String(raw)
   if (field.kind === 'number') {
