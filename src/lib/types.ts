@@ -666,6 +666,8 @@ export interface VacationHistoricalProgrammingRow {
   dias_disponiveis: number
   dias_excedentes: number
   periodos_sistema: number
+  dias_afastamento_inss: number
+  dias_faltas_total: number
   limite_gozo: string | null
   dias_afastamento: string | null
   dias_faltas: string | null

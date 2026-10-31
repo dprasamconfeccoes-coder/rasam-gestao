@@ -102,7 +102,7 @@
 .vacation-history-actions input { width: 190px; min-height: 32px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: var(--surface); font: inherit; font-size: 11px; }
 .vacation-history-actions .secondary-button { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; white-space: nowrap; }
 .vacation-history-table { margin: 0 20px 18px; border: 1px solid var(--line); border-radius: 11px; }
-.vacation-history-table table { min-width: 980px; }
+.vacation-history-table table { min-width: 1180px; }
 .vacation-history-table th { white-space: nowrap; color: var(--muted); background: rgba(54,40,45,.035); font-size: 9px; text-transform: uppercase; letter-spacing: .055em; }
 .vacation-history-table td { vertical-align: top; min-width: 118px; font-size: 11px; }
 .vacation-history-table td:first-child { min-width: 205px; }
@@ -119,3 +119,9 @@
 .history-status.sem_ferias_lancadas { color: var(--gold); background: rgba(215,168,74,.12); }
 @media (max-width: 760px) { .vacation-history-toolbar { align-items: stretch; flex-direction: column; margin: 0 12px 12px; } .vacation-history-actions { justify-content: stretch; } .vacation-history-actions input { width: 100%; flex: 1 1 150px; } .vacation-history-actions .secondary-button { flex: 1 1 auto; justify-content: center; } .vacation-history-table { margin: 0 12px 14px; } }
 @media print { .vacation-history-actions, .vacation-kpi-grid, .vacation-page-intro, .vacation-reconciliation-grid, .vacation-finance-preview, .hr-vacation-management > section:not(:first-of-type) { display: none !important; } .vacation-history-table { margin: 0; border: 0; } }
+
+.history-number.is-neutral { color: var(--blue); background: rgba(53,105,147,.08); }
+.historical-pagination { margin-top: 0; }
+.historical-pagination > div { display: flex; align-items: center; gap: 7px; }
+.historical-pagination .secondary-button { display: inline-flex; align-items: center; gap: 4px; }
+@media (max-width: 760px) { .historical-pagination { margin: 0 12px; } }
