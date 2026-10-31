@@ -125,3 +125,14 @@
 .historical-pagination > div { display: flex; align-items: center; gap: 7px; }
 .historical-pagination .secondary-button { display: inline-flex; align-items: center; gap: 4px; }
 @media (max-width: 760px) { .historical-pagination { margin: 0 12px; } }
+
+.vacation-history-table table { min-width: 0; width: 100%; table-layout: fixed; }
+.vacation-history-table th, .vacation-history-table td { overflow-wrap: anywhere; }
+.vacation-history-table th:nth-child(1), .vacation-history-table td:nth-child(1) { width: 18%; }
+.vacation-history-table th:nth-child(2), .vacation-history-table td:nth-child(2) { width: 15%; }
+.vacation-history-table th:nth-child(3), .vacation-history-table td:nth-child(3), .vacation-history-table th:nth-child(4), .vacation-history-table td:nth-child(4), .vacation-history-table th:nth-child(5), .vacation-history-table td:nth-child(5) { width: 12%; }
+.vacation-history-table th:nth-child(6), .vacation-history-table td:nth-child(6), .vacation-history-table th:nth-child(7), .vacation-history-table td:nth-child(7) { width: 8%; min-width: 66px; padding-left: 7px; padding-right: 7px; }
+.vacation-history-table th:nth-child(8), .vacation-history-table td:nth-child(8) { width: 11%; min-width: 92px; padding-left: 7px; padding-right: 7px; }
+.vacation-history-table td:nth-child(6) .history-number, .vacation-history-table td:nth-child(7) .history-number { min-width: 0; padding: 4px 5px; font-size: 9px; }
+.vacation-history-table td:nth-child(6) small { font-size: 8px; }
+@media (max-width: 1000px) { .vacation-history-table { overflow-x: auto; } .vacation-history-table table { min-width: 980px; table-layout: auto; } }
