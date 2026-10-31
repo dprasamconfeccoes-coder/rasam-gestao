@@ -19,6 +19,7 @@ export type ModuleKey =
   | 'importacoes'
   | 'importar_holerite'
   | 'beneficios_descontos'
+  | 'catalogo_folha'
   | 'acordos'
   | 'documentos'
   | 'central'

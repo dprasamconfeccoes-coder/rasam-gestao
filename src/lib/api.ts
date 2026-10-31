@@ -129,6 +129,21 @@ export function searchDiscountCatalog(token: string, busca = '') {
 export function createDiscountCatalogItem(token: string, nome: string, descricao = '') {
   return rpc<{ sucesso: boolean; erro?: string; desconto?: { id: string; nome: string; descricao?: string | null } }>('app_admin_cadastrar_desconto_catalogo', { p_token: token, p_nome: nome, p_descricao: descricao })
 }
+export function getPayrollCatalog(token: string) {
+  return rpc<{ sucesso: boolean; erro?: string; beneficios: Array<Record<string, unknown>>; descontos: Array<Record<string, unknown>> }>('app_admin_catalogo_folha', { p_token: token })
+}
+export function simulateValeCesta(token: string, competencia: string, beneficioId?: string | null) {
+  return rpc<{ sucesso: boolean; erro?: string; competencia: string; valor: number; regra: Record<string, unknown>; itens: Array<Record<string, unknown>>; observacao?: string }>('app_admin_simular_vale_cesta', { p_token: token, p_competencia: competencia, p_beneficio_id: beneficioId || null })
+}
+export function getPayrollReport(token: string, competencia: string) {
+  return rpc<{ sucesso: boolean; erro?: string; competencia: string; total_beneficios: number; total_descontos: number; beneficios: Array<Record<string, unknown>>; descontos: Array<Record<string, unknown>>; por_funcionario: Array<Record<string, unknown>> }>('app_admin_relatorio_folha', { p_token: token, p_competencia: competencia })
+}
+export function saveBenefitConfig(token: string, payload: { id?: string | null; nome: string; categoria: string; natureza: string; valor: number | null; valorMinimo: number | null; percentual: number | null; vigenciaInicio: string; regra: string; codigoRegra: string; fonte: string; motivo: string }) {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_salvar_beneficio_config', { p_token: token, p_id: payload.id || null, p_nome: payload.nome, p_categoria: payload.categoria, p_natureza: payload.natureza, p_valor: payload.valor, p_valor_minimo: payload.valorMinimo, p_percentual: payload.percentual, p_vigencia_inicio: payload.vigenciaInicio, p_regra: payload.regra, p_codigo_regra: payload.codigoRegra, p_fonte: payload.fonte, p_motivo: payload.motivo })
+}
+export function saveDiscountConfig(token: string, payload: { id?: string | null; nome: string; categoria: string; fornecedor: string; forma: string; valor: number | null; vigenciaInicio: string; descricao: string; motivo: string }) {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_salvar_desconto_config', { p_token: token, p_id: payload.id || null, p_nome: payload.nome, p_categoria: payload.categoria, p_fornecedor: payload.fornecedor, p_forma: payload.forma, p_valor: payload.valor, p_vigencia_inicio: payload.vigenciaInicio, p_descricao: payload.descricao, p_motivo: payload.motivo })
+}
 export function myProfile(token: string) {
   return rpc<{ sucesso: boolean; funcionario?: EmployeeProfile; erro?: string }>('app_meu_perfil', {
     p_token: token,
