@@ -935,6 +935,55 @@ export interface ProntuarioResponse {
   descontos?: Array<Record<string, unknown>>
 }
 
+export interface OwnProntuarioResponse {
+  sucesso: boolean
+  erro?: string
+  funcionario?: {
+    id: string
+    nome: string
+    cpf: string
+    data_nascimento: string | null
+    tipo_vinculo: string | null
+    cargo: string | null
+    funcao: string | null
+    data_admissao: string | null
+    salario: number | null
+    salario_periodo: string | null
+    horario_trabalho: string | null
+    horario_intervalo: string | null
+    telefone_celular: string | null
+    endereco: string | null
+    ativo: boolean
+    data_demissao: string | null
+    tipo_desligamento: string | null
+  }
+  documentos: Array<Record<string, unknown>>
+  advertencias: Array<Record<string, unknown>>
+  atestados: Array<Record<string, unknown>>
+  justificativas: Array<Record<string, unknown>>
+  ferias: Array<Record<string, unknown>>
+  afastamentos: Array<Record<string, unknown>>
+}
+
+export interface EmployeeTimelineEvent {
+  id: string
+  tipo: string
+  data: string
+  titulo: string
+  descricao: string
+  origem: string
+  status: string | null
+}
+
+export interface EmployeeTimelineResponse {
+  sucesso: boolean
+  erro?: string
+  eventos: EmployeeTimelineEvent[]
+  total: number
+  offset: number
+  limite: number
+}
+
 export interface FechamentoSummary { funcionarios?: number; faltas_injustificadas?: number; faltas_justificadas?: number; horas_extras_50?: number; horas_extras_100?: number; extras_50_valor?: number; extras_100_valor?: number; dsr_desconto?: number }
 export interface FechamentoResult { sucesso: boolean; erro?: string; fechamento_id?: string; competencia?: string; status?: string; mensagem?: string; resumo?: FechamentoSummary }
 export interface FechamentoPreview extends FechamentoResult { confirmado_at?: string | null; regras?: Record<string, unknown>; linhas?: Array<Record<string, unknown>> }

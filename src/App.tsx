@@ -116,7 +116,8 @@ import { InternalDocumentsDashboard } from './features/InternalDocumentsDashboar
 import { EmployeeFichaPanel } from './features/EmployeeFichaPanel'
 import { EmployeeVacationPortal } from './features/EmployeeVacationPortal'
 import { PayslipImportDashboard } from './features/PayslipImportDashboard'
-import { EmployeeDirectory } from './features/EmployeeDirectory'
+import { EmployeeManagementDashboard } from './features/EmployeeManagementDashboard'
+import { EmployeeOwnDossier } from './features/EmployeeOwnDossier'
 import { PayrollBenefitsDiscounts } from './features/PayrollBenefitsDiscounts'
 import {
   EmptyState,
@@ -140,7 +141,7 @@ type NavItem = { key: ModuleKey; label: string; description: string; icon: typeo
 
 const navItems: NavItem[] = [
   { key: 'dashboard', label: 'Visão geral', description: 'O que precisa de atenção hoje', icon: LayoutDashboard, group: 'Operação', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
-  { key: 'funcionarios', label: 'Funcionários', description: 'Equipe e acessos', icon: UsersRound, group: 'Operação', profiles: managerProfiles },
+  { key: 'funcionarios', label: 'Funcionários', description: 'Gestão da equipe e prontuário próprio', icon: UsersRound, group: 'Operação', profiles: ['funcionario', ...managerProfiles] },
   { key: 'ordens', label: 'Ordens de serviço', description: 'Cadastro de lotes e financeiro', icon: ClipboardList, group: 'Operação', profiles: adminProfiles },
   { key: 'producao', label: 'Produção', description: 'Lotes e costura', icon: Factory, group: 'Operação', profiles: managerProfiles },
   { key: 'financeiro', label: 'Financeiro', description: 'Fluxo e compromissos', icon: CircleDollarSign, group: 'Controle', profiles: managerProfiles },
@@ -1257,11 +1258,16 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
   const displayName = profile?.nome || user.nome
   const displayCargo = profile?.cargo || user.cargo
   const activeItem = navItems.find((item) => item.key === active) || navItems[0]
+  const activeLabel = active === 'funcionarios' && user.perfil === 'funcionario' ? 'Meu prontuário' : activeItem.label
   const groups = Array.from(new Set(allowedItems.map((item) => item.group)))
   function navigate(key: ModuleKey) { setActive(key); setMobileMenu(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   function renderPage() {
     if (active === 'dashboard') return <DashboardView token={token} user={user} onNavigate={navigate} />
-    if (active === 'funcionarios') return <EmployeeDirectory token={token} />
+    if (active === 'funcionarios') {
+      if (user.perfil === 'funcionario') return <EmployeeOwnDossier token={token} />
+      if (managerProfiles.includes(user.perfil)) return <EmployeeManagementDashboard token={token} profile={user.perfil} />
+      return <><PageHeading eyebrow="Acesso restrito" title="Gestão de funcionários" /><ErrorState message="A lista geral e os prontuários da equipe estão disponíveis somente para administradores." /></>
+    }
     if (active === 'ordens') return adminProfiles.includes(user.perfil)
       ? <WorkOrdersDashboard token={token} onGoToProduction={() => navigate('producao')} />
       : <><PageHeading eyebrow="Acesso restrito" title="Ordens de serviço" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
@@ -1302,7 +1308,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
                 const Icon = item.icon
                 return (
                   <button key={item.key} className={`nav-item ${active === item.key ? 'active' : ''}`} onClick={() => navigate(item.key)}>
-                    <Icon size={17} /><span>{item.label}</span>{item.key === 'avisos' && unreadNotices > 0 && <span className="nav-badge" aria-label={`${unreadNotices} avisos não lidos`}>{unreadNotices > 99 ? '99+' : unreadNotices}</span>}{active === item.key && <ChevronRight className="nav-arrow" size={14} />}
+                    <Icon size={17} /><span>{item.key === 'funcionarios' && user.perfil === 'funcionario' ? 'Meu prontuário' : item.label}</span>{item.key === 'avisos' && unreadNotices > 0 && <span className="nav-badge" aria-label={`${unreadNotices} avisos não lidos`}>{unreadNotices > 99 ? '99+' : unreadNotices}</span>}{active === item.key && <ChevronRight className="nav-arrow" size={14} />}
                   </button>
                 )
               })}
@@ -1315,7 +1321,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
       <main className="main-area">
         <header className="topbar">
           <button className="mobile-menu-button" onClick={() => setMobileMenu(true)} aria-label="Abrir menu"><Menu size={20} /></button>
-          <div className="breadcrumbs"><span>RF Gestão</span><ChevronRight size={14} /><strong>{activeItem.label}</strong></div>
+          <div className="breadcrumbs"><span>RF Gestão</span><ChevronRight size={14} /><strong>{activeLabel}</strong></div>
           <div className="topbar-actions">
             <span className="connection-status"><span className="live-dot">●</span> Supabase conectado</span>
             <div className="topbar-user">

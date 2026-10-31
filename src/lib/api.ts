@@ -855,6 +855,24 @@ export function adminProntuario(token: string, funcionarioId: string) {
   return rpc<import('./types').ProntuarioResponse>('app_admin_prontuario', { p_token: token, p_funcionario_id: funcionarioId })
 }
 
+export function myProntuario(token: string) {
+  return rpc<import('./types').OwnProntuarioResponse>('app_meu_prontuario', { p_token: token })
+}
+
+export function getProntuarioTimeline(
+  token: string,
+  funcionarioId?: string | null,
+  filters: { tipo?: string | null; offset?: number; limite?: number } = {},
+) {
+  return rpc<import('./types').EmployeeTimelineResponse>('app_prontuario_linha_tempo', {
+    p_token: token,
+    p_funcionario_id: funcionarioId || null,
+    p_tipo: filters.tipo || null,
+    p_offset: filters.offset ?? 0,
+    p_limite: filters.limite ?? 50,
+  })
+}
+
 export function adminAtualizarFichaFuncionario(token: string, funcionarioId: string, payload: EmployeeFichaPayload) {
   return rpc<{ sucesso: boolean; erro?: string; funcionario_id?: string }>('app_admin_atualizar_funcionario', {
     p_token: token,
