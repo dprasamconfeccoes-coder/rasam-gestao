@@ -156,3 +156,24 @@
 .hr-vacation-row.is-expanded { border-color: rgba(53,105,147,.45); box-shadow: 0 8px 20px rgba(53,105,147,.08); }
 @media (max-width: 800px) { .vacation-period-record { grid-template-columns: repeat(2, minmax(0, 1fr)); } .selected-vacation-employee { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 600px) { .vacation-employee-results, .selected-vacation-employee { margin-left: 12px; margin-right: 12px; } .vacation-period-record { grid-template-columns: 1fr; } }
+
+.selected-vacation-identity { display: flex !important; align-items: center; gap: 11px; min-width: 0; }
+.selected-vacation-identity > div:last-child { display: grid; gap: 4px; min-width: 0; }
+.vacation-employee-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 20px 16px; }
+.vacation-employee-summary > div { display: grid; gap: 5px; min-height: 78px; padding: 12px 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.vacation-employee-summary span, .vacation-period-heading span { color: var(--muted); font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.vacation-employee-summary strong { color: var(--text); font-size: 12px; line-height: 1.3; }
+.vacation-employee-summary small { color: var(--muted); font-size: 9px; }
+.vacation-period-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 14px; margin: 0 20px 9px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.vacation-period-section-heading > div { display: grid; gap: 3px; }
+.vacation-period-section-heading span { color: var(--blue); font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.vacation-period-section-heading strong { color: var(--text); font-size: 15px; }
+.vacation-period-section-heading small { color: var(--muted); font-size: 10px; }
+.vacation-period-heading { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(180px, 1fr); gap: 16px; margin-bottom: 8px; }
+.vacation-period-heading > div { display: grid; gap: 4px; }
+.vacation-period-heading strong { color: var(--text); font-size: 11px; }
+.vacation-record-documents { grid-column: 1 / -1; display: grid !important; gap: 7px !important; }
+.vacation-record-documents > div { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.vacation-record-documents > div > * { margin: 0; }
+.vacation-record-status strong { color: var(--blue) !important; }
+@media (max-width: 800px) { .vacation-employee-summary { grid-template-columns: 1fr; margin-left: 12px; margin-right: 12px; } .vacation-period-section-heading { align-items: flex-start; flex-direction: column; margin-left: 12px; margin-right: 12px; } .vacation-period-heading { grid-template-columns: 1fr; gap: 8px; } }
