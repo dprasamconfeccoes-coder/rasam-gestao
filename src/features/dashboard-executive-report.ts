@@ -5,12 +5,15 @@ import type {
   ManagedDebt,
   SessionUser,
 } from '../lib/types'
+import rfLogoUrl from '../assets/rf-logo.png'
 
 export interface OverviewReportEnrichment {
   agreements?: AgreementInstallment[]
   debts?: ManagedDebt[]
   production?: FactoryProductionSummary
   periodLabel?: string
+  periodStart?: string
+  periodEnd?: string
 }
 
 export interface OverviewReportRow {
@@ -28,39 +31,66 @@ const number = (value: number | undefined | null) => new Intl.NumberFormat('pt-B
 const percent = (value: number | undefined | null) => `${Number(value || 0).toFixed(1).replace('.', ',')}%`
 const asNumber = (value: unknown) => Number(value || 0)
 const safeFileName = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase()
+const brand = { plum: [145, 36, 111] as [number, number, number], ink: [37, 38, 43] as [number, number, number], muted: [103, 106, 112] as [number, number, number], line: [226, 228, 231] as [number, number, number], gold: [183, 139, 48] as [number, number, number] }
 const isoToday = () => new Date().toISOString().slice(0, 10)
-const daysFromToday = (date: string | null | undefined) => {
+const daysFrom = (date: string | null | undefined, start: string) => {
   if (!date) return null
   const target = new Date(`${date.slice(0, 10)}T12:00:00`).getTime()
-  return Math.ceil((target - new Date(`${isoToday()}T12:00:00`).getTime()) / 86400000)
+  return Math.ceil((target - new Date(`${start}T12:00:00`).getTime()) / 86400000)
+}
+
+const isInWindow = (date: string | null | undefined, start: string, end: string) => {
+  if (!date) return false
+  const value = date.slice(0, 10)
+  return value >= start && value <= end
+}
+
+async function loadLogo() {
+  try {
+    const response = await fetch(rfLogoUrl)
+    if (!response.ok) return null
+    const blob = await response.blob()
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
 }
 
 function row(grupo: string, indicador: string, valor: string, unidade: OverviewReportRow['unidade'], status: OverviewReportRow['status'], contexto: string, modulo: string): OverviewReportRow {
   return { grupo, indicador, valor, unidade, status, contexto, modulo }
 }
 
-function agreementRows(items: AgreementInstallment[]): OverviewReportRow[] {
+function agreementRows(items: AgreementInstallment[], enrichment: OverviewReportEnrichment): OverviewReportRow[] {
+  const start = enrichment.periodStart || isoToday()
+  const end = enrichment.periodEnd || start
   const open = items.filter((item) => item.status !== 'quitada')
   const overdue = items.filter((item) => item.status === 'atrasada')
-  const next7 = open.filter((item) => { const days = daysFromToday(item.vencimento); return days !== null && days >= 0 && days <= 7 })
-  const next30 = open.filter((item) => { const days = daysFromToday(item.vencimento); return days !== null && days >= 0 && days <= 30 })
+  const next7 = open.filter((item) => isInWindow(item.vencimento, start, end))
+  const next30 = next7
   const agreementIds = new Set(items.map((item) => item.acordo_id))
   const balance = open.reduce((sum, item) => sum + asNumber(item.valor), 0)
   return [
     row('Acordos', 'Acordos ativos', number(agreementIds.size), 'quantidade', agreementIds.size ? 'informativo' : 'positivo', 'Processos com parcelas registradas', 'acordos'),
     row('Acordos', 'Parcelas em aberto', number(open.length), 'quantidade', open.length ? 'atencao' : 'positivo', `${money(balance)} ainda comprometidos`, 'acordos'),
     row('Acordos', 'Parcelas vencidas', number(overdue.length), 'quantidade', overdue.length ? 'urgente' : 'positivo', money(overdue.reduce((sum, item) => sum + asNumber(item.valor), 0)), 'acordos'),
-    row('Acordos', 'Vencimentos em 7 dias', number(next7.length), 'quantidade', next7.length ? 'atencao' : 'positivo', money(next7.reduce((sum, item) => sum + asNumber(item.valor), 0)), 'acordos'),
-    row('Acordos', 'Vencimentos em 30 dias', number(next30.length), 'quantidade', next30.length ? 'atencao' : 'informativo', money(next30.reduce((sum, item) => sum + asNumber(item.valor), 0)), 'acordos'),
+    row('Acordos', 'Vencimentos no período', number(next7.length), 'quantidade', next7.length ? 'atencao' : 'positivo', money(next7.reduce((sum, item) => sum + asNumber(item.valor), 0)), 'acordos'),
+    row('Acordos', 'Janela consultada', enrichment.periodLabel || 'Período selecionado', 'texto', 'informativo', 'Parcelas com vencimento dentro da janela', 'acordos'),
     row('Acordos', 'Saldo parcelado em aberto', money(balance), 'moeda', balance ? 'atencao' : 'positivo', 'Soma das parcelas não quitadas', 'acordos'),
   ]
 }
 
-function debtRows(items: ManagedDebt[]): OverviewReportRow[] {
+function debtRows(items: ManagedDebt[], enrichment: OverviewReportEnrichment): OverviewReportRow[] {
+  const start = enrichment.periodStart || isoToday()
+  const end = enrichment.periodEnd || start
   const active = items.filter((item) => item.status === 'ativa')
   const openInstallments = active.flatMap((item) => item.parcelas.filter((installment) => installment.ativo && installment.status !== 'paga'))
-  const overdue = openInstallments.filter((item) => { const days = daysFromToday(item.vencimento); return days !== null && days < 0 })
-  const next7 = openInstallments.filter((item) => { const days = daysFromToday(item.vencimento); return days !== null && days >= 0 && days <= 7 })
+  const overdue = openInstallments.filter((item) => { const days = daysFrom(item.vencimento, start); return days !== null && days < 0 })
+  const next7 = openInstallments.filter((item) => isInWindow(item.vencimento, start, end))
   const balance = active.reduce((sum, item) => sum + asNumber(item.saldo_devedor), 0)
   const creditors = new Set(active.map((item) => item.credor).filter(Boolean))
   return [
@@ -68,7 +98,7 @@ function debtRows(items: ManagedDebt[]): OverviewReportRow[] {
     row('Dívidas', 'Saldo devedor', money(balance), 'moeda', balance ? 'atencao' : 'positivo', 'Posição ativa cadastrada', 'dividas'),
     row('Dívidas', 'Parcelas em aberto', number(openInstallments.length), 'quantidade', openInstallments.length ? 'atencao' : 'positivo', 'Parcelas ainda não quitadas', 'dividas'),
     row('Dívidas', 'Parcelas vencidas', number(overdue.length), 'quantidade', overdue.length ? 'urgente' : 'positivo', money(overdue.reduce((sum, item) => sum + asNumber(item.valor), 0)), 'dividas'),
-    row('Dívidas', 'Vencimentos em 7 dias', number(next7.length), 'quantidade', next7.length ? 'atencao' : 'positivo', money(next7.reduce((sum, item) => sum + asNumber(item.valor), 0)), 'dividas'),
+    row('Dívidas', 'Vencimentos no período', number(next7.length), 'quantidade', next7.length ? 'atencao' : 'positivo', money(next7.reduce((sum, item) => sum + asNumber(item.valor), 0)), 'dividas'),
   ]
 }
 
@@ -97,8 +127,8 @@ export function buildOverviewReportRows(data: DashboardResponse, enrichment: Ove
     row('Financeiro', 'Próximos 7 dias', number(intelligence.financeiro?.proximas_qtd), 'quantidade', intelligence.financeiro?.proximas_qtd ? 'atencao' : 'positivo', money(intelligence.financeiro?.proximas_valor), 'financeiro'),
     row('Financeiro', 'Saldo de dívidas', money(indicators.saldo_dividas), 'moeda', indicators.saldo_dividas ? 'atencao' : 'positivo', 'Posição atual', 'dividas'),
   ]
-  if (enrichment.agreements) rows.push(...agreementRows(enrichment.agreements))
-  if (enrichment.debts) rows.push(...debtRows(enrichment.debts))
+  if (enrichment.agreements) rows.push(...agreementRows(enrichment.agreements, enrichment))
+  if (enrichment.debts) rows.push(...debtRows(enrichment.debts, enrichment))
   return rows
 }
 
@@ -120,7 +150,7 @@ export function downloadDashboardCsv(data: DashboardResponse, user: SessionUser,
 }
 
 export async function exportDashboardPdf(data: DashboardResponse, user: SessionUser, enrichment: OverviewReportEnrichment = {}) {
-  const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')])
+  const [{ jsPDF }, { default: autoTable }, logo] = await Promise.all([import('jspdf'), import('jspdf-autotable'), loadLogo()])
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true })
   const rows = buildOverviewReportRows(data, enrichment)
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -132,11 +162,15 @@ export async function exportDashboardPdf(data: DashboardResponse, user: SessionU
   const colors: Record<string, [number, number, number]> = { Pessoas: [162, 63, 105], Produção: [55, 112, 83], Financeiro: [190, 151, 74], Acordos: [117, 91, 139], Dívidas: [148, 76, 70] }
 
   const header = () => {
-    doc.setFillColor(57, 44, 49); doc.rect(0, 0, pageWidth, 30, 'F')
-    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.text('RF Gestão', margin, 12)
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text('Relatório rápido · Situação geral', margin, 19); doc.text(generatedAt, pageWidth - margin, 19, { align: 'right' })
-    doc.setTextColor(55, 45, 50); doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text(`Responsável: ${user.nome}`, margin, 41)
-    doc.setFont('helvetica', 'normal'); doc.setTextColor(112, 101, 108); doc.setFontSize(8); doc.text(`Resumo consolidado · ${enrichment.periodLabel || 'Visão atual'}`, margin, 47)
+    doc.setFillColor(250, 249, 250); doc.rect(0, 0, pageWidth, 31, 'F'); doc.setDrawColor(...brand.line); doc.setLineWidth(.25); doc.line(margin, 31, pageWidth - margin, 31)
+    if (logo) doc.addImage(logo, 'PNG', margin, 6, 21, 15.4, undefined, 'FAST')
+    else { doc.setFillColor(...brand.plum); doc.roundedRect(margin, 7, 20, 14, 1.4, 1.4, 'F'); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text('RF', margin + 6, 16) }
+    doc.setTextColor(...brand.ink); doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('RF Gestão', margin + 26, 11)
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...brand.muted); doc.text('Relatório rápido · situação geral', margin + 26, 16)
+    doc.setTextColor(...brand.gold); doc.setFont('helvetica', 'bold'); doc.setFontSize(7); doc.text('DOCUMENTO OFICIAL', pageWidth - margin, 11, { align: 'right' })
+    doc.setTextColor(...brand.muted); doc.setFont('helvetica', 'normal'); doc.setFontSize(6.8); doc.text(`Emitido em ${generatedAt}`, pageWidth - margin, 16, { align: 'right' })
+    doc.setTextColor(...brand.ink); doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text(`Responsável: ${user.nome}`, margin, 41)
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(...brand.muted); doc.setFontSize(8); doc.text(`${enrichment.periodLabel || 'Visão atual'} · Pessoas, produção, caixa e compromissos`, margin, 47)
   }
   const section = (title: string, items: OverviewReportRow[], startY: number) => {
     const color = colors[title] || [91, 79, 85]
