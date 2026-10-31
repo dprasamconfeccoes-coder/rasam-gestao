@@ -81,6 +81,38 @@ export interface DashboardResponse {
     ponto_inconsistencias_mes?: number
     ponto_inconsistencias_mes_anterior?: number
   }
+  inteligencia?: {
+    operacao?: {
+      ordens_atrasadas?: number
+      lotes_parados?: number
+      ordens_proximas?: number
+    }
+    financeiro?: {
+      vencidas_qtd?: number
+      vencidas_valor?: number
+      proximas_qtd?: number
+      proximas_valor?: number
+    }
+    agenda?: Array<{
+      id: string
+      titulo: string
+      valor: number
+      detalhe: string
+      destino: ModuleKey
+      prioridade: 'urgente' | 'atencao' | 'informacao'
+    }>
+    evolucao?: Array<{
+      periodo: string
+      ordens: number
+      entregues: number
+    }>
+    pendencias_area?: {
+      financeiro?: number
+      operacao?: number
+      producao?: number
+      rh?: number
+    }
+  }
 }
 
 export interface EmployeeRow {
