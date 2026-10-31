@@ -930,6 +930,8 @@ export interface ProntuarioResponse {
   holerites: Array<Record<string, unknown>>
   ferias: Array<Record<string, unknown>>
   afastamentos: Array<Record<string, unknown>>
+  beneficios?: Array<Record<string, unknown>>
+  descontos?: Array<Record<string, unknown>>
 }
 
 export interface FechamentoSummary { funcionarios?: number; faltas_injustificadas?: number; faltas_justificadas?: number; horas_extras_50?: number; horas_extras_100?: number; extras_50_valor?: number; extras_100_valor?: number; dsr_desconto?: number }
