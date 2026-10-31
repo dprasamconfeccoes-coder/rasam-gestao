@@ -271,3 +271,6 @@
 .vacation-portal-muted { margin: 0; color: var(--muted-2); font-size: 12px; }
 .vacation-portal-security { margin: 0; }
 @media (max-width: 760px) { .vacation-portal-toolbar { align-items: stretch; flex-direction: column; } .vacation-portal-toolbar .search-box { max-width: none; } .vacation-portal-period summary { grid-template-columns: 34px minmax(0,1fr); } .vacation-period-balance, .vacation-portal-period summary > .status-pill { grid-column: 2; text-align: left; } .vacation-period-body { padding-left: 16px; } .vacation-portal-detail-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+
+.vacation-portal-avatar { display: grid; place-items: center; overflow: hidden; width: 38px; height: 38px; flex: 0 0 38px; border: 2px solid rgba(215,168,74,.45); border-radius: 50%; color: #5c420b; background: linear-gradient(135deg, #f1d596, #d98aa9); font-size: 11px; font-weight: 900; letter-spacing: .02em; }
+.vacation-portal-avatar img { width: 100%; height: 100%; object-fit: cover; }
