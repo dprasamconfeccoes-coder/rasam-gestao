@@ -208,3 +208,28 @@
 .vacation-period-heading { padding-bottom: 9px; border-bottom: 1px solid rgba(54,40,45,.075); }
 .vacation-period-heading strong { font-size: 11px; }
 @media (max-width: 600px) { .hr-vacation-list { padding-left: 22px; padding-right: 12px; } .hr-vacation-list::before { left: 6px; } .hr-vacation-row { margin-left: 12px; border-radius: 13px; } .hr-vacation-row::before { left: -19px; } }
+
+.vacation-management-dashboard { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 11px; padding: 0 20px 18px; }
+.management-dashboard-card { display: grid; gap: 6px; min-height: 105px; padding: 13px 14px; border: 1px solid var(--line); border-top: 3px solid var(--blue); border-radius: 12px; background: var(--surface); }
+.management-dashboard-card span { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+.management-dashboard-card strong { color: var(--text); font-size: 27px; line-height: 1; }
+.management-dashboard-card small { color: var(--muted); font-size: 9px; line-height: 1.35; }
+.management-dashboard-card.is-danger { border-top-color: var(--danger); background: rgba(163,61,73,.045); }
+.management-dashboard-card.is-danger span, .management-dashboard-card.is-danger strong { color: var(--danger); }
+.management-dashboard-card.is-gold { border-top-color: var(--gold); background: rgba(215,168,74,.055); }
+.management-dashboard-card.is-gold span, .management-dashboard-card.is-gold strong { color: var(--gold); }
+.management-dashboard-card.is-blue { border-top-color: var(--blue); background: rgba(53,105,147,.045); }
+.management-dashboard-card.is-blue span, .management-dashboard-card.is-blue strong { color: var(--blue); }
+.management-dashboard-card.is-green { border-top-color: var(--green); background: rgba(46,113,78,.045); }
+.management-dashboard-card.is-green span, .management-dashboard-card.is-green strong { color: var(--green); }
+.hr-vacation-form { gap: 12px; padding: 15px 20px 18px; border: 1px solid rgba(53,105,147,.13); border-radius: 12px; background: linear-gradient(135deg, rgba(53,105,147,.035), rgba(255,255,255,.72)); }
+.hr-vacation-form .form-row { gap: 10px; }
+.hr-vacation-form label { gap: 4px; font-size: 10px; }
+.hr-vacation-form input, .hr-vacation-form select, .hr-vacation-form textarea { min-height: 32px; padding: 7px 9px; border-radius: 7px; font-size: 11px; }
+.hr-vacation-form textarea { min-height: 58px; }
+.hr-vacation-form .vacation-upload-row { padding: 10px; border: 1px dashed rgba(53,105,147,.24); border-radius: 9px; background: rgba(255,255,255,.5); }
+.hr-vacation-form-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 2px; }
+.hr-vacation-form-actions .primary-button, .hr-vacation-form-actions .secondary-button { display: inline-flex; align-items: center; gap: 5px; min-height: 33px; padding: 7px 11px; font-size: 10px; }
+.vacation-history-actions .secondary-button { display: inline-flex; align-items: center; gap: 5px; }
+@media (max-width: 900px) { .vacation-management-dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .vacation-management-dashboard { grid-template-columns: 1fr 1fr; padding-left: 12px; padding-right: 12px; } .hr-vacation-form { padding-left: 12px; padding-right: 12px; } .hr-vacation-form-actions > * { flex: 1 1 auto; justify-content: center; } }
