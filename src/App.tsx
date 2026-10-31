@@ -59,7 +59,9 @@ import {
   dashboard,
   getFactoryProduction,
   listAgreements,
+  listOrders,
   managedDebts,
+  adminFinanceiroWorkspace,
   adminProntuario,
   getSession,
   getToken,
@@ -89,10 +91,13 @@ import type {
   DashboardResponse,
   EmployeeProfile,
   EmployeeRow,
+  FactoryProductionLot,
+  FinanceiroLancamento,
   LoginResponse,
   MedicalLeaveRow,
   ModuleKey,
   NoticeRow,
+  OrderRow,
   PayslipRow,
   PointRow,
   Profile,
@@ -286,8 +291,36 @@ function FirstAccessScreen({ token, user, onDone, onLogout }: { token: string; u
   )
 }
 
+type OverviewQuickModalKind = 'equipe' | 'ordens' | 'costura' | 'contas' | 'recebidas' | 'producao' | 'costuradas' | 'entregues' | 'pagas'
+type OverviewQuickDetails = { employees?: EmployeeRow[]; orders?: OrderRow[]; lots?: FactoryProductionLot[]; contas?: FinanceiroLancamento[] }
+
+function OverviewQuickModal({ kind, details, count, onClose }: { kind: OverviewQuickModalKind; details?: OverviewQuickDetails; count: number; onClose: () => void }) {
+  const titles: Record<OverviewQuickModalKind, [string, string]> = {
+    equipe: ['Equipe ativa', 'Funcionários ativos no quadro atual'], ordens: ['Ordens ativas', 'Ordens ainda em operação'], costura: ['Lotes em costura', 'Lotes que estão na etapa de costura'], contas: ['Contas pendentes', 'Obrigações financeiras sem baixa'], recebidas: ['Ordens recebidas', 'Ordens que entraram na operação'], producao: ['Ordens em produção', 'Ordens em execução na fábrica'], costuradas: ['Ordens costuradas', 'Ordens com costura registrada'], entregues: ['Ordens entregues', 'Ordens que já foram entregues'], pagas: ['Ordens pagas', 'Ordens com pagamento confirmado'],
+  }
+  const status = (value?: string | null) => (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const orders = details?.orders || []
+  const orderRows = orders.filter((item) => {
+    const value = status(item.status)
+    if (kind === 'ordens') return !['entregue', 'pago', 'cancelada', 'cancelado', 'finalizada', 'finalizado'].some((term) => value.includes(term))
+    if (kind === 'recebidas') return value.includes('receb') || value.includes('aguard') || value.includes('novo')
+    if (kind === 'producao') return value.includes('produc') || value.includes('corte') || value.includes('mont')
+    if (kind === 'costuradas') return value.includes('costur') || item.tamanhos.some((size) => size.quantidade_costurada > 0)
+    if (kind === 'entregues') return value.includes('entreg') || item.tamanhos.some((size) => size.quantidade_entregue >= size.quantidade)
+    if (kind === 'pagas') return item.status_pagamento === 'pago' || value.includes('pago')
+    return false
+  })
+  const rows = kind === 'equipe' ? (details?.employees || []).filter((item) => item.ativo).map((item) => ({ title: item.nome, subtitle: item.cargo || 'Cargo não informado', meta: item.situacao }))
+    : kind === 'costura' ? (details?.lots || []).filter((item) => status(item.status).includes('costur')).map((item) => ({ title: `${item.numero} · ${item.descricao}`, subtitle: item.cliente || 'Cliente não informado', meta: `${item.unidades_costuradas}/${item.unidades_solicitadas} unidades` }))
+      : kind === 'contas' ? (details?.contas || []).filter((item) => status(item.status).includes('pend') || status(item.status).includes('abert')).map((item) => ({ title: item.descricao || item.categoria || 'Conta sem descrição', subtitle: `${item.tipo === 'receber' ? 'A receber' : 'A pagar'} · vencimento ${formatDate(item.vencimento)}`, meta: formatMoney(Number(item.valor || 0)) }))
+        : orderRows.map((item) => ({ title: `${item.numero} · ${item.descricao}`, subtitle: item.cliente || 'Cliente não informado', meta: item.prazo ? `Prazo ${formatDate(item.prazo)}` : `${item.quantidade} peças` }))
+  const [title, subtitle] = titles[kind]
+  useEffect(() => { const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }; window.addEventListener('keydown', onKeyDown); return () => window.removeEventListener('keydown', onKeyDown) }, [onClose])
+  return <div className="overview-detail-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className="overview-detail-modal" role="dialog" aria-modal="true" aria-labelledby="overview-detail-title"><header className="overview-detail-head"><div><span className="eyebrow">Visão geral · consulta rápida</span><h2 id="overview-detail-title">{title}</h2><p>{subtitle}</p></div><button className="overview-detail-close" type="button" onClick={onClose} aria-label="Fechar detalhes"><X size={18} /></button></header><div className="overview-detail-summary"><strong>{rows.length || count}</strong><span>{rows.length === 1 ? 'registro encontrado' : 'registros encontrados'}</span></div><div className="overview-detail-list">{rows.length ? rows.map((row, index) => <div className="overview-detail-row" key={`${row.title}-${index}`}><span className="overview-detail-index">{String(index + 1).padStart(2, '0')}</span><span><strong>{row.title}</strong><small>{row.subtitle}</small></span><b>{row.meta}</b></div>) : <div className="overview-detail-empty"><span>Resumo disponível</span><strong>{count} registro(s) no indicador.</strong><small>A lista detalhada ainda não está disponível para este perfil ou não possui registros correspondentes.</small></div>}</div><footer className="overview-detail-foot"><span>Consulta rápida · os registros completos permanecem nos módulos do menu.</span><button className="secondary-button" type="button" onClick={onClose}>Fechar</button></footer></section></div>
+}
+
 function DashboardView({ token, user, onNavigate }: { token: string; user: SessionUser; onNavigate: (key: ModuleKey) => void }) {
-  const [state, setState] = useState<{ loading: boolean; data?: DashboardResponse; enrichment?: OverviewReportEnrichment; error?: string }>({ loading: true })
+  const [state, setState] = useState<{ loading: boolean; data?: DashboardResponse; enrichment?: OverviewReportEnrichment; quickDetails?: OverviewQuickDetails; error?: string }>({ loading: true })
   const [liveEvents, setLiveEvents] = useState<DashboardLiveEvent[]>([])
   const [liveConnected, setLiveConnected] = useState(false)
   const [notificationPermission, setNotificationPermission] = useState(getNotificationPermission())
@@ -296,6 +329,7 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
   const [reportLoading, setReportLoading] = useState(false)
   const [quickGranularity, setQuickGranularity] = useState<'mes' | 'semana'>('mes')
   const [quickAnchor, setQuickAnchor] = useState(() => new Date())
+  const [quickModal, setQuickModal] = useState<OverviewQuickModalKind | null>(null)
   const quickReportWindow = (() => {
     const iso = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
     if (quickGranularity === 'mes') {
@@ -315,17 +349,24 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
       try {
         const data = await dashboard(token)
         const enrichment: OverviewReportEnrichment = {}
-        if (adminProfiles.includes(user.perfil)) {
-          const [productionResult, agreementsResult, debtsResult] = await Promise.allSettled([
+        const quickDetails: OverviewQuickDetails = {}
+        if (user.perfil !== 'funcionario') {
+          const [productionResult, agreementsResult, debtsResult, employeesResult, ordersResult, financeResult] = await Promise.allSettled([
             getFactoryProduction(token),
             listAgreements(token),
             managedDebts(token),
+            listEmployees(token),
+            listOrders(token),
+            adminFinanceiroWorkspace(token),
           ])
-          if (productionResult.status === 'fulfilled' && productionResult.value.sucesso) enrichment.production = productionResult.value.resumo
+          if (productionResult.status === 'fulfilled' && productionResult.value.sucesso) { enrichment.production = productionResult.value.resumo; quickDetails.lots = productionResult.value.lotes }
           if (agreementsResult.status === 'fulfilled' && agreementsResult.value.sucesso) enrichment.agreements = agreementsResult.value.parcelas
           if (debtsResult.status === 'fulfilled' && debtsResult.value.sucesso) enrichment.debts = debtsResult.value.dividas
+          if (employeesResult.status === 'fulfilled') quickDetails.employees = employeesResult.value
+          if (ordersResult.status === 'fulfilled' && ordersResult.value.sucesso) quickDetails.orders = ordersResult.value.ordens
+          if (financeResult.status === 'fulfilled' && financeResult.value.sucesso) quickDetails.contas = financeResult.value.contas
         }
-        setState({ loading: false, data, enrichment })
+        setState({ loading: false, data, enrichment, quickDetails })
       } catch (err) {
         setState({ loading: false, error: err instanceof Error ? err.message : 'Erro desconhecido' })
       }
@@ -361,11 +402,12 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
   const reportDestination = (module: string): ModuleKey => module === 'dividas' ? 'dividas' : module === 'acordos' ? 'acordos' : module === 'rh' || module === 'afastamentos' ? 'rh' : module === 'producao' ? 'producao' : module === 'ponto' ? 'ponto' : module === 'ordens' ? 'ordens' : 'financeiro'
   const filteredEvolution = evolution.slice(-Math.min(chartRange, 6))
   const alertDestination = (value: string) => ['financeiro','ordens','producao','rh','importacoes'].includes(value) ? value as ModuleKey : 'dashboard'
+  const quickModalCounts: Record<OverviewQuickModalKind, number> = { equipe: indicators.funcionarios_ativos, ordens: indicators.ordens_ativas, costura: indicators.lotes_em_costura, contas: indicators.contas_pendentes, recebidas: funnel?.recebidas || 0, producao: funnel?.em_producao || 0, costuradas: funnel?.costuradas || 0, entregues: funnel?.entregues || 0, pagas: funnel?.pagas || 0 }
   return <div className={`overview-page ${isEmployee ? 'is-personal' : 'is-executive'}`}>
     <PageHeading eyebrow={isEmployee ? 'Meu espaço · atenção pessoal' : 'Centro de comando · gestão empresarial'} title="Visão geral" description={isEmployee ? `Olá, ${user.nome.split(' ')[0]}. Aqui estão as suas pendências e próximos passos.` : `Bom dia, ${user.nome.split(' ')[0]}. Uma leitura objetiva do que merece atenção hoje.`} action={<span className="date-chip"><CalendarDays size={15} /> {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}</span>} />
     <div className="overview-live-toolbar"><span className="overview-live-status"><span className={`overview-live-dot ${liveConnected ? 'is-connected' : ''}`} /><Radio size={14} /> {liveConnected ? 'Atualização automática ativa' : 'Conectando ao painel…'}</span><button type="button" className="overview-notification-button" onClick={() => void enableNotifications()} disabled={notificationPermission === 'granted' || notificationPermission === 'unsupported'}>{notificationPermission === 'granted' ? <BellRing size={15} /> : <BellOff size={15} />} {notificationPermission === 'granted' ? 'Notificações ativas' : notificationPermission === 'denied' ? 'Notificações bloqueadas' : 'Ativar notificações'}</button></div>
     <div className="overview-welcome"><div><span className="eyebrow">{isEmployee ? 'Seu painel pessoal' : 'Prioridade do dia'}</span><h2>{isEmployee ? 'Tudo o que depende de você, em um só lugar.' : 'Decida primeiro. Aprofunde depois.'}</h2><p>{isEmployee ? 'Consulte sua jornada, acompanhe documentos e mantenha suas solicitações em dia.' : 'Indicadores operacionais e alertas priorizados para iniciar o dia com clareza.'}</p></div><div className="overview-welcome-symbol"><Gauge size={32}/></div></div>
-    <div className="metric-grid overview-metrics">{isEmployee ? <><MetricCard label="Ponto a revisar" value={personal.ponto_sem_justificativa || 0} detail="Registros sem justificativa" tone="gold" onClick={() => onNavigate('ponto')} /><MetricCard label="Atestados" value={personal.atestados_em_analise || 0} detail="Em análise pelo RH" tone="pink" onClick={() => onNavigate('atestados')} /><MetricCard label="Solicitações" value={personal.solicitacoes_abertas || 0} detail="Pedidos em aberto" tone="green" onClick={() => onNavigate('solicitacoes')} /><MetricCard label="Avisos novos" value={personal.avisos_nao_lidos || 0} detail="Comunicados não lidos" tone="blue" onClick={() => onNavigate('avisos')} /></> : <><MetricCard label="Equipe ativa" value={indicators.funcionarios_ativos} detail="Pessoas no quadro" tone="gold" onClick={() => onNavigate('funcionarios')} /><MetricCard label="Ordens ativas" value={indicators.ordens_ativas} detail="Em operação" tone="pink" onClick={() => onNavigate(isAdmin ? 'ordens' : 'producao')} /><MetricCard label="Lotes em costura" value={indicators.lotes_em_costura} detail="Acompanhar produção" tone="green" onClick={() => onNavigate('producao')} /><MetricCard label="Contas pendentes" value={indicators.contas_pendentes} detail="Financeiro exige atenção" tone="blue" onClick={() => onNavigate('financeiro')} /></>}</div>
+    <div className="metric-grid overview-metrics">{isEmployee ? <><MetricCard label="Ponto a revisar" value={personal.ponto_sem_justificativa || 0} detail="Registros sem justificativa" tone="gold" onClick={() => onNavigate('ponto')} /><MetricCard label="Atestados" value={personal.atestados_em_analise || 0} detail="Em análise pelo RH" tone="pink" onClick={() => onNavigate('atestados')} /><MetricCard label="Solicitações" value={personal.solicitacoes_abertas || 0} detail="Pedidos em aberto" tone="green" onClick={() => onNavigate('solicitacoes')} /><MetricCard label="Avisos novos" value={personal.avisos_nao_lidos || 0} detail="Comunicados não lidos" tone="blue" onClick={() => onNavigate('avisos')} /></> : <><MetricCard label="Equipe ativa" value={indicators.funcionarios_ativos} detail="Pessoas no quadro · abrir detalhes" tone="gold" onClick={() => setQuickModal('equipe')} /><MetricCard label="Ordens ativas" value={indicators.ordens_ativas} detail="Em operação · abrir detalhes" tone="pink" onClick={() => setQuickModal('ordens')} /><MetricCard label="Lotes em costura" value={indicators.lotes_em_costura} detail="Acompanhar produção · abrir detalhes" tone="green" onClick={() => setQuickModal('costura')} /><MetricCard label="Contas pendentes" value={indicators.contas_pendentes} detail="Financeiro exige atenção · abrir detalhes" tone="blue" onClick={() => setQuickModal('contas')} /></>}</div>
     {!isEmployee && <section className="overview-quick-report" aria-label="Resumo executivo por área"><div className="overview-quick-report-heading"><div><span className="eyebrow">Leitura rápida · situação geral</span><h2>Pessoas, produção, caixa e compromissos em uma só visão</h2><p>Alterne entre o mês vigente e as semanas anterior, atual ou seguinte.</p></div><div className="overview-quick-report-controls"><select value={quickGranularity} onChange={(event) => { setQuickGranularity(event.target.value as typeof quickGranularity); setQuickAnchor(new Date()) }} aria-label="Granularidade da leitura rápida"><option value="mes">Mês vigente</option><option value="semana">Por semana</option></select><div className="overview-quick-report-navigation"><button type="button" onClick={() => shiftQuickWindow(-1)} aria-label="Período anterior"><ChevronLeft size={14} /></button><span>{quickReportWindow.label}</span><button type="button" onClick={() => shiftQuickWindow(1)} aria-label="Próximo período"><ChevronRight size={14} /></button></div><div className="overview-report-actions"><button type="button" onClick={exportCsv}><Download size={14} /> CSV</button><button type="button" onClick={() => void exportPdf()} disabled={reportLoading}><FileText size={14} /> {reportLoading ? 'Gerando…' : 'PDF'}</button></div></div></div><div className="overview-quick-report-grid">{reportGroups.map(({ group, rows }) => <article className="overview-quick-report-card" key={group}><div className="overview-quick-report-card-heading"><strong>{group}</strong><small>{rows.length} indicador(es)</small></div><div className="overview-quick-report-list">{rows.slice(0, 5).map((item) => <button type="button" key={`${item.grupo}-${item.indicador}`} onClick={() => onNavigate(reportDestination(item.modulo))}><span><strong>{item.indicador}</strong><small>{item.contexto}</small></span><b className={`is-${item.status}`}>{item.valor}</b><ChevronRight size={14} /></button>)}</div></article>)}</div></section>}
     <div className="overview-main-grid"><SectionCard title={isEmployee ? 'Pendências pessoais' : 'Alertas prioritários'} caption={isEmployee ? 'Resolva o que pode bloquear sua rotina' : `${alerts.length} ponto(s) selecionado(s) por urgência`}><div className="overview-alert-list">{isEmployee ? <><button className="overview-alert-item is-attention" onClick={() => onNavigate('ponto')}><span><Fingerprint size={18}/></span><div><strong>{personal.ponto_sem_justificativa || 0} registro(s) de ponto precisam de revisão</strong><small>Confira sua jornada e envie justificativa quando necessário.</small></div><ChevronRight size={16}/></button><button className="overview-alert-item is-info" onClick={() => onNavigate('atestados')}><span><HeartPulse size={18}/></span><div><strong>{personal.atestados_em_analise || 0} atestado(s) em análise</strong><small>Acompanhe o status dos documentos enviados ao RH.</small></div><ChevronRight size={16}/></button><button className="overview-alert-item is-success" onClick={() => onNavigate('solicitacoes')}><span><FileCheck2 size={18}/></span><div><strong>{personal.solicitacoes_abertas || 0} solicitação(ões) em aberto</strong><small>Veja respostas ou complemente seus pedidos.</small></div><ChevronRight size={16}/></button></> : alerts.length === 0 ? <EmptyState title="Operação sob controle" description="Não há alertas prioritários para este momento." /> : alerts.map((alert) => <button className={`overview-alert-item is-${alert.prioridade}`} key={alert.id} onClick={() => onNavigate(alertDestination(alert.destino))}><span>{alert.prioridade === 'urgente' ? <AlertCircle size={18}/> : alert.destino === 'producao' ? <Factory size={18}/> : alert.destino === 'financeiro' ? <CircleDollarSign size={18}/> : <ShieldCheck size={18}/>}</span><div><strong>{alert.titulo} <b>{alert.valor}</b></strong><small>{alert.detalhe}</small></div><ChevronRight size={16}/></button>)}</div></SectionCard><SectionCard title={isEmployee ? 'Acesso rápido' : 'Resumo executivo'} caption={isEmployee ? 'Atalhos para sua rotina' : 'Contexto para a primeira decisão do dia'}><div className="overview-summary-list">{isEmployee ? <><button onClick={() => onNavigate('ponto')}><Fingerprint size={17}/><span><strong>Minha jornada</strong><small>Registros, atrasos e justificativas</small></span><ChevronRight size={15}/></button><button onClick={() => onNavigate('avisos')}><Bell size={17}/><span><strong>Avisos da empresa</strong><small>{personal.avisos_nao_lidos || 0} comunicado(s) aguardando leitura</small></span><ChevronRight size={15}/></button><button onClick={() => onNavigate('holerites')}><Receipt size={17}/><span><strong>Comprovantes</strong><small>{personal.holerites_disponiveis || 0} holerite(s) disponíveis</small></span><ChevronRight size={15}/></button></> : <><div><span>Saldo de dívidas ativo</span><strong>{isAdmin ? formatMoney(indicators.saldo_dividas) : 'Disponível para administradores'}</strong></div><div><span>Pessoas ausentes hoje</span><strong>{indicators.em_ferias + indicators.em_afastamento}</strong></div><div><span>Compromissos financeiros</span><strong>{indicators.contas_pendentes}</strong></div><div><span>Próximo passo recomendado</span><strong>{alerts[0]?.titulo || 'Revisar o fechamento do dia'}</strong></div></>}</div></SectionCard></div>
     <SectionCard title="Alertas em tempo real" caption={liveEvents.length ? `${liveEvents.length} atualização(ões) recebida(s) nesta sessão` : 'As próximas alterações importantes aparecerão aqui'}><div className="overview-live-events">{liveEvents.length === 0 ? <div className="overview-live-empty"><Radio size={17} /><span><strong>Monitoramento ativo</strong><small>Novas movimentações de financeiro, ordens, produção, RH e ponto serão sinalizadas sem recarregar a página.</small></span></div> : liveEvents.map((event) => <button key={event.id} onClick={() => onNavigate(event.destination)}><span className={`overview-live-event-icon is-${event.priority}`}><BellRing size={15} /></span><span><strong>{event.title}</strong><small>{event.detail}</small></span><time>{new Date(event.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</time><ChevronRight size={15} /></button>)}</div></SectionCard>
@@ -375,11 +417,12 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
     </>}
     {!isEmployee && <>
       <SectionCard title="Funil operacional" caption="Acompanhe onde as ordens estão concentradas hoje">
-        <div className="overview-funnel">{([['recebidas','Recebidas','ordens'],['em_producao','Em produção','producao'],['costuradas','Costuradas','producao'],['entregues','Entregues','ordens'],['pagas','Pagas','financeiro']] as const).map(([key, label, destination], index) => <button key={key} className="overview-funnel-step" onClick={() => onNavigate(destination as ModuleKey)}><span className="overview-funnel-index">0{index + 1}</span><span className="overview-funnel-copy"><small>{label}</small><strong>{funnel?.[key] || 0}</strong></span>{index < 4 && <ChevronRight className="overview-funnel-arrow" size={16} />}</button>)}</div>
+        <div className="overview-funnel">{([['recebidas','Recebidas','recebidas'],['em_producao','Em produção','producao'],['costuradas','Costuradas','costuradas'],['entregues','Entregues','entregues'],['pagas','Pagas','pagas']] as const).map(([key, label, modal], index) => <button key={key} className="overview-funnel-step" onClick={() => setQuickModal(modal)}><span className="overview-funnel-index">0{index + 1}</span><span className="overview-funnel-copy"><small>{label}</small><strong>{funnel?.[key] || 0}</strong></span>{index < 4 && <ChevronRight className="overview-funnel-arrow" size={16} />}</button>)}</div>
       </SectionCard>
       <div className="overview-comparison-strip"><article><span>Ordens recebidas no mês</span><strong>{comparisons.ordens_entrada_mes || 0}</strong><small>{variation(comparisons.ordens_entrada_mes, comparisons.ordens_entrada_mes_anterior)}</small></article><article><span>Inconsistências de ponto</span><strong>{comparisons.ponto_inconsistencias_mes || 0}</strong><small>{variation(comparisons.ponto_inconsistencias_mes, comparisons.ponto_inconsistencias_mes_anterior)}</small></article><article><span>Ausências hoje</span><strong>{indicators.em_ferias + indicators.em_afastamento}</strong><small>{indicators.em_ferias} em férias · {indicators.em_afastamento} afastado(s)</small></article></div>
     </>}
-    {!isEmployee && <SectionCard title="Radar de atenção" caption="Indicadores que ajudam a decidir onde investir tempo agora"><div className="overview-radar"><button onClick={() => onNavigate('funcionarios')}><UsersRound size={18}/><span><strong>{indicators.funcionarios_ativos} ativos</strong><small>Equipe disponível no quadro</small></span></button><button onClick={() => onNavigate('producao')}><Factory size={18}/><span><strong>{indicators.lotes_em_costura} em costura</strong><small>Lotes que precisam de acompanhamento</small></span></button><button onClick={() => onNavigate('financeiro')}><CircleDollarSign size={18}/><span><strong>{indicators.contas_pendentes} pendentes</strong><small>Obrigações sem baixa financeira</small></span></button><button onClick={() => onNavigate('relatorios')}><BarChart3 size={18}/><span><strong>Relatórios gerenciais</strong><small>Aprofundar a análise por período</small></span></button></div></SectionCard>}
+    {!isEmployee && <SectionCard title="Radar de atenção" caption="Indicadores que ajudam a decidir onde investir tempo agora"><div className="overview-radar"><button onClick={() => setQuickModal('equipe')}><UsersRound size={18}/><span><strong>{indicators.funcionarios_ativos} ativos</strong><small>Equipe disponível no quadro</small></span></button><button onClick={() => setQuickModal('costura')}><Factory size={18}/><span><strong>{indicators.lotes_em_costura} em costura</strong><small>Lotes que precisam de acompanhamento</small></span></button><button onClick={() => setQuickModal('contas')}><CircleDollarSign size={18}/><span><strong>{indicators.contas_pendentes} pendentes</strong><small>Obrigações sem baixa financeira</small></span></button><button onClick={() => onNavigate('relatorios')}><BarChart3 size={18}/><span><strong>Relatórios gerenciais</strong><small>Aprofundar a análise por período</small></span></button></div></SectionCard>}
+    {quickModal && <OverviewQuickModal kind={quickModal} details={state.quickDetails} count={quickModalCounts[quickModal]} onClose={() => setQuickModal(null)} />}
   </div>
 }
 function EmployeesView({ token }: { token: string }) {

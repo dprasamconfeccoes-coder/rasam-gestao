@@ -751,3 +751,29 @@
   .overview-quick-report-navigation span { flex: 1; }
   .overview-quick-report-controls .overview-report-actions { width: 100%; }
 }
+
+.overview-detail-backdrop { position: fixed; inset: 0; z-index: 12000; display: grid; place-items: center; padding: 22px; overflow-y: auto; background: rgba(43, 32, 38, .66); backdrop-filter: blur(6px); animation: overview-detail-fade .16s ease-out; }
+.overview-detail-modal { display: grid; width: min(100%, 690px); max-height: min(88vh, 760px); overflow: hidden; border: 1px solid rgba(54, 40, 45, .13); border-radius: 18px; color: #342b30; background: linear-gradient(180deg, #fff 0%, #fdf9f4 100%); box-shadow: 0 26px 80px rgba(25, 19, 22, .28), 0 4px 12px rgba(25, 19, 22, .12); animation: overview-detail-rise .2s ease-out; }
+.overview-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 22px 24px 17px; border-bottom: 1px solid #eee8e3; }
+.overview-detail-head h2 { margin: 5px 0 5px; color: #342b30; font-size: 23px; letter-spacing: -.04em; }
+.overview-detail-head p { margin: 0; color: #82757b; font-size: 11px; line-height: 1.45; }
+.overview-detail-close { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #e4ddd6; border-radius: 9px; color: #6d6066; background: #fff; cursor: pointer; }
+.overview-detail-close:hover { color: #30252b; border-color: #c9a14d; background: #fff8ed; }
+.overview-detail-summary { display: flex; align-items: baseline; gap: 8px; padding: 15px 24px 11px; }
+.overview-detail-summary strong { color: #936d20; font-size: 25px; letter-spacing: -.04em; }
+.overview-detail-summary span { color: #8b7b81; font-size: 10px; }
+.overview-detail-list { display: grid; gap: 7px; overflow-y: auto; padding: 0 24px 18px; }
+.overview-detail-row { display: grid; grid-template-columns: 27px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 11px; border: 1px solid #eee6df; border-radius: 10px; background: #fff; }
+.overview-detail-index { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 7px; color: #8b671b; background: #fff4dc; font-size: 9px; font-weight: 800; }
+.overview-detail-row > span:nth-child(2) { display: grid; gap: 3px; min-width: 0; }
+.overview-detail-row strong { overflow: hidden; color: #493d43; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.overview-detail-row small { overflow: hidden; color: #8a7d82; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.overview-detail-row b { color: #7b5c20; font-size: 9px; font-weight: 800; white-space: nowrap; }
+.overview-detail-empty { display: grid; gap: 5px; padding: 25px 15px; border: 1px dashed #dfd2c5; border-radius: 11px; color: #7d6f75; background: #fffdf9; text-align: center; }
+.overview-detail-empty strong { color: #4b3d43; font-size: 14px; }
+.overview-detail-empty small { font-size: 10px; line-height: 1.4; }
+.overview-detail-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 24px; border-top: 1px solid #eee8e3; color: #9a8b91; background: #fffdf9; font-size: 9px; }
+.overview-detail-foot .secondary-button { padding: 8px 11px; font-size: 10px; }
+@keyframes overview-detail-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes overview-detail-rise { from { opacity: .6; transform: translateY(7px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (max-width: 640px) { .overview-detail-backdrop { align-items: end; padding: 10px; } .overview-detail-modal { width: 100%; max-height: 92vh; border-radius: 17px 17px 13px 13px; } .overview-detail-head { padding: 18px 17px 14px; } .overview-detail-head h2 { font-size: 19px; } .overview-detail-summary, .overview-detail-list { padding-right: 17px; padding-left: 17px; } .overview-detail-row { grid-template-columns: 27px minmax(0, 1fr); } .overview-detail-row b { grid-column: 2; } .overview-detail-foot { align-items: stretch; flex-direction: column; padding: 12px 17px; } .overview-detail-foot .secondary-button { width: 100%; } }

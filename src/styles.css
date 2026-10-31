@@ -94,7 +94,12 @@ input:focus, textarea:focus, select:focus { border-color: rgba(215,168,74,.8); b
 .sidebar-user strong { font-size: 12px; max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sidebar-user span { margin-top: 3px; color: var(--muted); font-size: 10px; }
 .sidebar-user .sidebar-user-arrow { margin-left: auto; color: var(--gold); flex: 0 0 auto; }
-.sidebar nav { padding: 17px 12px; overflow: auto; }
+.sidebar nav { padding: 17px 12px; overflow: auto; scrollbar-width: none; }
+.sidebar nav:hover { scrollbar-width: thin; scrollbar-color: rgba(137, 98, 15, .48) transparent; }
+.sidebar nav::-webkit-scrollbar { width: 0; height: 0; }
+.sidebar nav:hover::-webkit-scrollbar { width: 7px; height: 7px; }
+.sidebar nav:hover::-webkit-scrollbar-thumb { border-radius: 9px; background: rgba(137, 98, 15, .48); }
+.sidebar nav:hover::-webkit-scrollbar-track { background: transparent; }
 .nav-group + .nav-group { margin-top: 16px; }
 .nav-label { display: block; padding: 0 12px 7px; color: var(--muted-2); text-transform: uppercase; letter-spacing: .17em; font-size: 9px; font-weight: 800; }
 .nav-item { display: flex; align-items: center; width: 100%; border: 0; border-radius: 9px; gap: 11px; padding: 10px 12px; color: var(--muted); background: transparent; text-align: left; font-size: 12px; transition: color .2s, background .2s; }
