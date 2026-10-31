@@ -11,6 +11,7 @@ export type ModuleKey =
   | 'relatorios'
   | 'perfil'
   | 'ponto'
+  | 'ferias'
   | 'holerites'
   | 'atestados'
   | 'solicitacoes'
@@ -636,6 +637,39 @@ export interface VacationDocumentLink {
   id: string
   tipo: 'aviso' | 'recibo' | 'comprovante_pagamento'
   arquivo_nome: string
+}
+
+export interface VacationPortalUse {
+  id: string
+  inicio: string | null
+  fim: string | null
+  retorno_em: string | null
+  dias_gozo: number | null
+  status: string
+  observacoes: string | null
+  created_at: string
+}
+
+export interface VacationPortalRow {
+  funcionario_id: string
+  nome: string
+  cpf: string
+  cargo: string | null
+  avatar_url: string | null
+  data_admissao: string | null
+  periodo_inicio: string
+  periodo_fim: string
+  dias_direito: number | null
+  dias_gozados_relatorio: number | null
+  dias_restantes_relatorio: number | null
+  ferias_vencidas: number
+  limite_gozo: string | null
+  dias_gozados_sistema: number
+  dias_disponiveis: number
+  dias_excedentes: number
+  usufrutos: VacationPortalUse[]
+  documentos: VacationDocumentLink[]
+  situacao: 'utilizado' | 'vencido' | 'disponivel' | string
 }
 
 export interface VacationReconciliationSummary {

@@ -21,6 +21,7 @@ import type {
   AdminRequestRow,
   AdminVacationRow,
   AdminVacationManagementRow,
+  VacationPortalRow,
   VacationReconciliationSummary,
   VacationImportBatch,
   VacationHistoricalProgrammingRow,
@@ -327,6 +328,13 @@ export async function getVacationDocumentUrl(token: string, documentId: string, 
   const data = (await response.json()) as { sucesso: boolean; erro?: string; url?: string; expires_in?: number; nome_arquivo?: string }
   if (!response.ok || !data.sucesso || !data.url) throw new Error(data.erro || 'Não foi possível abrir o PDF de férias')
   return data
+}
+
+export function listVacationPortal(token: string, funcionarioId?: string | null) {
+  return rpc<{ sucesso: boolean; erro?: string; ferias: VacationPortalRow[]; escopo?: 'individual' | 'empresa'; funcionario_id?: string | null }>('app_listar_portal_ferias', {
+    p_token: token,
+    p_funcionario_id: funcionarioId || null,
+  })
 }
 
 export function searchOrderClients(token: string, query: string) {

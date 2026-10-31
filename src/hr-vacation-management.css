@@ -233,3 +233,41 @@
 .vacation-history-actions .secondary-button { display: inline-flex; align-items: center; gap: 5px; }
 @media (max-width: 900px) { .vacation-management-dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .vacation-management-dashboard { grid-template-columns: 1fr 1fr; padding-left: 12px; padding-right: 12px; } .hr-vacation-form { padding-left: 12px; padding-right: 12px; } .hr-vacation-form-actions > * { flex: 1 1 auto; justify-content: center; } }
+
+/* Portal do funcionário: férias */
+.vacation-portal-page { display: grid; gap: 18px; }
+.vacation-portal-employee-select { min-width: 245px; }
+.vacation-portal-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--muted-2); font-size: 12px; }
+.vacation-portal-toolbar .search-box { flex: 1; max-width: 440px; }
+.vacation-portal-metrics { margin: 0; }
+.vacation-portal-error { margin: 0; }
+.vacation-portal-periods { padding: 8px 20px 18px; display: grid; gap: 10px; }
+.vacation-portal-period { border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.56); overflow: hidden; transition: border-color .2s ease, box-shadow .2s ease; }
+.vacation-portal-period[open] { border-color: rgba(179,136,76,.55); box-shadow: 0 8px 24px rgba(62,39,25,.07); }
+.vacation-portal-period summary { display: grid; grid-template-columns: 38px minmax(0,1fr) auto auto; align-items: center; gap: 12px; padding: 15px 16px; cursor: pointer; list-style: none; }
+.vacation-portal-period summary::-webkit-details-marker { display: none; }
+.vacation-period-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; color: #967044; background: #f5eadb; }
+.vacation-period-main { display: grid; gap: 4px; min-width: 0; }
+.vacation-period-main strong { color: #30272c; font-size: 14px; }
+.vacation-period-main small, .vacation-period-balance small { color: var(--muted-2); font-size: 11px; }
+.vacation-period-balance { display: grid; gap: 3px; text-align: right; }
+.vacation-period-balance b { color: #3b765d; font-size: 15px; }
+.vacation-period-body { padding: 0 16px 18px 66px; border-top: 1px solid var(--line); }
+.vacation-portal-detail-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; padding: 16px 0; }
+.vacation-portal-detail-grid > div { display: grid; gap: 5px; padding: 11px 12px; border-radius: 9px; background: #fbf8f4; }
+.vacation-portal-detail-grid span { color: var(--muted-2); font-size: 10px; text-transform: uppercase; letter-spacing: .07em; }
+.vacation-portal-detail-grid strong { color: #30272c; font-size: 13px; }
+.vacation-portal-subsection { display: grid; gap: 9px; margin-top: 8px; }
+.vacation-portal-subsection h3 { display: flex; align-items: center; gap: 7px; margin: 0; color: #5f4b3a; font-size: 12px; }
+.vacation-portal-uses, .vacation-portal-documents { display: grid; gap: 7px; }
+.vacation-portal-use, .vacation-portal-document { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+.vacation-portal-use > span, .vacation-portal-document > span { display: grid; gap: 3px; min-width: 0; }
+.vacation-portal-use strong, .vacation-portal-document strong { color: #30272c; font-size: 12px; }
+.vacation-portal-use small, .vacation-portal-document small { color: var(--muted-2); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vacation-portal-use b { color: #5f4b3a; font-size: 12px; }
+.vacation-portal-document { width: 100%; border-color: #e3d6c7; color: #7c5a32; cursor: pointer; text-align: left; transition: background .15s ease, border-color .15s ease; }
+.vacation-portal-document:hover { background: #fffaf2; border-color: #cda66d; }
+.vacation-portal-document:disabled { opacity: .6; cursor: wait; }
+.vacation-portal-muted { margin: 0; color: var(--muted-2); font-size: 12px; }
+.vacation-portal-security { margin: 0; }
+@media (max-width: 760px) { .vacation-portal-toolbar { align-items: stretch; flex-direction: column; } .vacation-portal-toolbar .search-box { max-width: none; } .vacation-portal-period summary { grid-template-columns: 34px minmax(0,1fr); } .vacation-period-balance, .vacation-portal-period summary > .status-pill { grid-column: 2; text-align: left; } .vacation-period-body { padding-left: 16px; } .vacation-portal-detail-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }

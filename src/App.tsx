@@ -113,6 +113,7 @@ import { FinanceExecutiveDashboard } from './features/FinanceExecutiveDashboard'
 import { FinanceReportsDashboard } from './features/FinanceReportsDashboard'
 import { InternalDocumentsDashboard } from './features/InternalDocumentsDashboard'
 import { EmployeeFichaPanel } from './features/EmployeeFichaPanel'
+import { EmployeeVacationPortal } from './features/EmployeeVacationPortal'
 import {
   EmptyState,
   ErrorState,
@@ -146,6 +147,7 @@ const navItems: NavItem[] = [
   { key: 'rh', label: 'Recursos humanos', description: 'Painel e operações de RH', icon: BriefcaseBusiness, group: 'Pessoas', profiles: adminProfiles },
   { key: 'perfil', label: 'Meu perfil', description: 'Dados cadastrais', icon: UserRound, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'ponto', label: 'Meu ponto', description: 'Jornada registrada', icon: Fingerprint, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
+  { key: 'ferias', label: 'Férias', description: 'Histórico, saldo e documentos', icon: CalendarDays, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'holerites', label: 'Holerites', description: 'Comprovantes disponíveis', icon: Receipt, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'atestados', label: 'Atestados', description: 'Histórico e conferência', icon: HeartPulse, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'solicitacoes', label: 'Solicitações ao RH', description: 'Acompanhe seus pedidos', icon: FileCheck2, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
@@ -1254,6 +1256,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'producao') return <FactoryProductionDashboard token={token} />
     if (active === 'perfil') return <EmployeeProfileView token={token} onProfileUpdated={setProfile} />
     if (active === 'ponto') return <PointView token={token} user={user} />
+    if (active === 'ferias') return <EmployeeVacationPortal token={token} isAdministrative={adminProfiles.includes(user.perfil)} />
     if (active === 'holerites') return <PayslipsView token={token} />
     if (active === 'atestados') return <EmployeeMedicalLeaves token={token} />
     if (active === 'avisos') return <NoticesView token={token} onUnreadChange={setUnreadNotices} canMarkRead={user.perfil === 'funcionario'} />
