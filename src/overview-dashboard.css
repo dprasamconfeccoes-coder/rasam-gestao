@@ -777,3 +777,9 @@
 @keyframes overview-detail-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes overview-detail-rise { from { opacity: .6; transform: translateY(7px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @media (max-width: 640px) { .overview-detail-backdrop { align-items: end; padding: 10px; } .overview-detail-modal { width: 100%; max-height: 92vh; border-radius: 17px 17px 13px 13px; } .overview-detail-head { padding: 18px 17px 14px; } .overview-detail-head h2 { font-size: 19px; } .overview-detail-summary, .overview-detail-list { padding-right: 17px; padding-left: 17px; } .overview-detail-row { grid-template-columns: 27px minmax(0, 1fr); } .overview-detail-row b { grid-column: 2; } .overview-detail-foot { align-items: stretch; flex-direction: column; padding: 12px 17px; } .overview-detail-foot .secondary-button { width: 100%; } }
+
+.overview-detail-pagination { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 24px 13px; color: #85767d; font-size: 9px; }
+.overview-detail-pagination button { display: inline-flex; align-items: center; gap: 5px; min-height: 29px; padding: 6px 9px; border: 1px solid #e1d8d0; border-radius: 8px; color: #66585f; background: #fff; font-size: 9px; font-weight: 750; cursor: pointer; }
+.overview-detail-pagination button:hover:not(:disabled) { border-color: #c9a14d; color: #76581b; background: #fff8ed; }
+.overview-detail-pagination button:disabled { cursor: default; opacity: .45; }
+@media (max-width: 640px) { .overview-detail-pagination { padding-right: 17px; padding-left: 17px; } }
