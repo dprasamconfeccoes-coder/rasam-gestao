@@ -662,6 +662,7 @@ export interface VacationHistoricalProgrammingRow {
   dias_gozados_relatorio: number | null
   dias_restantes_relatorio: number | null
   dias_gozados_sistema: number
+  dias_gozados_total: number
   dias_disponiveis: number
   dias_excedentes: number
   periodos_sistema: number
