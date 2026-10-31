@@ -333,12 +333,12 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
     setNotificationPermission(permission)
   }
   function exportCsv() {
-    if (state.data) downloadDashboardCsv(state.data, user, state.enrichment)
+    if (state.data) downloadDashboardCsv(state.data, user, { ...state.enrichment, periodLabel })
   }
   async function exportPdf() {
     if (!state.data) return
     setReportLoading(true)
-    try { await exportDashboardPdf(state.data, user, state.enrichment) } finally { setReportLoading(false) }
+    try { await exportDashboardPdf(state.data, user, { ...state.enrichment, periodLabel }) } finally { setReportLoading(false) }
   }
   if (state.loading) return <><PageHeading eyebrow="Centro de comando" title="Visão geral" description={`Bom dia, ${user.nome.split(' ')[0]}.`} /><LoadingState label="Preparando seu painel de atenção…" /></>
   if (state.error || !state.data?.sucesso) return <><PageHeading eyebrow="Centro de comando" title="Visão geral" /><ErrorState message={state.error || state.data?.erro || 'Sessão inválida'} /></>

@@ -10,6 +10,7 @@ export interface OverviewReportEnrichment {
   agreements?: AgreementInstallment[]
   debts?: ManagedDebt[]
   production?: FactoryProductionSummary
+  periodLabel?: string
 }
 
 export interface OverviewReportRow {
@@ -105,8 +106,8 @@ export function downloadDashboardCsv(data: DashboardResponse, user: SessionUser,
   const generatedAt = new Date().toLocaleString('pt-BR')
   const rows = buildOverviewReportRows(data, enrichment)
   const csvRows = [
-    ['Grupo', 'Indicador', 'Valor', 'Unidade', 'Status', 'Contexto', 'Módulo', 'Gerado em'],
-    ...rows.map((item) => [item.grupo, item.indicador, item.valor, item.unidade, item.status, item.contexto, item.modulo, generatedAt]),
+    ['Grupo', 'Indicador', 'Valor', 'Unidade', 'Status', 'Contexto', 'Módulo', 'Período', 'Gerado em'],
+    ...rows.map((item) => [item.grupo, item.indicador, item.valor, item.unidade, item.status, item.contexto, item.modulo, enrichment.periodLabel || 'Visão atual', generatedAt]),
   ]
   const csv = csvRows.map((line) => line.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(';')).join('\n')
   const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
@@ -135,7 +136,7 @@ export async function exportDashboardPdf(data: DashboardResponse, user: SessionU
     doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.text('RF Gestão', margin, 12)
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text('Relatório rápido · Situação geral', margin, 19); doc.text(generatedAt, pageWidth - margin, 19, { align: 'right' })
     doc.setTextColor(55, 45, 50); doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text(`Responsável: ${user.nome}`, margin, 41)
-    doc.setFont('helvetica', 'normal'); doc.setTextColor(112, 101, 108); doc.setFontSize(8); doc.text('Resumo consolidado de pessoas, produção, financeiro, acordos e dívidas.', margin, 47)
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(112, 101, 108); doc.setFontSize(8); doc.text(`Resumo consolidado · ${enrichment.periodLabel || 'Visão atual'}`, margin, 47)
   }
   const section = (title: string, items: OverviewReportRow[], startY: number) => {
     const color = colors[title] || [91, 79, 85]
