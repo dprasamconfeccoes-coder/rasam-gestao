@@ -68,6 +68,19 @@ export interface DashboardResponse {
     prioridade: 'urgente' | 'atencao' | 'informacao'
     destino: ModuleKey
   }>
+  funil?: {
+    recebidas: number
+    em_producao: number
+    costuradas: number
+    entregues: number
+    pagas: number
+  }
+  comparativos?: {
+    ordens_entrada_mes?: number
+    ordens_entrada_mes_anterior?: number
+    ponto_inconsistencias_mes?: number
+    ponto_inconsistencias_mes_anterior?: number
+  }
 }
 
 export interface EmployeeRow {
