@@ -114,20 +114,20 @@ export function listPayrollEntries(token: string, filters: { tipo?: 'todos' | 'b
 export function createPayrollBenefit(token: string, payload: { funcionarioId: string; beneficioNome: string; competencia: string; valor: number | null; status: string; motivo: string; observacoes: string }) {
   return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_lancar_beneficio', { p_token: token, p_funcionario_id: payload.funcionarioId, p_beneficio_nome: payload.beneficioNome, p_competencia: payload.competencia, p_valor: payload.valor, p_status: payload.status, p_motivo: payload.motivo, p_observacoes: payload.observacoes })
 }
-export function createPayrollDiscount(token: string, payload: { funcionarioId: string; tipo: string; descricao: string; competencia: string; valor: number; status: string; observacoes: string }) {
-  return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_lancar_desconto', { p_token: token, p_funcionario_id: payload.funcionarioId, p_tipo: payload.tipo, p_descricao: payload.descricao, p_competencia: payload.competencia, p_valor: payload.valor, p_status: payload.status, p_observacoes: payload.observacoes })
+export function createPayrollDiscount(token: string, payload: { funcionarioId: string; tipo: string; fornecedor?: string; descricao: string; competencia: string; valor: number; status: string; observacoes: string }) {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_lancar_desconto', { p_token: token, p_funcionario_id: payload.funcionarioId, p_tipo: payload.tipo, p_fornecedor: payload.fornecedor || '', p_descricao: payload.descricao, p_competencia: payload.competencia, p_valor: payload.valor, p_status: payload.status, p_observacoes: payload.observacoes })
 }
 export function searchBenefitCatalog(token: string, busca = '') {
-  return rpc<{ sucesso: boolean; erro?: string; beneficios: Array<{ id: string; nome: string; descricao?: string | null }> }>('app_admin_buscar_beneficios_catalogo', { p_token: token, p_busca: busca })
+  return rpc<{ sucesso: boolean; erro?: string; beneficios: Array<{ id: string; nome: string; descricao?: string | null; valor_atual?: number | null; valor_minimo?: number | null; vigencia_inicio?: string | null }> }>('app_admin_buscar_beneficios_catalogo', { p_token: token, p_busca: busca })
 }
 export function createBenefitCatalogItem(token: string, nome: string, descricao = '') {
-  return rpc<{ sucesso: boolean; erro?: string; beneficio?: { id: string; nome: string; descricao?: string | null } }>('app_admin_cadastrar_beneficio_catalogo', { p_token: token, p_nome: nome, p_descricao: descricao })
+  return rpc<{ sucesso: boolean; erro?: string; beneficio?: { id: string; nome: string; descricao?: string | null; valor_atual?: number | null } }>('app_admin_cadastrar_beneficio_catalogo', { p_token: token, p_nome: nome, p_descricao: descricao })
 }
 export function searchDiscountCatalog(token: string, busca = '') {
-  return rpc<{ sucesso: boolean; erro?: string; descontos: Array<{ id: string; nome: string; descricao?: string | null }> }>('app_admin_buscar_descontos_catalogo', { p_token: token, p_busca: busca })
+  return rpc<{ sucesso: boolean; erro?: string; descontos: Array<{ id: string; nome: string; descricao?: string | null; fornecedor?: string | null; valor_padrao?: number | null; forma_cobranca?: string | null }> }>('app_admin_buscar_descontos_catalogo', { p_token: token, p_busca: busca })
 }
 export function createDiscountCatalogItem(token: string, nome: string, descricao = '') {
-  return rpc<{ sucesso: boolean; erro?: string; desconto?: { id: string; nome: string; descricao?: string | null } }>('app_admin_cadastrar_desconto_catalogo', { p_token: token, p_nome: nome, p_descricao: descricao })
+  return rpc<{ sucesso: boolean; erro?: string; desconto?: { id: string; nome: string; descricao?: string | null; fornecedor?: string | null; valor_padrao?: number | null } }>('app_admin_cadastrar_desconto_catalogo', { p_token: token, p_nome: nome, p_descricao: descricao })
 }
 export function getPayrollCatalog(token: string) {
   return rpc<{ sucesso: boolean; erro?: string; beneficios: Array<Record<string, unknown>>; descontos: Array<Record<string, unknown>> }>('app_admin_catalogo_folha', { p_token: token })

@@ -18,9 +18,15 @@
 .payroll-catalog-status { display:flex; align-items:center; gap:8px; padding:12px; color:#746d66; font-size:10px; }
 .payroll-catalog-popover .payroll-catalog-create { justify-content:flex-start; border-bottom:0; color:#9b6915; font-size:10px; font-weight:700; }
 .payroll-history-list { display:grid; gap:8px; padding:0 20px 20px; }
+.payroll-history-tabs { display:flex; gap:6px; padding:0 20px 14px; border-bottom:1px solid #eee8e1; }
+.payroll-history-tabs button { display:flex; align-items:center; gap:6px; border:1px solid #e4ddd5; border-radius:8px; background:#fff; color:#746d66; padding:8px 11px; font:inherit; font-size:10px; cursor:pointer; }
+.payroll-history-tabs button.active.benefit { border-color:#a7d9b5; background:#effaf1; color:#28733b; }
+.payroll-history-tabs button.active.discount { border-color:#efb0ae; background:#fff0f0; color:#a33b38; }
 .payroll-history-item { display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:11px; padding:12px 0; border-bottom:1px solid #eee8e1; }
 .payroll-history-item:last-child { border-bottom:0; }
 .payroll-history-icon { display:grid; place-items:center; width:34px; height:34px; border-radius:9px; background:#fff3d9; color:#9b6915; }
+.payroll-history-item.benefit .payroll-history-icon { background:#effaf1; color:#28733b; }
+.payroll-history-item.discount .payroll-history-icon { background:#fff0f0; color:#a33b38; }
 .payroll-history-copy { display:grid; gap:4px; min-width:0; }
 .payroll-history-copy strong { overflow:hidden; color:#29252b; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
 .payroll-history-copy small { overflow:hidden; color:#746d66; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
