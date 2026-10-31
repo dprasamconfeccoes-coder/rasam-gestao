@@ -126,6 +126,7 @@ import {
 } from './components/ui'
 import './styles.css'
 import './overview-dashboard.css'
+import './hr-vacation-management.css'
 
 const managerProfiles: Profile[] = ['gestor', 'administrador', 'admin']
 const adminProfiles: Profile[] = ['administrador', 'admin']

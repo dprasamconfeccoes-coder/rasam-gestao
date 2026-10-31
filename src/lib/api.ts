@@ -20,6 +20,8 @@ import type {
   AdminRequestsPage,
   AdminRequestRow,
   AdminVacationRow,
+  AdminVacationManagementRow,
+  VacationImportBatch,
   CompanyDocument,
   DebtCategory,
   DebtDashboardResponse,
@@ -493,6 +495,18 @@ export function adminMedicalLeavesPage(token: string, mes: string, status: strin
 
 export function adminVacations(token: string) {
   return rpc<{ sucesso: boolean; erro?: string; ferias: AdminVacationRow[] }>('app_admin_listar_ferias', { p_token: token })
+}
+
+export function adminVacationManagement(token: string) {
+  return rpc<{ sucesso: boolean; erro?: string; ferias: AdminVacationManagementRow[]; importacoes: VacationImportBatch[] }>('app_admin_listar_ferias_gestao', { p_token: token })
+}
+
+export function confirmVacationImport(token: string, id: string, observacoes: string) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_confirmar_ferias_importacao', { p_token: token, p_id: id, p_observacoes: observacoes || null })
+}
+
+export function rejectVacationImport(token: string, id: string, observacoes: string) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_rejeitar_ferias_importacao', { p_token: token, p_id: id, p_observacoes: observacoes || null })
 }
 
 export function adminLeaves(token: string) {

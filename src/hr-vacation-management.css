@@ -1,0 +1,21 @@
+.hr-vacation-management { display: grid; gap: 18px; }
+.vacation-management-summary { margin-bottom: 0; }
+.vacation-management-summary > div { padding-top: 0; padding-bottom: 0; }
+.vacation-management-summary strong { color: var(--text); }
+.vacation-management-summary .is-danger-text { color: var(--danger); }
+.vacation-import-summary { margin: 0 20px 18px; }
+.vacation-import-list { display: grid; margin: 0 20px 8px; }
+.vacation-import-row { display: flex; align-items: center; gap: 12px; padding: 13px 0; border-top: 1px solid var(--line); }
+.vacation-import-row.is-divergent { background: rgba(168, 59, 69, .045); }
+.vacation-import-main { display: grid; min-width: 0; flex: 1; gap: 3px; }
+.vacation-import-main strong { color: var(--text); font-size: 12px; }
+.vacation-import-main small { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.vacation-import-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.vacation-import-actions .field-note { max-width: 170px; text-align: right; }
+.vacation-finance-preview { display: grid; margin: 0 20px 8px; }
+.vacation-finance-preview > div { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); }
+.vacation-finance-preview > div > div { display: grid; min-width: 0; flex: 1; gap: 3px; }
+.vacation-finance-preview strong { overflow: hidden; color: var(--text); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.vacation-finance-preview small { color: var(--muted); font-size: 10px; }
+.vacation-finance-preview > div > span { color: var(--gold); font-size: 11px; font-weight: 800; }
+@media (max-width: 900px) { .vacation-management-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .vacation-import-row { align-items: flex-start; flex-wrap: wrap; } .vacation-import-row > .status-pill { margin-left: 44px; } .vacation-import-actions { margin-left: 44px; } }

@@ -611,6 +611,56 @@ export interface AdminVacationRow {
   updated_at: string
 }
 
+export interface AdminVacationManagementRow extends AdminVacationRow {
+  retorno_em: string | null
+  aviso_emitido_em: string | null
+  pagamento_previsto_em: string | null
+  pagamento_efetivo_em: string | null
+  dias_gozo: number | null
+  dias_abono: number | null
+  abono_solicitado: boolean
+  importacao_status: string
+  origem_importacao: string | null
+  documentos_count: number
+  calculo: Record<string, unknown> | null
+}
+
+export interface VacationImportLine {
+  id: string
+  importacao_id: string
+  funcionario_id: string | null
+  nome_extraido: string
+  cpf_extraido: string | null
+  cadastro_extraido: string | null
+  periodo_aquisitivo_inicio: string | null
+  periodo_aquisitivo_fim: string | null
+  inicio: string | null
+  fim: string | null
+  retorno_em: string | null
+  pagamento_previsto_em: string | null
+  aviso_emitido_em: string | null
+  abono_solicitado: boolean
+  arquivo_nome: string
+  status: 'pendente' | 'vinculada' | 'conferida' | 'divergente' | 'rejeitada'
+  divergencia: string | null
+  ferias_id: string | null
+  documento_id: string | null
+}
+
+export interface VacationImportBatch {
+  id: string
+  tipo: string
+  origem: string
+  pasta_nome: string | null
+  total_linhas: number
+  linhas_vinculadas: number
+  linhas_pendentes: number
+  status: string
+  observacoes: string | null
+  created_at: string
+  linhas: VacationImportLine[]
+}
+
 export interface AdminLeaveRow {
   id: string
   funcionario_id: string
