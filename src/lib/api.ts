@@ -301,6 +301,33 @@ export async function getWorkOrderDocumentUrl(token: string, documentId: string,
   return data
 }
 
+export async function uploadVacationDocument(token: string, feriasId: string, tipo: 'aviso' | 'recibo', file: File) {
+  const form = new FormData()
+  form.set('action', 'upload')
+  form.set('ferias_id', feriasId)
+  form.set('tipo', tipo)
+  form.set('arquivo', file)
+  const response = await fetch(`${config.supabaseUrl}/functions/v1/ferias-documento`, {
+    method: 'POST',
+    headers: { apikey: config.supabaseKey, Authorization: `Bearer ${token}`, 'x-app-token': token },
+    body: form,
+  })
+  const data = (await response.json()) as { sucesso: boolean; erro?: string; documento_id?: string }
+  if (!response.ok || !data.sucesso || !data.documento_id) throw new Error(data.erro || 'Não foi possível anexar o PDF de férias')
+  return data
+}
+
+export async function getVacationDocumentUrl(token: string, documentId: string) {
+  const response = await fetch(`${config.supabaseUrl}/functions/v1/ferias-documento`, {
+    method: 'POST',
+    headers: { apikey: config.supabaseKey, Authorization: `Bearer ${token}`, 'x-app-token': token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'signed-url', documento_id: documentId }),
+  })
+  const data = (await response.json()) as { sucesso: boolean; erro?: string; url?: string; expires_in?: number; nome_arquivo?: string }
+  if (!response.ok || !data.sucesso || !data.url) throw new Error(data.erro || 'Não foi possível abrir o PDF de férias')
+  return data
+}
+
 export function searchOrderClients(token: string, query: string) {
   return rpc<{ sucesso: boolean; erro?: string; clientes?: Array<{ id: string; nome: string }> }>('app_admin_buscar_clientes_ordem', {
     p_token: token,

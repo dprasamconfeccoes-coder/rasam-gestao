@@ -633,9 +633,8 @@ export interface AdminVacationManagementRow extends AdminVacationRow {
 
 export interface VacationDocumentLink {
   id: string
-  tipo: 'aviso' | 'recibo' | string
+  tipo: 'aviso' | 'recibo'
   arquivo_nome: string
-  url: string
 }
 
 export interface VacationReconciliationSummary {
