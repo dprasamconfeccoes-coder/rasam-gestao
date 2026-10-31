@@ -571,3 +571,38 @@
   .overview-interactive-chart { margin-right: 14px; margin-left: 14px; }
   .overview-chart-help { display: none; }
 }
+
+.overview-period-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 15px;
+  border: 1px solid #e3d9d1;
+  border-radius: 12px;
+  background: linear-gradient(100deg, #fffdf9, #fbf6ee);
+}
+
+.overview-period-title { display: flex; align-items: center; gap: 9px; color: #8a6a2d; }
+.overview-period-title > span { display: grid; gap: 3px; }
+.overview-period-title strong { color: #54434a; font-size: 10px; }
+.overview-period-title small { color: #92848a; font-size: 8px; }
+.overview-period-controls { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.overview-period-controls select,
+.overview-period-controls input { min-height: 31px; padding: 5px 8px; border: 1px solid #ded4cc; border-radius: 8px; color: #65575e; background: #fff; font: inherit; font-size: 9px; }
+.overview-period-controls select { min-width: 125px; font-weight: 760; }
+.overview-period-controls input { width: 120px; }
+.overview-period-controls > span { color: #9b8d92; font-size: 9px; }
+.overview-period-controls select:focus,
+.overview-period-controls input:focus { outline: 2px solid rgba(194, 154, 72, .22); border-color: #c29a48; }
+
+@media (max-width: 720px) {
+  .overview-period-toolbar { align-items: flex-start; flex-direction: column; }
+  .overview-period-controls { width: 100%; justify-content: flex-start; }
+  .overview-period-controls select { flex: 1; }
+}
+
+@media (max-width: 520px) {
+  .overview-period-controls input { flex: 1; width: auto; min-width: 0; }
+  .overview-period-controls > span { display: none; }
+}
