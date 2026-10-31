@@ -731,3 +731,23 @@
 @media (max-width: 470px) {
   .overview-quick-report-grid { grid-template-columns: 1fr; }
 }
+
+.overview-quick-report-controls { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex-wrap: wrap; }
+.overview-quick-report-controls select { min-height: 31px; padding: 5px 8px; border: 1px solid #ded4cc; border-radius: 8px; color: #65575e; background: #fff; font: inherit; font-size: 9px; font-weight: 760; }
+.overview-quick-report-navigation { display: inline-flex; align-items: center; gap: 3px; min-height: 31px; padding: 2px 4px; border: 1px solid #ead9ab; border-radius: 8px; color: #8b671b; background: #fff8e8; }
+.overview-quick-report-navigation button { display: grid; place-items: center; width: 25px; height: 25px; padding: 0; border: 0; border-radius: 6px; color: #8b671b; background: transparent; cursor: pointer; }
+.overview-quick-report-navigation button:hover { background: #f4e7c9; }
+.overview-quick-report-navigation span { min-width: 112px; color: #73591f; font-size: 8px; font-weight: 760; text-align: center; white-space: nowrap; }
+
+@media (max-width: 900px) {
+  .overview-quick-report-heading { display: grid; gap: 12px; }
+  .overview-quick-report-controls { justify-content: flex-start; }
+}
+
+@media (max-width: 520px) {
+  .overview-quick-report-controls { align-items: stretch; width: 100%; }
+  .overview-quick-report-controls select { flex: 1; }
+  .overview-quick-report-navigation { flex: 1; justify-content: space-between; }
+  .overview-quick-report-navigation span { flex: 1; }
+  .overview-quick-report-controls .overview-report-actions { width: 100%; }
+}

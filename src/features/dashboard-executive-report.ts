@@ -71,7 +71,6 @@ function agreementRows(items: AgreementInstallment[], enrichment: OverviewReport
   const open = items.filter((item) => item.status !== 'quitada')
   const overdue = items.filter((item) => item.status === 'atrasada')
   const next7 = open.filter((item) => isInWindow(item.vencimento, start, end))
-  const next30 = next7
   const agreementIds = new Set(items.map((item) => item.acordo_id))
   const balance = open.reduce((sum, item) => sum + asNumber(item.valor), 0)
   return [
