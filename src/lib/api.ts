@@ -93,7 +93,19 @@ export function dashboard(token: string) {
 export function listEmployees(token: string) {
   return rpc<EmployeeRow[]>('app_listar_funcionarios', { p_token: token })
 }
-
+export function searchEmployees(token: string, filters: { busca?: string; situacao?: string; tipoVinculo?: string; cargo?: string; salarioMin?: number | null; salarioMax?: number | null; offset?: number; limite?: number } = {}) {
+  return rpc<import('./types').EmployeeSearchPage>('app_admin_buscar_funcionarios', {
+    p_token: token,
+    p_busca: filters.busca || null,
+    p_situacao: filters.situacao || null,
+    p_tipo_vinculo: filters.tipoVinculo || null,
+    p_cargo: filters.cargo || null,
+    p_salario_min: filters.salarioMin ?? null,
+    p_salario_max: filters.salarioMax ?? null,
+    p_offset: filters.offset || 0,
+    p_limite: filters.limite || 20,
+  })
+}
 export function myProfile(token: string) {
   return rpc<{ sucesso: boolean; funcionario?: EmployeeProfile; erro?: string }>('app_meu_perfil', {
     p_token: token,

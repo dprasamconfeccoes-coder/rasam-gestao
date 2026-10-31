@@ -9,5 +9,12 @@
 - [ ] **Financeiro completo:** cadastrar contas recorrentes, despesas, acordos trabalhistas, parcelamentos com entrada e múltiplas faixas de valores, baixar parcelas e anexar comprovantes PDF/imagem.
 - [ ] **Holerites:** publicar/importar holerites em lote, restringir a funcionários formais e exibir no portal somente os seis últimos.
 - [ ] **Importar holerite:** em Controle, o gestor ou administrador deve abrir uma tela própria, selecionar o funcionário, selecionar a competência mensal e escolher um PDF do computador; o upload deve registrar o holerite, manter o arquivo privado, exibir o histórico de importações e permitir abertura por URL temporária assinada tanto para o funcionário quanto para o operador.
+- [ ] **Funcionários como prontuário pesquisável:** transformar a tela Funcionários em uma busca explícita, sem listar todos os cadastros ao abrir; permitir pesquisa por nome, CPF, situação, tipo de vínculo, cargo e faixa salarial, com paginação e acesso a um funcionário por vez.
+- [ ] **Ações no prontuário:** concentrar cadastro, holerites, benefícios, descontos, advertências, férias, documentos, ponto e timeline no prontuário individual, respeitando permissões e registrando auditoria.
+- [ ] **Advertências:** registrar ocorrências e medidas disciplinares com motivo, descrição, data, responsável, anexo opcional e cancelamento/retificação auditável sem apagar histórico.
+- [ ] **Catálogo de benefícios:** cadastrar benefícios obrigatórios, convencionais ou de iniciativa da empresa, com descrição, regra de cálculo, valor padrão, elegibilidade, vigência e status.
+- [ ] **Catálogo de descontos:** cadastrar produtos, marmitas, convênios, adiantamentos e outros descontos, com regra de cálculo, autorização, recorrência e parcelamento.
+- [ ] **Lançamentos por competência:** lançar benefícios e descontos individualmente ou em lote, com competência, valor, origem, descrição, autorização, parcelas e status até a aplicação na folha.
+- [ ] **Integração com fechamento:** exibir benefícios e descontos na prévia mensal, permitir revisão antes da confirmação e bloquear alterações diretas após o fechamento, usando ajustes auditáveis.
 - [ ] **Central sem redundância:** consolidar ações administrativas em um único workspace por domínio, sem duplicar menus ou CRUDs.
 - [ ] **Portal do funcionário:** manter acesso somente à própria jornada, justificativas, atestados, solicitações, avisos, documentos, benefício e holerites elegíveis.

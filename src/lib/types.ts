@@ -134,6 +134,15 @@ export interface EmployeeRow {
   elegivel_holerite?: boolean
 }
 
+export interface EmployeeSearchPage {
+  sucesso: boolean
+  erro?: string
+  registros: EmployeeRow[]
+  total: number
+  offset: number
+  limite: number
+}
+
 export interface OrderRow {
   id: string
   numero: string

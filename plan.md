@@ -13,6 +13,9 @@ Transformar o RF Gestão em uma plataforma multiempresa para RH, ponto, financei
 - **Permissões:** funcionário acessa somente sua vida funcional; gestor administra RH; administrador controla empresa, financeiro e relatórios.
 - **Navegação:** uma única área administrativa com abas por domínio; atalhos não duplicam CRUDs.
 - **Importação de holerites:** a área Controle terá uma tela dedicada para gestores e administradores selecionarem funcionário, competência e PDF; o arquivo será guardado em bucket privado e aberto por URL assinada temporária no portal.
+- **Funcionários como prontuário:** o menu Funcionários será a porta de entrada do departamento administrativo; por padrão não carregará registros, exigirá uma busca explícita e abrirá um prontuário operacional por pessoa.
+- **Busca administrativa:** a consulta de funcionários será server-side, paginada e filtrável por nome, CPF, situação, vínculo, cargo e faixa salarial; os resultados só aparecerão após a ação Buscar.
+- **Ações no prontuário:** o prontuário concentrará cadastro, holerites, benefícios, descontos, advertências, férias, documentos, ponto e timeline, preservando permissões e auditoria por ação.
 
 ## Design
 
@@ -22,6 +25,7 @@ Movimento visual: **editorial operacional dark**, com alto contraste e acentos m
 
 - `src/features/AdminCenter.tsx`: workspace administrativo unificado.
 - `src/features/PayslipImportDashboard.tsx`: importação administrativa e histórico de holerites.
+- `src/features/EmployeeDirectory.tsx`: busca administrativa e entrada para o prontuário do funcionário (próxima etapa).
 - `src/lib/api.ts`: chamadas RPC tipadas.
 - `src/lib/types.ts`: contratos de domínio.
 - `supabase/migrations/0008_saas_operational_model.sql`: tenant, vínculos, prontuário, fechamento, benefícios e financeiro.
@@ -40,3 +44,11 @@ Movimento visual: **editorial operacional dark**, com alto contraste e acentos m
 8. Central administrativa consolidada, sem módulos duplicados.
 9. Portal do funcionário preservado com acesso somente à própria operação.
 10. Importação de holerites por funcionário e competência, com PDF privado e URL assinada.
+
+## Roadmap de RH — próximas etapas
+
+1. **Prontuário pesquisável:** transformar Funcionários em uma busca explícita, sem carregar todos os cadastros inicialmente; abrir um funcionário por vez em um workspace de prontuário.
+2. **Advertências:** registrar medida disciplinar, ocorrido, motivo, anexos, responsável, auditoria e retificação/cancelamento sem apagar histórico.
+3. **Catálogo de benefícios e descontos:** cadastrar tipos, natureza, regras de cálculo, valor padrão, autorização, recorrência e status.
+4. **Lançamentos por competência:** lançar benefícios e descontos para um funcionário ou em lote, com origem, observação, parcelas, autorização e estados de processamento.
+5. **Integração com fechamento:** mostrar os lançamentos na prévia mensal, permitir revisão antes da confirmação e bloquear alterações diretas após o fechamento.

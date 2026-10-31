@@ -116,6 +116,7 @@ import { InternalDocumentsDashboard } from './features/InternalDocumentsDashboar
 import { EmployeeFichaPanel } from './features/EmployeeFichaPanel'
 import { EmployeeVacationPortal } from './features/EmployeeVacationPortal'
 import { PayslipImportDashboard } from './features/PayslipImportDashboard'
+import { EmployeeDirectory } from './features/EmployeeDirectory'
 import {
   EmptyState,
   ErrorState,
@@ -1258,7 +1259,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
   function navigate(key: ModuleKey) { setActive(key); setMobileMenu(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   function renderPage() {
     if (active === 'dashboard') return <DashboardView token={token} user={user} onNavigate={navigate} />
-    if (active === 'funcionarios') return <EmployeesView token={token} />
+    if (active === 'funcionarios') return <EmployeeDirectory token={token} />
     if (active === 'ordens') return adminProfiles.includes(user.perfil)
       ? <WorkOrdersDashboard token={token} onGoToProduction={() => navigate('producao')} />
       : <><PageHeading eyebrow="Acesso restrito" title="Ordens de serviço" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
