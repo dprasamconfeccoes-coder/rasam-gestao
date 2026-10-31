@@ -12,6 +12,7 @@ Transformar o RF Gestão em uma plataforma multiempresa para RH, ponto, financei
 - **Financeiro:** contas recorrentes, despesas, acordos parcelados, entradas, múltiplos valores, baixas e comprovantes.
 - **Permissões:** funcionário acessa somente sua vida funcional; gestor administra RH; administrador controla empresa, financeiro e relatórios.
 - **Navegação:** uma única área administrativa com abas por domínio; atalhos não duplicam CRUDs.
+- **Importação de holerites:** a área Controle terá uma tela dedicada para gestores e administradores selecionarem funcionário, competência e PDF; o arquivo será guardado em bucket privado e aberto por URL assinada temporária no portal.
 
 ## Design
 
@@ -20,6 +21,7 @@ Movimento visual: **editorial operacional dark**, com alto contraste e acentos m
 ## Estrutura
 
 - `src/features/AdminCenter.tsx`: workspace administrativo unificado.
+- `src/features/PayslipImportDashboard.tsx`: importação administrativa e histórico de holerites.
 - `src/lib/api.ts`: chamadas RPC tipadas.
 - `src/lib/types.ts`: contratos de domínio.
 - `supabase/migrations/0008_saas_operational_model.sql`: tenant, vínculos, prontuário, fechamento, benefícios e financeiro.
@@ -37,3 +39,4 @@ Movimento visual: **editorial operacional dark**, com alto contraste e acentos m
 7. Holerites limitados aos seis últimos e bloqueados para informais.
 8. Central administrativa consolidada, sem módulos duplicados.
 9. Portal do funcionário preservado com acesso somente à própria operação.
+10. Importação de holerites por funcionário e competência, com PDF privado e URL assinada.

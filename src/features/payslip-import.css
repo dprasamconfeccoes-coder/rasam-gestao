@@ -1,0 +1,15 @@
+.payslip-import-layout { margin-bottom: 18px; }
+.payslip-import-form { padding: 20px; }
+.payslip-import-form input[type='file'] { padding: 11px; border-style: dashed; }
+.payslip-file-picker { position: relative; }
+.payslip-file-picker input[type='file'] { color: var(--muted); }
+.payslip-upload-hint { display: flex; align-items: center; gap: 11px; padding: 13px 14px; border: 1px dashed rgba(215,168,74,.38); border-radius: 10px; color: var(--gold); background: rgba(215,168,74,.07); }
+.payslip-upload-hint > div, .payslip-process p { display: grid; gap: 3px; }
+.payslip-upload-hint strong, .payslip-process strong { color: var(--text); font-size: 11px; }
+.payslip-upload-hint small, .payslip-process small { color: var(--muted); font-size: 10px; line-height: 1.45; }
+.payslip-process { display: grid; gap: 17px; padding: 20px; }
+.payslip-process > div { display: flex; align-items: flex-start; gap: 12px; }
+.payslip-process > div > span { display: grid; place-items: center; flex: 0 0 29px; width: 29px; height: 29px; border: 1px solid rgba(215,168,74,.4); border-radius: 50%; color: var(--gold); background: rgba(215,168,74,.08); font-size: 10px; font-weight: 800; }
+.payslip-process p { margin: 1px 0 0; }
+.payslip-history { max-height: 520px; overflow: auto; }
+@media (max-width: 760px) { .payslip-import-form, .payslip-process { padding: 14px; } }

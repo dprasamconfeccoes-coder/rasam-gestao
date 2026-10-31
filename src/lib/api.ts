@@ -651,6 +651,33 @@ export function adminPayslips(token: string) {
   return rpc<{ sucesso: boolean; erro?: string; holerites: AdminPayslipRow[] }>('app_admin_holerites', { p_token: token })
 }
 
+export async function uploadPayslip(token: string, funcionarioId: string, competencia: string, file: File) {
+  const form = new FormData()
+  form.set('action', 'upload')
+  form.set('funcionario_id', funcionarioId)
+  form.set('competencia', competencia)
+  form.set('arquivo', file)
+  const response = await fetch(`${config.supabaseUrl}/functions/v1/holerite-documento`, {
+    method: 'POST',
+    headers: { apikey: config.supabaseKey, Authorization: `Bearer ${token}`, 'x-app-token': token },
+    body: form,
+  })
+  const data = (await response.json()) as { sucesso: boolean; erro?: string; holerite_id?: string }
+  if (!response.ok || !data.sucesso) throw new Error(data.erro || 'Não foi possível importar o holerite')
+  return data
+}
+
+export async function getPayslipDocumentUrl(token: string, holeriteId: string, download = false) {
+  const response = await fetch(`${config.supabaseUrl}/functions/v1/holerite-documento`, {
+    method: 'POST',
+    headers: { apikey: config.supabaseKey, Authorization: `Bearer ${token}`, 'x-app-token': token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'signed-url', holerite_id: holeriteId, download }),
+  })
+  const data = (await response.json()) as { sucesso: boolean; erro?: string; url?: string; expires_in?: number }
+  if (!response.ok || !data.sucesso || !data.url) throw new Error(data.erro || 'Não foi possível abrir o holerite')
+  return data
+}
+
 export function registerPayslip(token: string, funcionarioId: string, mes: number, ano: number, arquivoNome: string, arquivoUrl: string) {
   return rpc<{ sucesso: boolean; erro?: string }>('app_admin_registrar_holerite', { p_token: token, p_funcionario_id: funcionarioId, p_mes: mes, p_ano: ano, p_arquivo_nome: arquivoNome, p_arquivo_url: arquivoUrl })
 }

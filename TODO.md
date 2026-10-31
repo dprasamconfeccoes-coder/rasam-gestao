@@ -8,5 +8,6 @@
 - [ ] **Vale-alimentação:** calcular elegibilidade pelo mês, com regra de R$ 300 e perda automática por falta injustificada não abonada.
 - [ ] **Financeiro completo:** cadastrar contas recorrentes, despesas, acordos trabalhistas, parcelamentos com entrada e múltiplas faixas de valores, baixar parcelas e anexar comprovantes PDF/imagem.
 - [ ] **Holerites:** publicar/importar holerites em lote, restringir a funcionários formais e exibir no portal somente os seis últimos.
+- [ ] **Importar holerite:** em Controle, o gestor ou administrador deve abrir uma tela própria, selecionar o funcionário, selecionar a competência mensal e escolher um PDF do computador; o upload deve registrar o holerite, manter o arquivo privado, exibir o histórico de importações e permitir abertura por URL temporária assinada tanto para o funcionário quanto para o operador.
 - [ ] **Central sem redundância:** consolidar ações administrativas em um único workspace por domínio, sem duplicar menus ou CRUDs.
 - [ ] **Portal do funcionário:** manter acesso somente à própria jornada, justificativas, atestados, solicitações, avisos, documentos, benefício e holerites elegíveis.

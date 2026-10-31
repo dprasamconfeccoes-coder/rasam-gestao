@@ -17,6 +17,7 @@ export type ModuleKey =
   | 'solicitacoes'
   | 'avisos'
   | 'importacoes'
+  | 'importar_holerite'
   | 'acordos'
   | 'documentos'
   | 'central'
@@ -130,6 +131,7 @@ export interface EmployeeRow {
   perfil: Profile
   avatar_url: string | null
   situacao: 'Trabalhando' | 'Em férias' | 'Afastado' | 'Inativo'
+  elegivel_holerite?: boolean
 }
 
 export interface OrderRow {
@@ -352,6 +354,7 @@ export interface PayslipRow {
   arquivo_nome: string | null
   arquivo_url: string
   disponivel: boolean
+  created_at?: string
 }
 
 export interface NoticeAttachmentRow {

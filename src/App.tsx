@@ -64,6 +64,7 @@ import {
   adminFinanceiroWorkspace,
   adminProntuario,
   getSession,
+  getPayslipDocumentUrl,
   getToken,
   listEmployees,
   listMedicalLeaves,
@@ -114,6 +115,7 @@ import { FinanceReportsDashboard } from './features/FinanceReportsDashboard'
 import { InternalDocumentsDashboard } from './features/InternalDocumentsDashboard'
 import { EmployeeFichaPanel } from './features/EmployeeFichaPanel'
 import { EmployeeVacationPortal } from './features/EmployeeVacationPortal'
+import { PayslipImportDashboard } from './features/PayslipImportDashboard'
 import {
   EmptyState,
   ErrorState,
@@ -144,6 +146,7 @@ const navItems: NavItem[] = [
   { key: 'dividas', label: 'Dívidas', description: 'Saldos e vencimentos', icon: WalletCards, group: 'Controle', profiles: adminProfiles },
   { key: 'relatorios', label: 'Relatórios', description: 'Leituras da operação', icon: BarChart3, group: 'Controle', profiles: managerProfiles },
   { key: 'importacoes', label: 'Importar ponto', description: 'CSV diário e mensal', icon: FileSpreadsheet, group: 'Controle', profiles: managerProfiles },
+  { key: 'importar_holerite', label: 'Importar holerite', description: 'PDF por funcionário e competência', icon: Receipt, group: 'Controle', profiles: managerProfiles },
   { key: 'rh', label: 'Recursos humanos', description: 'Painel e operações de RH', icon: BriefcaseBusiness, group: 'Pessoas', profiles: adminProfiles },
   { key: 'perfil', label: 'Meu perfil', description: 'Dados cadastrais', icon: UserRound, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'ponto', label: 'Meu ponto', description: 'Jornada registrada', icon: Fingerprint, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
@@ -949,8 +952,20 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
 
 function PayslipsView({ token }: { token: string }) {
   const [rows, setRows] = useState<PayslipRow[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('')
+  const [openingId, setOpeningId] = useState('')
   useEffect(() => { listPayslips(token).then((data) => { if (!data.sucesso) throw new Error(data.erro || 'Falha de consulta'); setRows(data.holerites || []) }).catch((err) => setError(err instanceof Error ? err.message : 'Falha de consulta')).finally(() => setLoading(false)) }, [token])
-  return <><PageHeading eyebrow="Minha área · remuneração" title="Holerites" description="Comprovantes publicados pelo departamento pessoal." /><SectionCard title="Comprovantes disponíveis" caption="Arquivos privados vinculados ao seu cadastro">{loading ? <LoadingState /> : error ? <ErrorState message={error} /> : rows.length === 0 ? <EmptyState title="Nenhum holerite publicado" description="Quando o DP disponibilizar um comprovante, ele ficará disponível neste espaço." /> : <div className="document-list">{rows.map((row) => <div className="document-row" key={row.id}><span className="document-icon"><Receipt size={18} /></span><div><strong>{String(row.mes).padStart(2, '0')}/{row.ano}</strong><small>{row.arquivo_nome || 'Holerite'}</small></div><a href={row.arquivo_url} target="_blank" rel="noreferrer" className="icon-button" aria-label="Abrir holerite"><ArrowRight size={17} /></a></div>)}</div>}</SectionCard></>
+  async function openPayslip(row: PayslipRow) {
+    setOpeningId(row.id); setError('')
+    const popup = window.open('about:blank', '_blank')
+    try {
+      const signed = row.arquivo_url?.startsWith('http') ? null : await getPayslipDocumentUrl(token, row.id)
+      const url = row.arquivo_url?.startsWith('http') ? row.arquivo_url : signed?.url
+      if (!url) throw new Error('URL do documento não encontrada')
+      if (popup) popup.location.href = url
+      else window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (err) { popup?.close(); setError(err instanceof Error ? err.message : 'Não foi possível abrir o holerite') } finally { setOpeningId('') }
+  }
+  return <><PageHeading eyebrow="Minha área · remuneração" title="Holerites" description="Comprovantes publicados pelo departamento pessoal." /><SectionCard title="Comprovantes disponíveis" caption="Arquivos privados vinculados ao seu cadastro">{loading ? <LoadingState /> : error ? <ErrorState message={error} /> : rows.length === 0 ? <EmptyState title="Nenhum holerite publicado" description="Quando o DP disponibilizar um comprovante, ele ficará disponível neste espaço." /> : <div className="document-list">{rows.map((row) => <div className="document-row" key={row.id}><span className="document-icon"><Receipt size={18} /></span><div><strong>{String(row.mes).padStart(2, '0')}/{row.ano}</strong><small>{row.arquivo_nome || 'Holerite'}</small></div><button type="button" onClick={() => void openPayslip(row)} disabled={openingId === row.id} className="icon-button" aria-label="Abrir holerite">{openingId === row.id ? <RefreshCw className="spin" size={16} /> : <ArrowRight size={17} />}</button></div>)}</div>}</SectionCard></>
 }
 
 function MedicalLeavesView({ token }: { token: string }) {
@@ -1262,6 +1277,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'avisos') return <NoticesView token={token} onUnreadChange={setUnreadNotices} canMarkRead={user.perfil === 'funcionario'} />
     if (active === 'solicitacoes') return <EmployeeHRRequests token={token} />
     if (active === 'importacoes') return <PointImportsView token={token} />
+    if (active === 'importar_holerite') return <PayslipImportDashboard token={token} />
     if (active === 'acordos') return <AgreementsDashboard token={token} />
     if (active === 'documentos') return <InternalDocumentsDashboard token={token} canManage={adminProfiles.includes(user.perfil)} />
     return <ControlModuleView token={token} module={active} />
