@@ -82,7 +82,7 @@ export function logout(token: string) {
 }
 
 export function dashboard(token: string) {
-  return rpc<DashboardResponse>('app_dashboard', { p_token: token })
+  return rpc<DashboardResponse>('app_dashboard_v2', { p_token: token })
 }
 
 export function listEmployees(token: string) {

@@ -52,6 +52,22 @@ export interface DashboardResponse {
     contas_pendentes: number
     saldo_dividas: number
   }
+  modo?: 'executivo' | 'pessoal'
+  pessoal?: {
+    ponto_sem_justificativa?: number
+    atestados_em_analise?: number
+    solicitacoes_abertas?: number
+    avisos_nao_lidos?: number
+    holerites_disponiveis?: number
+  }
+  alertas?: Array<{
+    id: string
+    titulo: string
+    valor: number
+    detalhe: string
+    prioridade: 'urgente' | 'atencao' | 'informacao'
+    destino: ModuleKey
+  }>
 }
 
 export interface EmployeeRow {

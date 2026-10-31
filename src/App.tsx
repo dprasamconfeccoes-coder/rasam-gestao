@@ -109,6 +109,7 @@ import {
   formatMoney,
 } from './components/ui'
 import './styles.css'
+import './overview-dashboard.css'
 
 const managerProfiles: Profile[] = ['gestor', 'administrador', 'admin']
 const adminProfiles: Profile[] = ['administrador', 'admin']
@@ -133,7 +134,6 @@ const navItems: NavItem[] = [
   { key: 'importacoes', label: 'Importar ponto', description: 'CSV diário e mensal', icon: FileSpreadsheet, group: 'Administração', profiles: managerProfiles },
   { key: 'acordos', label: 'Acordos e parcelas', description: 'Pagamentos trabalhistas', icon: Scale, group: 'Administração', profiles: adminProfiles },
   { key: 'documentos', label: 'Documentos internos', description: 'Biblioteca compartilhada da empresa', icon: BookOpen, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
-  { key: 'central', label: 'Central operacional', description: 'RH, ponto, holerites e gestão total', icon: ShieldCheck, group: 'Administração', profiles: adminProfiles },
 ]
 
 function profileLabel(profile: Profile) {
@@ -278,43 +278,18 @@ function FirstAccessScreen({ token, user, onDone, onLogout }: { token: string; u
 function DashboardView({ token, user, onNavigate }: { token: string; user: SessionUser; onNavigate: (key: ModuleKey) => void }) {
   const [state, setState] = useState<{ loading: boolean; data?: DashboardResponse; error?: string }>({ loading: true })
   useEffect(() => { dashboard(token).then((data) => setState({ loading: false, data })).catch((err) => setState({ loading: false, error: err instanceof Error ? err.message : 'Erro desconhecido' })) }, [token])
-  if (state.loading) return <><PageHeading eyebrow="Pulso da operação" title="Visão geral" description={`Bom dia, ${user.nome.split(' ')[0]}. Aqui está o que merece atenção.`} /><LoadingState /></>
-  if (state.error || !state.data?.sucesso) return <><PageHeading eyebrow="Pulso da operação" title="Visão geral" /><ErrorState message={state.error || state.data?.erro || 'Sessão inválida'} /></>
-  const indicators = state.data.indicadores!
-  const isEmployee = user.perfil === 'funcionario'
-  const isAdmin = adminProfiles.includes(user.perfil)
-  return <>
-    <PageHeading eyebrow="Pulso da operação" title="Visão geral" description={`Bom dia, ${user.nome.split(' ')[0]}. Aqui está o que merece atenção.`} action={<span className="date-chip"><CalendarDays size={15} /> {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}</span>} />
-    <div className="welcome-strip"><div><span className="eyebrow">Acesso liberado</span><h2>{profileLabel(user.perfil)} <span className="gold-text">· {user.cargo || 'RF Gestão'}</span></h2><p>As informações abaixo vêm do ambiente operacional em tempo real.</p></div><div className="welcome-symbol"><Gauge size={34} /></div></div>
-    <div className="metric-grid">
-      {isEmployee ? <>
-        <MetricCard label="Meu ponto" value="Consultar" detail="Jornada registrada" tone="gold" />
-        <MetricCard label="Holerites" value="Acessar" detail="Comprovantes disponíveis" tone="pink" />
-        <MetricCard label="Atestados" value="Enviar" detail="Histórico e status" tone="green" />
-        <MetricCard label="Avisos" value="Ler" detail="Comunicados da empresa" tone="blue" />
-      </> : <>
-        <MetricCard label="Equipe ativa" value={indicators.funcionarios_ativos} detail="Abrir funcionários" tone="gold" onClick={() => onNavigate('funcionarios')} />
-        <MetricCard label="Ordens ativas" value={indicators.ordens_ativas} detail={isAdmin ? 'Abrir ordens de serviço' : 'Abrir painel de produção'} tone="pink" onClick={() => onNavigate(isAdmin ? 'ordens' : 'producao')} />
-        <MetricCard label="Lotes em costura" value={indicators.lotes_em_costura} detail="Abrir produção" tone="green" onClick={() => onNavigate('producao')} />
-        <MetricCard label="Contas pendentes" value={indicators.contas_pendentes} detail="Abrir financeiro" tone="blue" onClick={() => onNavigate('financeiro')} />
-      </>}
-    </div>
-    <div className="dashboard-columns">
-      <SectionCard title={isEmployee ? 'Acesso rápido' : 'Pontos de controle'} caption={isEmployee ? 'O que você pode consultar agora' : 'Atalhos para a decisão do dia'}>
-        <div className="quick-list">
-          {(isEmployee ? ([['ponto', 'Meu ponto', 'Veja seus registros de jornada', Fingerprint], ['holerites', 'Holerites', 'Acesse seus comprovantes', Receipt], ['solicitacoes', 'Falar com o RH', 'Abra ou acompanhe uma solicitação', FileText]] as const) : ([['funcionarios', 'Equipe', 'Cadastros e perfis de acesso', UsersRound], [isAdmin ? 'ordens' : 'producao', isAdmin ? 'Ordens de serviço' : 'Produção', isAdmin ? 'Cadastro e financeiro' : 'Lotes e andamento fabril', isAdmin ? ClipboardList : Factory], ['financeiro', 'Financeiro', 'Compromissos e fluxo', CircleDollarSign]] as const)).map(([key, label, detail, Icon]) => <button className="quick-item" key={key} onClick={() => onNavigate(key as ModuleKey)}><span className="quick-icon"><Icon size={18} /></span><span><strong>{label}</strong><small>{detail}</small></span><ChevronRight size={17} /></button>)}
-        </div>
-      </SectionCard>
-      <SectionCard title="Leitura do ambiente" caption="Acesso e segurança">
-        <div className="security-note"><div className="security-icon"><ShieldCheck size={20} /></div><div><strong>Sessão protegida</strong><p>Seu perfil de {profileLabel(user.perfil).toLowerCase()} está validado por RPC e permissões do Supabase.</p></div></div>
-        <div className="security-row"><span>Saldo de dívidas</span><strong>{isAdmin ? formatMoney(indicators.saldo_dividas) : 'Restrito a administradores'}</strong></div>
-        <div className="security-row"><span>Em férias hoje</span><strong>{isEmployee ? 'Disponível ao RH' : indicators.em_ferias}</strong></div>
-        <div className="security-row"><span>Em afastamento</span><strong>{isEmployee ? 'Disponível ao RH' : indicators.em_afastamento}</strong></div>
-      </SectionCard>
-    </div>
-  </>
+  if (state.loading) return <><PageHeading eyebrow="Centro de comando" title="Visão geral" description={`Bom dia, ${user.nome.split(' ')[0]}.`} /><LoadingState label="Preparando seu painel de atenção…" /></>
+  if (state.error || !state.data?.sucesso) return <><PageHeading eyebrow="Centro de comando" title="Visão geral" /><ErrorState message={state.error || state.data?.erro || 'Sessão inválida'} /></>
+  const data = state.data; const isEmployee = user.perfil === 'funcionario'; const isAdmin = adminProfiles.includes(user.perfil); const indicators = data.indicadores!; const personal = data.pessoal || {}; const alerts = data.alertas || []
+  const alertDestination = (value: string) => ['financeiro','ordens','producao','rh','importacoes'].includes(value) ? value as ModuleKey : 'dashboard'
+  return <div className={`overview-page ${isEmployee ? 'is-personal' : 'is-executive'}`}>
+    <PageHeading eyebrow={isEmployee ? 'Meu espaço · atenção pessoal' : 'Centro de comando · gestão empresarial'} title="Visão geral" description={isEmployee ? `Olá, ${user.nome.split(' ')[0]}. Aqui estão as suas pendências e próximos passos.` : `Bom dia, ${user.nome.split(' ')[0]}. Uma leitura objetiva do que merece atenção hoje.`} action={<span className="date-chip"><CalendarDays size={15} /> {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}</span>} />
+    <div className="overview-welcome"><div><span className="eyebrow">{isEmployee ? 'Seu painel pessoal' : 'Prioridade do dia'}</span><h2>{isEmployee ? 'Tudo o que depende de você, em um só lugar.' : 'Decida primeiro. Aprofunde depois.'}</h2><p>{isEmployee ? 'Consulte sua jornada, acompanhe documentos e mantenha suas solicitações em dia.' : 'Indicadores operacionais e alertas priorizados para iniciar o dia com clareza.'}</p></div><div className="overview-welcome-symbol"><Gauge size={32}/></div></div>
+    <div className="metric-grid overview-metrics">{isEmployee ? <><MetricCard label="Ponto a revisar" value={personal.ponto_sem_justificativa || 0} detail="Registros sem justificativa" tone="gold" onClick={() => onNavigate('ponto')} /><MetricCard label="Atestados" value={personal.atestados_em_analise || 0} detail="Em análise pelo RH" tone="pink" onClick={() => onNavigate('atestados')} /><MetricCard label="Solicitações" value={personal.solicitacoes_abertas || 0} detail="Pedidos em aberto" tone="green" onClick={() => onNavigate('solicitacoes')} /><MetricCard label="Avisos novos" value={personal.avisos_nao_lidos || 0} detail="Comunicados não lidos" tone="blue" onClick={() => onNavigate('avisos')} /></> : <><MetricCard label="Equipe ativa" value={indicators.funcionarios_ativos} detail="Pessoas no quadro" tone="gold" onClick={() => onNavigate('funcionarios')} /><MetricCard label="Ordens ativas" value={indicators.ordens_ativas} detail="Em operação" tone="pink" onClick={() => onNavigate(isAdmin ? 'ordens' : 'producao')} /><MetricCard label="Lotes em costura" value={indicators.lotes_em_costura} detail="Acompanhar produção" tone="green" onClick={() => onNavigate('producao')} /><MetricCard label="Contas pendentes" value={indicators.contas_pendentes} detail="Financeiro exige atenção" tone="blue" onClick={() => onNavigate('financeiro')} /></>}</div>
+    <div className="overview-main-grid"><SectionCard title={isEmployee ? 'Pendências pessoais' : 'Alertas prioritários'} caption={isEmployee ? 'Resolva o que pode bloquear sua rotina' : `${alerts.length} ponto(s) selecionado(s) por urgência`}><div className="overview-alert-list">{isEmployee ? <><button className="overview-alert-item is-attention" onClick={() => onNavigate('ponto')}><span><Fingerprint size={18}/></span><div><strong>{personal.ponto_sem_justificativa || 0} registro(s) de ponto precisam de revisão</strong><small>Confira sua jornada e envie justificativa quando necessário.</small></div><ChevronRight size={16}/></button><button className="overview-alert-item is-info" onClick={() => onNavigate('atestados')}><span><HeartPulse size={18}/></span><div><strong>{personal.atestados_em_analise || 0} atestado(s) em análise</strong><small>Acompanhe o status dos documentos enviados ao RH.</small></div><ChevronRight size={16}/></button><button className="overview-alert-item is-success" onClick={() => onNavigate('solicitacoes')}><span><FileCheck2 size={18}/></span><div><strong>{personal.solicitacoes_abertas || 0} solicitação(ões) em aberto</strong><small>Veja respostas ou complemente seus pedidos.</small></div><ChevronRight size={16}/></button></> : alerts.length === 0 ? <EmptyState title="Operação sob controle" description="Não há alertas prioritários para este momento." /> : alerts.map((alert) => <button className={`overview-alert-item is-${alert.prioridade}`} key={alert.id} onClick={() => onNavigate(alertDestination(alert.destino))}><span>{alert.prioridade === 'urgente' ? <AlertCircle size={18}/> : alert.destino === 'producao' ? <Factory size={18}/> : alert.destino === 'financeiro' ? <CircleDollarSign size={18}/> : <ShieldCheck size={18}/>}</span><div><strong>{alert.titulo} <b>{alert.valor}</b></strong><small>{alert.detalhe}</small></div><ChevronRight size={16}/></button>)}</div></SectionCard><SectionCard title={isEmployee ? 'Acesso rápido' : 'Resumo executivo'} caption={isEmployee ? 'Atalhos para sua rotina' : 'Contexto para a primeira decisão do dia'}><div className="overview-summary-list">{isEmployee ? <><button onClick={() => onNavigate('ponto')}><Fingerprint size={17}/><span><strong>Minha jornada</strong><small>Registros, atrasos e justificativas</small></span><ChevronRight size={15}/></button><button onClick={() => onNavigate('avisos')}><Bell size={17}/><span><strong>Avisos da empresa</strong><small>{personal.avisos_nao_lidos || 0} comunicado(s) aguardando leitura</small></span><ChevronRight size={15}/></button><button onClick={() => onNavigate('holerites')}><Receipt size={17}/><span><strong>Comprovantes</strong><small>{personal.holerites_disponiveis || 0} holerite(s) disponíveis</small></span><ChevronRight size={15}/></button></> : <><div><span>Saldo de dívidas ativo</span><strong>{isAdmin ? formatMoney(indicators.saldo_dividas) : 'Disponível para administradores'}</strong></div><div><span>Pessoas ausentes hoje</span><strong>{indicators.em_ferias + indicators.em_afastamento}</strong></div><div><span>Compromissos financeiros</span><strong>{indicators.contas_pendentes}</strong></div><div><span>Próximo passo recomendado</span><strong>{alerts[0]?.titulo || 'Revisar o fechamento do dia'}</strong></div></>}</div></SectionCard></div>
+    {!isEmployee && <SectionCard title="Radar de atenção" caption="Indicadores que ajudam a decidir onde investir tempo agora"><div className="overview-radar"><button onClick={() => onNavigate('funcionarios')}><UsersRound size={18}/><span><strong>{indicators.funcionarios_ativos} ativos</strong><small>Equipe disponível no quadro</small></span></button><button onClick={() => onNavigate('producao')}><Factory size={18}/><span><strong>{indicators.lotes_em_costura} em costura</strong><small>Lotes que precisam de acompanhamento</small></span></button><button onClick={() => onNavigate('financeiro')}><CircleDollarSign size={18}/><span><strong>{indicators.contas_pendentes} pendentes</strong><small>Obrigações sem baixa financeira</small></span></button><button onClick={() => onNavigate('relatorios')}><BarChart3 size={18}/><span><strong>Relatórios gerenciais</strong><small>Aprofundar a análise por período</small></span></button></div></SectionCard>}
+  </div>
 }
-
 function EmployeesView({ token }: { token: string }) {
   const [rows, setRows] = useState<EmployeeRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -1119,7 +1094,6 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'importacoes') return <PointImportsView token={token} />
     if (active === 'acordos') return <AgreementsDashboard token={token} />
     if (active === 'documentos') return <InternalDocumentsDashboard token={token} canManage={adminProfiles.includes(user.perfil)} />
-    if (active === 'central') return <AdminCenter token={token} />
     return <ControlModuleView token={token} module={active} />
   }
   return (
