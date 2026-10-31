@@ -117,6 +117,12 @@ export function createPayrollBenefit(token: string, payload: { funcionarioId: st
 export function createPayrollDiscount(token: string, payload: { funcionarioId: string; tipo: string; descricao: string; competencia: string; valor: number; status: string; observacoes: string }) {
   return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_lancar_desconto', { p_token: token, p_funcionario_id: payload.funcionarioId, p_tipo: payload.tipo, p_descricao: payload.descricao, p_competencia: payload.competencia, p_valor: payload.valor, p_status: payload.status, p_observacoes: payload.observacoes })
 }
+export function searchBenefitCatalog(token: string, busca = '') {
+  return rpc<{ sucesso: boolean; erro?: string; beneficios: Array<{ id: string; nome: string; descricao?: string | null }> }>('app_admin_buscar_beneficios_catalogo', { p_token: token, p_busca: busca })
+}
+export function createBenefitCatalogItem(token: string, nome: string, descricao = '') {
+  return rpc<{ sucesso: boolean; erro?: string; beneficio?: { id: string; nome: string; descricao?: string | null } }>('app_admin_cadastrar_beneficio_catalogo', { p_token: token, p_nome: nome, p_descricao: descricao })
+}
 export function myProfile(token: string) {
   return rpc<{ sucesso: boolean; funcionario?: EmployeeProfile; erro?: string }>('app_meu_perfil', {
     p_token: token,
