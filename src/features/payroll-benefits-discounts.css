@@ -1,0 +1,21 @@
+.payroll-management-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(360px,.95fr); gap:18px; }
+.payroll-kind-switch { display:flex; gap:8px; padding:18px 20px 0; }
+.payroll-kind-switch button { display:flex; align-items:center; gap:8px; padding:10px 13px; border:1px solid var(--line); border-radius:9px; background:transparent; color:var(--muted); font:inherit; font-size:11px; cursor:pointer; }
+.payroll-kind-switch button.active { border-color:#d7a84a; background:#fff8ec; color:#895c12; }
+.payroll-entry-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; padding:20px; }
+.payroll-entry-form label { display:grid; gap:7px; color:#746d66; font-size:11px; font-weight:700; }
+.payroll-entry-form input, .payroll-entry-form select, .payroll-entry-form textarea { border:1px solid #d9d1c8; border-radius:8px; background:#fff; color:#29252b; font:inherit; font-size:12px; padding:10px 11px; }
+.payroll-entry-form textarea { resize:vertical; }
+.payroll-wide-field { grid-column:1/-1; }
+.payroll-submit { grid-column:1/-1; justify-content:center; }
+.payroll-history-list { display:grid; gap:8px; padding:0 20px 20px; }
+.payroll-history-item { display:grid; grid-template-columns:34px minmax(0,1fr) auto; align-items:center; gap:11px; padding:12px 0; border-bottom:1px solid #eee8e1; }
+.payroll-history-item:last-child { border-bottom:0; }
+.payroll-history-icon { display:grid; place-items:center; width:34px; height:34px; border-radius:9px; background:#fff3d9; color:#9b6915; }
+.payroll-history-copy { display:grid; gap:4px; min-width:0; }
+.payroll-history-copy strong { overflow:hidden; color:#29252b; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+.payroll-history-copy small { overflow:hidden; color:#746d66; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+.payroll-history-value { display:grid; justify-items:end; gap:5px; }
+.payroll-history-value b { color:#29252b; font-size:11px; }
+@media (max-width:900px) { .payroll-management-layout { grid-template-columns:1fr; } }
+@media (max-width:600px) { .payroll-entry-form { grid-template-columns:1fr; } .payroll-wide-field, .payroll-submit { grid-column:auto; } .payroll-history-item { grid-template-columns:34px minmax(0,1fr); } .payroll-history-value { grid-column:2; justify-items:start; } }

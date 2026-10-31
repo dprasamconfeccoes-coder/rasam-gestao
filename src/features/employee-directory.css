@@ -113,3 +113,8 @@
 .employee-form-grid label, .employee-form-section > label { color:#746d66; }
 .employee-create-actions { border-top:1px solid #eee8e1; padding-top:18px; }
 @media (max-width:700px) { .point-day-card { grid-template-columns:1fr; align-items:start; } .point-times { gap:10px; } }
+.employee-record-modal { width:min(1080px,100%); height:min(760px,calc(100vh - 48px)); overflow:hidden; }
+.employee-record-modal .employee-record-shell { height:100%; overflow:hidden; display:flex; flex-direction:column; }
+.employee-record-modal .employee-record-shell > .section-card, .employee-record-modal .employee-record-shell > .employee-record-summary { min-height:0; overflow:auto; flex:1; }
+.employee-record-modal .employee-record-shell > .employee-record-tabs { flex:none; }
+@media (max-width:620px) { .employee-record-modal { height:calc(100vh - 20px); } }
