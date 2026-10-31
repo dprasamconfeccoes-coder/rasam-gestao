@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, BarChart3, BriefcaseBusiness, CalendarDays, Download, FileBarChart, FileText, Landmark, PieChart, Printer, RefreshCw, ShieldAlert, Table2, UsersRound, WalletCards } from 'lucide-react'
-import { adminFinanceiroRelatorio } from '../lib/api'
+import { adminFinanceiroRelatorio, adminRegistrarRelatorio } from '../lib/api'
 import type { FinanceiroRelatorioResponse } from '../lib/types'
 import { EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, formatDate, formatMoney } from '../components/ui'
 import './finance-reports.css'
 
-type ReportType='fluxo'|'categorias'|'contas_pagar'|'contas_receber'|'producao'|'dre'|'inadimplencia'|'recorrencias'|'orcamento'
-type ReportDefinition={key:ReportType;label:string;description:string;area:'Financeiro'|'Produção'|'Pessoas'|'Dívidas';icon:'chart'|'table'|'file'|'alert'|'briefcase'}
+type ReportType='fluxo'|'categorias'|'contas_pagar'|'contas_receber'|'producao'|'dre'|'inadimplencia'|'recorrencias'|'orcamento'|'producao_status'|'producao_clientes'|'produtividade'|'quadro_funcionarios'|'ponto_jornada'|'absenteismo'|'ferias_afastamentos'|'dividas_posicao'|'dividas_credores'
+type ReportDefinition={key:ReportType;label:string;description:string;area:'Financeiro'|'Produção'|'Pessoas'|'Dívidas';icon:'chart'|'table'|'file'|'alert'|'briefcase'|'calendar'}
 const reportOptions:ReportDefinition[]=[
  {key:'fluxo',label:'Fluxo de caixa',description:'Realizado, previsto e saldo por competência.',area:'Financeiro',icon:'chart'},
  {key:'contas_pagar',label:'Contas a pagar',description:'Obrigações, vencimentos e contratos.',area:'Financeiro',icon:'file'},
@@ -17,6 +17,15 @@ const reportOptions:ReportDefinition[]=[
  {key:'inadimplencia',label:'Inadimplência',description:'Atrasos, contas vencidas e risco de recebimento.',area:'Financeiro',icon:'alert'},
  {key:'recorrencias',label:'Compromissos recorrentes',description:'Contratos fixos e projeção anual.',area:'Financeiro',icon:'file'},
  {key:'orcamento',label:'Orçamento versus realizado',description:'Planejado, realizado e desvio por categoria.',area:'Financeiro',icon:'table'},
+ {key:'producao_status',label:'Ordens por status',description:'Volume de ordens em cada etapa operacional.',area:'Produção',icon:'chart'},
+ {key:'producao_clientes',label:'Produção por cliente',description:'Volume, valor e prazo médio por cliente.',area:'Produção',icon:'briefcase'},
+ {key:'produtividade',label:'Produtividade operacional',description:'Ordens, peças e prazos do período.',area:'Produção',icon:'chart'},
+ {key:'quadro_funcionarios',label:'Quadro de funcionários',description:'Ativos, vínculos e distribuição por cargo.',area:'Pessoas',icon:'file'},
+ {key:'ponto_jornada',label:'Ponto e jornada',description:'Presenças, faltas e registros do período.',area:'Pessoas',icon:'chart'},
+ {key:'absenteismo',label:'Absenteísmo',description:'Faltas e afastamentos por período.',area:'Pessoas',icon:'alert'},
+ {key:'ferias_afastamentos',label:'Férias e afastamentos',description:'Agenda de ausências e retornos previstos.',area:'Pessoas',icon:'calendar'},
+ {key:'dividas_posicao',label:'Posição de dívidas',description:'Saldo devedor e obrigações ativas.',area:'Dívidas',icon:'alert'},
+ {key:'dividas_credores',label:'Dívidas por credor',description:'Concentração do passivo por credor.',area:'Dívidas',icon:'table'},
 ]
 const columns:Record<ReportType,Array<[string,string]>>={
  fluxo:[['mes','Competência'],['receitas_recebidas','Receitas recebidas'],['despesas_pagas','Despesas pagas'],['receitas_previstas','Receitas previstas'],['despesas_previstas','Despesas previstas']],
@@ -28,13 +37,14 @@ const columns:Record<ReportType,Array<[string,string]>>={
  inadimplencia:[['faixa','Faixa'],['quantidade','Contas'],['valor','Valor em aberto']],
  recorrencias:[['descricao','Compromisso'],['categoria','Categoria'],['fornecedor','Fornecedor'],['periodicidade','Periodicidade'],['valor','Valor'],['projecao_anual','Projeção anual'],['proximo_vencimento','Próximo vencimento']],
  orcamento:[['categoria','Categoria'],['orcado','Orçado'],['realizado','Realizado'],['desvio','Desvio'],['execucao','Execução']],
+ producao_status:[['status','Status'],['quantidade','Ordens'],['valor_total','Valor']], producao_clientes:[['cliente','Cliente'],['ordens','Ordens'],['quantidade','Peças'],['valor_total','Valor']], produtividade:[['indicador','Indicador'],['valor','Valor']], quadro_funcionarios:[['grupo','Grupo'],['quantidade','Quantidade']], ponto_jornada:[['status','Status'],['quantidade','Registros']], absenteismo:[['tipo','Tipo'],['quantidade','Ocorrências'],['dias','Dias']], ferias_afastamentos:[['tipo','Tipo'],['quantidade','Registros'],['proximos','Próximos']], dividas_posicao:[['status','Status'],['quantidade','Registros'],['valor','Saldo']], dividas_credores:[['credor','Credor'],['contratos','Contratos'],['saldo','Saldo']],
 }
 const num=(v:unknown)=>Number(v||0)
-function value(key:string,row:Record<string,unknown>){const raw=row[key];if(['valor','orcado','realizado','desvio','receitas_recebidas','despesas_pagas','receitas_previstas','despesas_previstas','valor_total','projecao_anual'].includes(key))return formatMoney(num(raw));if(['participacao','execucao'].includes(key))return `${num(raw).toFixed(1)}%`;if(['mes','vencimento','prazo','proximo_vencimento','competencia','pago_em'].includes(key))return formatDate(raw?String(raw):'');return raw===null||raw===undefined||raw===''?'—':String(raw)}
-function iconFor(icon:ReportDefinition['icon']){return icon==='chart'?<BarChart3 size={17}/>:icon==='table'?<Table2 size={17}/>:icon==='alert'?<ShieldAlert size={17}/>:icon==='briefcase'?<BriefcaseBusiness size={17}/>:<FileText size={17}/>}
+function value(key:string,row:Record<string,unknown>){const raw=row[key];if(['valor','orcado','realizado','desvio','receitas_recebidas','despesas_pagas','receitas_previstas','despesas_previstas','valor_total','projecao_anual','saldo','orcado','realizado','desvio'].includes(key))return formatMoney(num(raw));if(['participacao','execucao'].includes(key))return `${num(raw).toFixed(1)}%`;if(['mes','vencimento','prazo','proximo_vencimento','competencia','pago_em'].includes(key))return formatDate(raw?String(raw):'');return raw===null||raw===undefined||raw===''?'—':String(raw)}
+function iconFor(icon:ReportDefinition['icon']){return icon==='chart'?<BarChart3 size={17}/>:icon==='table'?<Table2 size={17}/>:icon==='alert'?<ShieldAlert size={17}/>:icon==='briefcase'?<BriefcaseBusiness size={17}/>:icon==='calendar'?<CalendarDays size={17}/>:<FileText size={17}/>}
 export function FinanceReportsDashboard({token}:{token:string}){
  const today=new Date();const [start,setStart]=useState(`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-01`);const [end,setEnd]=useState(today.toISOString().slice(0,10));const [type,setType]=useState<ReportType>('fluxo');const [data,setData]=useState<FinanceiroRelatorioResponse|null>(null);const [loading,setLoading]=useState(false);const [error,setError]=useState('');const [showCatalog,setShowCatalog]=useState(true)
- async function load(nextType=type,openDetail=true){setLoading(true);setError('');try{const result=await adminFinanceiroRelatorio(token,nextType,start,end);if(!result.sucesso)throw new Error(result.erro||'Não foi possível gerar o relatório');setData(result);setType(nextType);setShowCatalog(!openDetail)}catch(e){setError(e instanceof Error?e.message:'Falha ao gerar relatório')}finally{setLoading(false)}}
+ async function load(nextType=type,openDetail=true){setLoading(true);setError('');try{const result=await adminFinanceiroRelatorio(token,nextType,start,end);if(!result.sucesso)throw new Error(result.erro||'Não foi possível gerar o relatório');setData(result);setType(nextType);setShowCatalog(!openDetail);void adminRegistrarRelatorio(token,nextType,start,end)}catch(e){setError(e instanceof Error?e.message:'Falha ao gerar relatório')}finally{setLoading(false)}}
  useEffect(()=>{void load('fluxo',false)},[token])
  const option=reportOptions.find(item=>item.key===type)!;const rows=data?.linhas||[];const fields=columns[type];const financeOptions=reportOptions.filter(item=>item.area==='Financeiro');const totalRows=rows.length
  const summary=useMemo(()=>{const sum=(keys:string[])=>rows.reduce((acc,row)=>acc+keys.reduce((n,key)=>n+num(row[key]),0),0);return {receitas:sum(['receitas_recebidas','receitas_previstas']),despesas:sum(['despesas_pagas','despesas_previstas','valor']),abertos:rows.filter(row=>['pendente','vencido'].includes(String(row.status))).length}},[rows])

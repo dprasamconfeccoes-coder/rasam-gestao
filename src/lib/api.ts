@@ -781,8 +781,13 @@ export function adminFinanceiroExecutivo(token: string, inicio?: string, fim?: s
   return rpc<import('./types').FinanceiroExecutivoDashboard>('app_admin_financeiro_executivo', { p_token: token, p_inicio: inicio || null, p_fim: fim || null })
 }
 
-export function adminFinanceiroRelatorio(token: string, tipo: 'fluxo'|'categorias'|'contas_pagar'|'contas_receber'|'producao'|'dre'|'inadimplencia'|'recorrencias'|'orcamento', inicio?: string, fim?: string) {
-  return rpc<import('./types').FinanceiroRelatorioResponse>('app_admin_financeiro_relatorio', { p_token: token, p_tipo: tipo, p_inicio: inicio || null, p_fim: fim || null })
+export function adminFinanceiroRelatorio(token: string, tipo: 'fluxo'|'categorias'|'contas_pagar'|'contas_receber'|'producao'|'dre'|'inadimplencia'|'recorrencias'|'orcamento'|'producao_status'|'producao_clientes'|'produtividade'|'quadro_funcionarios'|'ponto_jornada'|'absenteismo'|'ferias_afastamentos'|'dividas_posicao'|'dividas_credores', inicio?: string, fim?: string) {
+  const operational = ['producao_status','producao_clientes','produtividade','quadro_funcionarios','ponto_jornada','absenteismo','ferias_afastamentos','dividas_posicao','dividas_credores'].includes(tipo)
+  return rpc<import('./types').FinanceiroRelatorioResponse>(operational ? 'app_admin_relatorio_operacional' : 'app_admin_financeiro_relatorio', { p_token: token, p_tipo: tipo, p_inicio: inicio || null, p_fim: fim || null })
+}
+
+export function adminRegistrarRelatorio(token: string, tipo: string, inicio?: string, fim?: string, formato = 'gerencial') {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_relatorio_registrar', { p_token: token, p_tipo: tipo, p_inicio: inicio || null, p_fim: fim || null, p_formato: formato })
 }
 
 export function adminFinanceiroLancamentoSalvar(token: string, payload: { id?: string; tipo: 'pagar'|'receber'; categoria: string; descricao: string; valor: number; vencimento: string; observacoes?: string }) {
