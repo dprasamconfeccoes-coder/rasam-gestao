@@ -30,3 +30,28 @@
 .vacation-finance-preview > div > svg { color: var(--muted-2); }
 @media (max-width: 900px) { .vacation-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .vacation-page-intro { align-items: flex-start; } .vacation-intro-mark { min-width: 145px; } }
 @media (max-width: 600px) { .vacation-page-intro { display: grid; padding: 20px; } .vacation-intro-mark { justify-items: start; padding: 14px 0 0; border-top: 1px solid var(--line); border-left: 0; } .vacation-kpi-grid { grid-template-columns: 1fr 1fr; gap: 9px; } .vacation-kpi { min-height: 111px; padding: 13px; } .vacation-kpi strong { font-size: 25px; } }
+
+.vacation-reconciliation-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 0 20px 16px; }
+.reconciliation-card { display: flex; align-items: flex-start; gap: 11px; min-height: 112px; padding: 15px; border: 1px solid var(--line); border-left: 3px solid var(--blue); border-radius: 12px; background: var(--surface); }
+.reconciliation-card.is-alert { border-color: rgba(163,61,73,.25); border-left-color: var(--danger); background: rgba(163,61,73,.055); }
+.reconciliation-card.is-ok { border-left-color: var(--green); background: rgba(46,113,78,.045); }
+.reconciliation-card.is-neutral { border-left-color: var(--blue); background: rgba(53,105,147,.045); }
+.reconciliation-icon { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 auto; border-radius: 10px; color: var(--blue); background: rgba(53,105,147,.11); }
+.reconciliation-card.is-alert .reconciliation-icon { color: var(--danger); background: rgba(163,61,73,.12); }
+.reconciliation-card.is-ok .reconciliation-icon { color: var(--green); background: rgba(46,113,78,.12); }
+.reconciliation-card > div { display: grid; gap: 3px; }
+.reconciliation-card strong { color: var(--text); font-size: 25px; line-height: 1; letter-spacing: -.05em; }
+.reconciliation-card b { color: var(--text); font-size: 11px; }
+.reconciliation-card small { color: var(--muted); font-size: 10px; line-height: 1.35; }
+.reconciliation-footnote { display: flex; align-items: center; gap: 7px; margin: 0 20px 18px; padding: 9px 11px; color: var(--danger); border-radius: 8px; background: rgba(163,61,73,.08); font-size: 10px; font-weight: 700; }
+.hr-vacation-row { border-left: 3px solid var(--line); transition: background .18s, border-color .18s; }
+.hr-vacation-row.status-em_gozo { border-left-color: var(--blue); background: rgba(53,105,147,.045); }
+.hr-vacation-row.status-concluida { border-left-color: var(--green); }
+.hr-vacation-row.status-cancelada { border-left-color: var(--danger); background: rgba(163,61,73,.035); }
+.employee-avatar { display: grid; place-items: center; overflow: hidden; width: 38px; height: 38px; flex: 0 0 auto; border: 2px solid rgba(215,168,74,.45); border-radius: 50%; color: #5c420b; background: linear-gradient(135deg, #f1d596, #d98aa9); font-size: 12px; font-weight: 900; letter-spacing: .02em; }
+.employee-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.vacation-status-select { min-width: 124px; padding: 8px 9px; border-radius: 9px; color: var(--text); background: var(--surface); font-size: 11px; font-weight: 700; }
+.vacation-status-select.status-em_gozo { border-color: rgba(53,105,147,.42); color: var(--blue); }
+.vacation-status-select.status-concluida { border-color: rgba(46,113,78,.42); color: var(--green); }
+.vacation-status-select.status-cancelada { border-color: rgba(163,61,73,.42); color: var(--danger); }
+@media (max-width: 900px) { .vacation-reconciliation-grid { grid-template-columns: 1fr; } .hr-vacation-row { flex-wrap: wrap; } .vacation-status-select { margin-left: 49px; } }

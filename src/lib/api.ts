@@ -21,6 +21,7 @@ import type {
   AdminRequestRow,
   AdminVacationRow,
   AdminVacationManagementRow,
+  VacationReconciliationSummary,
   VacationImportBatch,
   CompanyDocument,
   DebtCategory,
@@ -498,7 +499,7 @@ export function adminVacations(token: string) {
 }
 
 export function adminVacationManagement(token: string) {
-  return rpc<{ sucesso: boolean; erro?: string; ferias: AdminVacationManagementRow[]; importacoes: VacationImportBatch[] }>('app_admin_listar_ferias_gestao', { p_token: token })
+  return rpc<{ sucesso: boolean; erro?: string; ferias: AdminVacationManagementRow[]; importacoes: VacationImportBatch[]; reconciliacao: VacationReconciliationSummary }>('app_admin_listar_ferias_gestao', { p_token: token })
 }
 
 export function confirmVacationImport(token: string, id: string, observacoes: string) {
