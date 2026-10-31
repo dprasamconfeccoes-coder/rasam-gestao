@@ -57,6 +57,9 @@ import {
   listImportedPoint,
   listPointImports,
   dashboard,
+  getFactoryProduction,
+  listAgreements,
+  managedDebts,
   adminProntuario,
   getSession,
   getToken,
@@ -98,7 +101,7 @@ import type {
   PointImportSummary,
 } from './lib/types'
 import { getNotificationPermission, requestNotificationPermission, showDashboardNotification, subscribeDashboardRealtime, type DashboardLiveEvent } from './lib/dashboard-realtime'
-import { downloadDashboardCsv, exportDashboardPdf } from './features/dashboard-executive-report'
+import { buildOverviewReportRows, downloadDashboardCsv, exportDashboardPdf, type OverviewReportEnrichment } from './features/dashboard-executive-report'
 import { AdminCenterV2 as AdminCenter } from './features/AdminCenterV2'
 import { DebtManagementDashboard } from './features/DebtManagementDashboard'
 import { FinanceExecutiveDashboard } from './features/FinanceExecutiveDashboard'
@@ -284,7 +287,7 @@ function FirstAccessScreen({ token, user, onDone, onLogout }: { token: string; u
 }
 
 function DashboardView({ token, user, onNavigate }: { token: string; user: SessionUser; onNavigate: (key: ModuleKey) => void }) {
-  const [state, setState] = useState<{ loading: boolean; data?: DashboardResponse; error?: string }>({ loading: true })
+  const [state, setState] = useState<{ loading: boolean; data?: DashboardResponse; enrichment?: OverviewReportEnrichment; error?: string }>({ loading: true })
   const [liveEvents, setLiveEvents] = useState<DashboardLiveEvent[]>([])
   const [liveConnected, setLiveConnected] = useState(false)
   const [notificationPermission, setNotificationPermission] = useState(getNotificationPermission())
@@ -294,13 +297,34 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
   const [periodPreset, setPeriodPreset] = useState<'hoje' | '7d' | 'mes' | 'anterior' | '6m' | 'custom'>('6m')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
-  useEffect(() => { dashboard(token).then((data) => setState({ loading: false, data })).catch((err) => setState({ loading: false, error: err instanceof Error ? err.message : 'Erro desconhecido' })) }, [token])
+  useEffect(() => {
+    async function loadOverview() {
+      try {
+        const data = await dashboard(token)
+        const enrichment: OverviewReportEnrichment = {}
+        if (adminProfiles.includes(user.perfil)) {
+          const [productionResult, agreementsResult, debtsResult] = await Promise.allSettled([
+            getFactoryProduction(token),
+            listAgreements(token),
+            managedDebts(token),
+          ])
+          if (productionResult.status === 'fulfilled' && productionResult.value.sucesso) enrichment.production = productionResult.value.resumo
+          if (agreementsResult.status === 'fulfilled' && agreementsResult.value.sucesso) enrichment.agreements = agreementsResult.value.parcelas
+          if (debtsResult.status === 'fulfilled' && debtsResult.value.sucesso) enrichment.debts = debtsResult.value.dividas
+        }
+        setState({ loading: false, data, enrichment })
+      } catch (err) {
+        setState({ loading: false, error: err instanceof Error ? err.message : 'Erro desconhecido' })
+      }
+    }
+    void loadOverview()
+  }, [token, user.perfil])
   useEffect(() => {
     setLiveConnected(true)
     const unsubscribe = subscribeDashboardRealtime((event) => {
       setLiveEvents((current) => [event, ...current.filter((item) => item.id !== event.id)].slice(0, 5))
       showDashboardNotification(event)
-      dashboard(token).then((data) => setState({ loading: false, data })).catch(() => undefined)
+      dashboard(token).then((data) => setState((current) => ({ ...current, loading: false, data }))).catch(() => undefined)
     })
     return () => { unsubscribe(); setLiveConnected(false) }
   }, [token])
@@ -309,16 +333,19 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
     setNotificationPermission(permission)
   }
   function exportCsv() {
-    if (state.data) downloadDashboardCsv(state.data, user)
+    if (state.data) downloadDashboardCsv(state.data, user, state.enrichment)
   }
   async function exportPdf() {
     if (!state.data) return
     setReportLoading(true)
-    try { await exportDashboardPdf(state.data, user) } finally { setReportLoading(false) }
+    try { await exportDashboardPdf(state.data, user, state.enrichment) } finally { setReportLoading(false) }
   }
   if (state.loading) return <><PageHeading eyebrow="Centro de comando" title="Visão geral" description={`Bom dia, ${user.nome.split(' ')[0]}.`} /><LoadingState label="Preparando seu painel de atenção…" /></>
   if (state.error || !state.data?.sucesso) return <><PageHeading eyebrow="Centro de comando" title="Visão geral" /><ErrorState message={state.error || state.data?.erro || 'Sessão inválida'} /></>
   const data = state.data; const isEmployee = user.perfil === 'funcionario'; const isAdmin = adminProfiles.includes(user.perfil); const indicators = data.indicadores!; const personal = data.pessoal || {}; const alerts = data.alertas || []; const funnel: DashboardResponse['funil'] = data.funil; const comparisons = data.comparativos || {}; const intelligence = data.inteligencia || {}; const agenda = intelligence.agenda || []; const evolution = intelligence.evolucao || []; const maxEvolution = Math.max(1, ...evolution.flatMap((point) => [point.ordens, point.entregues])); const variation = (current = 0, previous = 0) => previous === 0 ? (current > 0 ? 'Novo no período' : 'Sem movimentação') : `${current - previous >= 0 ? '+' : ''}${current - previous} versus mês anterior`;
+  const reportRows = buildOverviewReportRows(data, state.enrichment)
+  const reportGroups = ['Pessoas', 'Produção', 'Financeiro', 'Acordos', 'Dívidas'].map((group) => ({ group, rows: reportRows.filter((item) => item.grupo === group) })).filter((item) => item.rows.length)
+  const reportDestination = (module: string): ModuleKey => module === 'dividas' ? 'dividas' : module === 'acordos' ? 'acordos' : module === 'rh' || module === 'afastamentos' ? 'rh' : module === 'producao' ? 'producao' : module === 'ponto' ? 'ponto' : module === 'ordens' ? 'ordens' : 'financeiro'
   const selectedPeriodMonths = periodPreset === 'hoje' || periodPreset === '7d' || periodPreset === 'mes' || periodPreset === 'anterior' ? 1 : periodPreset === '6m' ? 6 : customStart && customEnd ? Math.min(12, Math.max(1, Math.ceil((new Date(`${customEnd}T12:00:00`).getTime() - new Date(`${customStart}T12:00:00`).getTime()) / (30 * 24 * 60 * 60 * 1000)))) : 6
   const filteredEvolution = evolution.slice(-Math.min(chartRange, selectedPeriodMonths))
   const periodLabel = periodPreset === 'hoje' ? 'Hoje' : periodPreset === '7d' ? 'Últimos 7 dias' : periodPreset === 'mes' ? 'Mês atual' : periodPreset === 'anterior' ? 'Mês anterior' : periodPreset === '6m' ? 'Últimos 6 meses' : customStart && customEnd ? `${new Date(`${customStart}T12:00:00`).toLocaleDateString('pt-BR')} a ${new Date(`${customEnd}T12:00:00`).toLocaleDateString('pt-BR')}` : 'Últimos 6 meses'
@@ -330,6 +357,7 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
     <div className="overview-period-toolbar"><div className="overview-period-title"><CalendarDays size={16} /><span><strong>Período de análise</strong><small>{periodLabel} · aplicado à evolução operacional</small></span></div><div className="overview-period-controls"><select value={periodPreset} onChange={(event) => setPeriodPreset(event.target.value as typeof periodPreset)} aria-label="Selecionar período"><option value="hoje">Hoje</option><option value="7d">Últimos 7 dias</option><option value="mes">Mês atual</option><option value="anterior">Mês anterior</option><option value="6m">Últimos 6 meses</option><option value="custom">Personalizado</option></select>{periodPreset === 'custom' && <><input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} aria-label="Início do período" /><span>até</span><input type="date" value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} aria-label="Fim do período" /></>}</div></div>
     <div className="overview-welcome"><div><span className="eyebrow">{isEmployee ? 'Seu painel pessoal' : 'Prioridade do dia'}</span><h2>{isEmployee ? 'Tudo o que depende de você, em um só lugar.' : 'Decida primeiro. Aprofunde depois.'}</h2><p>{isEmployee ? 'Consulte sua jornada, acompanhe documentos e mantenha suas solicitações em dia.' : 'Indicadores operacionais e alertas priorizados para iniciar o dia com clareza.'}</p></div><div className="overview-welcome-symbol"><Gauge size={32}/></div></div>
     <div className="metric-grid overview-metrics">{isEmployee ? <><MetricCard label="Ponto a revisar" value={personal.ponto_sem_justificativa || 0} detail="Registros sem justificativa" tone="gold" onClick={() => onNavigate('ponto')} /><MetricCard label="Atestados" value={personal.atestados_em_analise || 0} detail="Em análise pelo RH" tone="pink" onClick={() => onNavigate('atestados')} /><MetricCard label="Solicitações" value={personal.solicitacoes_abertas || 0} detail="Pedidos em aberto" tone="green" onClick={() => onNavigate('solicitacoes')} /><MetricCard label="Avisos novos" value={personal.avisos_nao_lidos || 0} detail="Comunicados não lidos" tone="blue" onClick={() => onNavigate('avisos')} /></> : <><MetricCard label="Equipe ativa" value={indicators.funcionarios_ativos} detail="Pessoas no quadro" tone="gold" onClick={() => onNavigate('funcionarios')} /><MetricCard label="Ordens ativas" value={indicators.ordens_ativas} detail="Em operação" tone="pink" onClick={() => onNavigate(isAdmin ? 'ordens' : 'producao')} /><MetricCard label="Lotes em costura" value={indicators.lotes_em_costura} detail="Acompanhar produção" tone="green" onClick={() => onNavigate('producao')} /><MetricCard label="Contas pendentes" value={indicators.contas_pendentes} detail="Financeiro exige atenção" tone="blue" onClick={() => onNavigate('financeiro')} /></>}</div>
+    {!isEmployee && <section className="overview-quick-report" aria-label="Resumo executivo por área"><div className="overview-quick-report-heading"><div><span className="eyebrow">Leitura rápida · situação geral</span><h2>Pessoas, produção, caixa e compromissos em uma só visão</h2><p>Indicadores resumidos para decidir primeiro e aprofundar depois nos módulos detalhados.</p></div><span className="overview-quick-report-period">Atualizado agora</span></div><div className="overview-quick-report-grid">{reportGroups.map(({ group, rows }) => <article className="overview-quick-report-card" key={group}><div className="overview-quick-report-card-heading"><strong>{group}</strong><small>{rows.length} indicador(es)</small></div><div className="overview-quick-report-list">{rows.slice(0, 5).map((item) => <button type="button" key={`${item.grupo}-${item.indicador}`} onClick={() => onNavigate(reportDestination(item.modulo))}><span><strong>{item.indicador}</strong><small>{item.contexto}</small></span><b className={`is-${item.status}`}>{item.valor}</b><ChevronRight size={14} /></button>)}</div></article>)}</div></section>}
     <div className="overview-main-grid"><SectionCard title={isEmployee ? 'Pendências pessoais' : 'Alertas prioritários'} caption={isEmployee ? 'Resolva o que pode bloquear sua rotina' : `${alerts.length} ponto(s) selecionado(s) por urgência`}><div className="overview-alert-list">{isEmployee ? <><button className="overview-alert-item is-attention" onClick={() => onNavigate('ponto')}><span><Fingerprint size={18}/></span><div><strong>{personal.ponto_sem_justificativa || 0} registro(s) de ponto precisam de revisão</strong><small>Confira sua jornada e envie justificativa quando necessário.</small></div><ChevronRight size={16}/></button><button className="overview-alert-item is-info" onClick={() => onNavigate('atestados')}><span><HeartPulse size={18}/></span><div><strong>{personal.atestados_em_analise || 0} atestado(s) em análise</strong><small>Acompanhe o status dos documentos enviados ao RH.</small></div><ChevronRight size={16}/></button><button className="overview-alert-item is-success" onClick={() => onNavigate('solicitacoes')}><span><FileCheck2 size={18}/></span><div><strong>{personal.solicitacoes_abertas || 0} solicitação(ões) em aberto</strong><small>Veja respostas ou complemente seus pedidos.</small></div><ChevronRight size={16}/></button></> : alerts.length === 0 ? <EmptyState title="Operação sob controle" description="Não há alertas prioritários para este momento." /> : alerts.map((alert) => <button className={`overview-alert-item is-${alert.prioridade}`} key={alert.id} onClick={() => onNavigate(alertDestination(alert.destino))}><span>{alert.prioridade === 'urgente' ? <AlertCircle size={18}/> : alert.destino === 'producao' ? <Factory size={18}/> : alert.destino === 'financeiro' ? <CircleDollarSign size={18}/> : <ShieldCheck size={18}/>}</span><div><strong>{alert.titulo} <b>{alert.valor}</b></strong><small>{alert.detalhe}</small></div><ChevronRight size={16}/></button>)}</div></SectionCard><SectionCard title={isEmployee ? 'Acesso rápido' : 'Resumo executivo'} caption={isEmployee ? 'Atalhos para sua rotina' : 'Contexto para a primeira decisão do dia'}><div className="overview-summary-list">{isEmployee ? <><button onClick={() => onNavigate('ponto')}><Fingerprint size={17}/><span><strong>Minha jornada</strong><small>Registros, atrasos e justificativas</small></span><ChevronRight size={15}/></button><button onClick={() => onNavigate('avisos')}><Bell size={17}/><span><strong>Avisos da empresa</strong><small>{personal.avisos_nao_lidos || 0} comunicado(s) aguardando leitura</small></span><ChevronRight size={15}/></button><button onClick={() => onNavigate('holerites')}><Receipt size={17}/><span><strong>Comprovantes</strong><small>{personal.holerites_disponiveis || 0} holerite(s) disponíveis</small></span><ChevronRight size={15}/></button></> : <><div><span>Saldo de dívidas ativo</span><strong>{isAdmin ? formatMoney(indicators.saldo_dividas) : 'Disponível para administradores'}</strong></div><div><span>Pessoas ausentes hoje</span><strong>{indicators.em_ferias + indicators.em_afastamento}</strong></div><div><span>Compromissos financeiros</span><strong>{indicators.contas_pendentes}</strong></div><div><span>Próximo passo recomendado</span><strong>{alerts[0]?.titulo || 'Revisar o fechamento do dia'}</strong></div></>}</div></SectionCard></div>
     <SectionCard title="Alertas em tempo real" caption={liveEvents.length ? `${liveEvents.length} atualização(ões) recebida(s) nesta sessão` : 'As próximas alterações importantes aparecerão aqui'}><div className="overview-live-events">{liveEvents.length === 0 ? <div className="overview-live-empty"><Radio size={17} /><span><strong>Monitoramento ativo</strong><small>Novas movimentações de financeiro, ordens, produção, RH e ponto serão sinalizadas sem recarregar a página.</small></span></div> : liveEvents.map((event) => <button key={event.id} onClick={() => onNavigate(event.destination)}><span className={`overview-live-event-icon is-${event.priority}`}><BellRing size={15} /></span><span><strong>{event.title}</strong><small>{event.detail}</small></span><time>{new Date(event.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</time><ChevronRight size={15} /></button>)}</div></SectionCard>
     {!isEmployee && <>
