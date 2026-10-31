@@ -94,6 +94,7 @@ import type {
 import { AdminCenterV2 as AdminCenter } from './features/AdminCenterV2'
 import { DebtManagementDashboard } from './features/DebtManagementDashboard'
 import { FinanceExecutiveDashboard } from './features/FinanceExecutiveDashboard'
+import { FinanceReportsDashboard } from './features/FinanceReportsDashboard'
 import { InternalDocumentsDashboard } from './features/InternalDocumentsDashboard'
 import { EmployeeFichaPanel } from './features/EmployeeFichaPanel'
 import {
@@ -1106,7 +1107,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'dividas') return adminProfiles.includes(user.perfil)
       ? <DebtManagementDashboard token={token} />
       : <><PageHeading eyebrow="Acesso restrito" title="Gestão de dívidas" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
-    if (active === 'relatorios') return <AdminCenter token={token} initialTab="fechamento" />
+    if (active === 'relatorios') return <FinanceReportsDashboard token={token} />
     if (active === 'rh') return <AdminCenter token={token} initialTab="painel" />
     if (active === 'producao') return <FactoryProductionDashboard token={token} />
     if (active === 'perfil') return <EmployeeProfileView token={token} onProfileUpdated={setProfile} />
