@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, FileWarning, Printer, WalletCards } from 'lucide-react'
+import { AlertTriangle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, FileWarning, Printer } from 'lucide-react'
 import type { AdminVacationManagementRow, EmployeeRow, VacationHistoricalProgrammingRow, VacationImportBatch, VacationReconciliationSummary } from '../lib/types'
-import { SectionCard, formatDate, formatMoney } from '../components/ui'
+import { SectionCard, formatDate } from '../components/ui'
 import { HRVacationPanel } from './HRVacationPanel'
 
 function sameOrBefore(value: string | null, reference: string) { return Boolean(value && value <= reference) }
@@ -43,6 +43,5 @@ export function HRVacationManagementPanel({ token, employees, vacations, histori
     <HistoricalProgramming rows={historicalProgramming} />
     <SectionCard title="Reconciliação documental" caption="Avisos de férias × recibos de férias"><div className="vacation-reconciliation-grid"><div className={`reconciliation-card ${reconciliation.avisos_sem_recibo ? 'is-alert' : 'is-ok'}`}><span className="reconciliation-icon">{reconciliation.avisos_sem_recibo ? <FileWarning size={18} /> : <CheckCircle2 size={18} />}</span><div><strong>{reconciliation.avisos_sem_recibo}</strong><b>Aviso(s) sem recibo</b><small>{reconciliation.avisos_sem_recibo ? 'Atenção necessária após o pagamento' : 'Todos os avisos possuem recibo'}</small></div></div><div className={`reconciliation-card ${reconciliation.recibos_sem_aviso ? 'is-alert' : 'is-ok'}`}><span className="reconciliation-icon">{reconciliation.recibos_sem_aviso ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}</span><div><strong>{reconciliation.recibos_sem_aviso}</strong><b>Recibo(s) sem aviso</b><small>{reconciliation.recibos_sem_aviso ? 'Verifique o vínculo do documento' : 'Nenhum recibo órfão encontrado'}</small></div></div><div className="reconciliation-card is-neutral"><span className="reconciliation-icon"><CalendarDays size={18} /></span><div><strong>{reconciliation.avisos_total}</strong><b>Avisos registrados</b><small>{reconciliation.recibos_total} recibo(s) registrado(s)</small></div></div></div>{attention > 0 && <div className="reconciliation-footnote"><AlertTriangle size={15} /> Existem {attention} pendência(s) documentais para acompanhar.</div>}</SectionCard>
     <HRVacationPanel token={token} employees={employees} vacations={uniqueVacations} onDone={onDone} />
-    {uniqueVacations.length > 0 && <SectionCard title="Preparação financeira" caption="O cálculo financeiro aparecerá somente quando o recibo for registrado"><div className="vacation-finance-preview">{uniqueVacations.slice(0, 8).map((row) => <div key={row.id}><div><strong>{row.nome}</strong><small>{formatDate(row.inicio)} até {formatDate(row.fim)} · {row.recibos_count} recibo(s)</small></div><span>{row.calculo ? formatMoney(Number(row.calculo.total_liquido || 0)) : 'Sem cálculo registrado'}</span><WalletCards size={14} /></div>)}</div></SectionCard>}
   </div>
 }
