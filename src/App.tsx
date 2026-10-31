@@ -118,7 +118,6 @@ import { EmployeeVacationPortal } from './features/EmployeeVacationPortal'
 import { PayslipImportDashboard } from './features/PayslipImportDashboard'
 import { EmployeeDirectory } from './features/EmployeeDirectory'
 import { PayrollBenefitsDiscounts } from './features/PayrollBenefitsDiscounts'
-import { PayrollCatalogReports } from './features/PayrollCatalogReports'
 import {
   EmptyState,
   ErrorState,
@@ -151,7 +150,6 @@ const navItems: NavItem[] = [
   { key: 'importacoes', label: 'Importar ponto', description: 'CSV diário e mensal', icon: FileSpreadsheet, group: 'Controle', profiles: managerProfiles },
   { key: 'importar_holerite', label: 'Importar holerite', description: 'PDF por funcionário e competência', icon: Receipt, group: 'Controle', profiles: managerProfiles },
   { key: 'beneficios_descontos', label: 'Benefícios e descontos', description: 'Lançamentos em folha por competência', icon: CircleDollarSign, group: 'Controle', profiles: adminProfiles },
-  { key: 'catalogo_folha', label: 'Catálogo e relatórios', description: 'Regras, histórico e saúde da folha', icon: BarChart3, group: 'Controle', profiles: adminProfiles },
   { key: 'rh', label: 'Recursos humanos', description: 'Painel e operações de RH', icon: BriefcaseBusiness, group: 'Pessoas', profiles: adminProfiles },
   { key: 'perfil', label: 'Meu perfil', description: 'Dados cadastrais', icon: UserRound, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'ponto', label: 'Meu ponto', description: 'Jornada registrada', icon: Fingerprint, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
@@ -1284,7 +1282,6 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'importacoes') return <PointImportsView token={token} />
     if (active === 'importar_holerite') return <PayslipImportDashboard token={token} />
     if (active === 'beneficios_descontos') return <PayrollBenefitsDiscounts token={token} />
-    if (active === 'catalogo_folha') return <PayrollCatalogReports token={token} />
     if (active === 'acordos') return <AgreementsDashboard token={token} />
     if (active === 'documentos') return <InternalDocumentsDashboard token={token} canManage={adminProfiles.includes(user.perfil)} />
     return <ControlModuleView token={token} module={active} />
