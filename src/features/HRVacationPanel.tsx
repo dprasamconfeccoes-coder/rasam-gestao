@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, FileText, Plus, RefreshCw, Search, Upload, WalletCards, X } from 'lucide-react'
+import { AlertTriangle, CalendarClock, Check, ChevronLeft, ChevronRight, FileText, Plus, RefreshCw, Save, Search, Upload, WalletCards, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
 import type { AdminVacationManagementRow, EmployeeRow } from '../lib/types'
 import { EmptyState, SectionCard, StatusPill, formatDate } from '../components/ui'
@@ -53,11 +53,22 @@ export function HRVacationPanel({ token, employees, vacations, onDone }: { token
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('prioridade')
   const [documentFilter, setDocumentFilter] = useState('todos')
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null)
+  const [scheduleDraft, setScheduleDraft] = useState({ inicio: '', fim: '' })
+  const [savingSchedule, setSavingSchedule] = useState(false)
   const today = new Date().toISOString().slice(0, 10)
 
   const overdueByEmployee = useMemo(() => {
     const counts = new Map<string, number>()
     vacations.forEach((row) => { if (isOverdueAcquisition(row, today)) counts.set(row.funcionario_id, (counts.get(row.funcionario_id) || 0) + 1) })
+    return counts
+  }, [today, vacations])
+
+  const usedVacationCountByEmployee = useMemo(() => {
+    const counts = new Map<string, number>()
+    vacations.forEach((row) => {
+      if (row.status === 'concluida' || (row.fim && row.fim < today && row.status !== 'cancelada')) counts.set(row.funcionario_id, (counts.get(row.funcionario_id) || 0) + 1)
+    })
     return counts
   }, [today, vacations])
 
@@ -116,6 +127,34 @@ export function HRVacationPanel({ token, employees, vacations, onDone }: { token
     try { const result = await updateAdminVacation(token, row.id, { inicio: row.inicio || '', fim: row.fim || '', status, observacoes: row.observacoes || '' }); if (!result.sucesso) throw new Error(result.erro || 'Não foi possível atualizar as férias'); setMessage('Status de férias atualizado.'); await onDone() } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível atualizar as férias') } finally { setBusyId(null) }
   }
 
+  function startReschedule(row: AdminVacationManagementRow) {
+    setEditingScheduleId(row.id)
+    setScheduleDraft({ inicio: row.inicio || '', fim: row.fim || '' })
+    setError('')
+    setMessage('')
+  }
+
+  async function saveReschedule(row: AdminVacationManagementRow) {
+    if (!scheduleDraft.inicio || !scheduleDraft.fim || scheduleDraft.inicio > scheduleDraft.fim) {
+      setError('Informe um novo início e fim válidos para o reagendamento.')
+      return
+    }
+    setSavingSchedule(true)
+    setError('')
+    setMessage('')
+    try {
+      const result = await updateAdminVacation(token, row.id, { inicio: scheduleDraft.inicio, fim: scheduleDraft.fim, status: 'agendada', observacoes: row.observacoes || '' })
+      if (!result.sucesso) throw new Error(result.erro || 'Não foi possível reagendar as férias')
+      setEditingScheduleId(null)
+      setMessage(`Férias de ${row.nome} reagendadas para ${formatDate(scheduleDraft.inicio)} até ${formatDate(scheduleDraft.fim)}.`)
+      await onDone()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível reagendar as férias')
+    } finally {
+      setSavingSchedule(false)
+    }
+  }
+
   async function openDocument(documentId: string, download = false) {
     const tab = window.open('about:blank', '_blank')
     if (!tab) { setError('O navegador bloqueou a abertura do PDF. Permita pop-ups para visualizar o documento.'); return }
@@ -142,6 +181,6 @@ export function HRVacationPanel({ token, employees, vacations, onDone }: { token
     <div className="vacation-filter-panel"><label className="vacation-search"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar funcionário, CPF ou cargo" /></label><label>Status<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="prioridade">Prioridade inicial</option><option value="todos">Todos os períodos</option><option value="vencidas">Aquisitivo vencido</option><option value="agendada">Agendadas</option><option value="em_gozo">Em gozo</option><option value="concluida">Concluídas</option><option value="cancelada">Canceladas</option></select></label><label>Documentação<select value={documentFilter} onChange={(event) => setDocumentFilter(event.target.value)}><option value="todos">Todos</option><option value="pendentes">Com pendência</option><option value="completos">Completos</option></select></label></div>
     {showForm && <form className="form-stack hr-vacation-form" onSubmit={submit}><div className="form-row"><label>Funcionário<select required value={form.funcionarioId} onChange={(e) => setForm({ ...form, funcionarioId: e.target.value })}><option value="">Selecione</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.nome} · {employee.cpf}</option>)}</select></label><label>Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}><option value="agendada">Agendada</option><option value="em_gozo">Em gozo</option><option value="concluida">Concluída</option><option value="cancelada">Cancelada</option></select></label></div><div className="form-row"><label>Início do período aquisitivo<input required type="date" value={form.periodoAquisitivoInicio} onChange={(e) => setForm({ ...form, periodoAquisitivoInicio: e.target.value })} /></label><label>Fim do período aquisitivo<input required type="date" value={form.periodoAquisitivoFim} onChange={(e) => setForm({ ...form, periodoAquisitivoFim: e.target.value })} /></label></div><div className="form-row"><label>Início das férias<input required type="date" value={form.inicio} onChange={(e) => setForm({ ...form, inicio: e.target.value })} /></label><label>Fim das férias<input required type="date" value={form.fim} onChange={(e) => setForm({ ...form, fim: e.target.value })} /></label></div><div className="form-row vacation-upload-row"><label>PDF do aviso (opcional)<input type="file" accept="application/pdf,.pdf" onChange={(event) => selectLaunchFile('aviso', event)} /><small>Até 10 MB, bucket privado.</small>{uploads.aviso && <small className="vacation-upload-selection">Selecionado: {uploads.aviso.name}</small>}</label><label>PDF do recibo (opcional)<input type="file" accept="application/pdf,.pdf" onChange={(event) => selectLaunchFile('recibo', event)} /><small>Até 10 MB, bucket privado.</small>{uploads.recibo && <small className="vacation-upload-selection">Selecionado: {uploads.recibo.name}</small>}</label><label>Comprovante de pagamento (opcional)<input type="file" accept="application/pdf,.pdf" onChange={(event) => selectLaunchFile('comprovante_pagamento', event)} /><small>Transferência ou pagamento ao funcionário.</small>{uploads.comprovante_pagamento && <small className="vacation-upload-selection">Selecionado: {uploads.comprovante_pagamento.name}</small>}</label></div><label>Observações<textarea rows={3} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} placeholder="Abono, programação ou observações do RH" /></label><button className="primary-button" type="submit" disabled={saving}>{saving ? <RefreshCw className="spin" size={16} /> : <Check size={16} />} {saving ? 'Salvando…' : 'Salvar período de férias'}</button></form>}
     {error && <div className="form-error"><X size={16} />{error}</div>}{message && <div className="form-success"><Check size={16} />{message}</div>}
-    {filteredVacations.length === 0 ? <EmptyState title="Nenhum período encontrado" description={vacations.length ? 'Ajuste os filtros para visualizar outros períodos.' : 'Use o botão acima para registrar o primeiro período.'} /> : <><div className="hr-vacation-list">{visibleVacations.map((row) => { const currentStatus = effectiveStatus(row, today); const employee = employees.find((item) => item.id === row.funcionario_id); const overdueCount = overdueByEmployee.get(row.funcionario_id) || 0; return <article className={`hr-vacation-row status-${currentStatus}`} key={row.id}><div className="employee-avatar">{employee?.avatar_url ? <img src={employee.avatar_url} alt={`Foto de ${row.nome}`} /> : initials(row.nome)}</div><div className="hr-vacation-main"><strong>{row.nome}</strong><small>{formatDate(row.inicio)} até {formatDate(row.fim)} · período aquisitivo {formatDate(row.periodo_aquisitivo_inicio)} até {formatDate(row.periodo_aquisitivo_fim)}</small>{overdueCount >= 2 && <small className="vacation-overdue-note"><AlertTriangle size={12} /> {overdueCount} períodos aquisitivos vencidos para este funcionário</small>}{row.observacoes && <small>{row.observacoes}</small>}<div className="vacation-document-links"><span>Documentos:</span>{documentControl(row, 'aviso')}{documentControl(row, 'recibo')}{documentControl(row, 'comprovante_pagamento')}</div></div><StatusPill value={statusLabel[currentStatus] || currentStatus} /><select className={`vacation-status-select status-${currentStatus}`} value={currentStatus} disabled={busyId === row.id} onChange={(e) => void update(row, e.target.value)} aria-label={`Atualizar férias de ${row.nome}`}><option value="agendada">Agendada</option><option value="em_gozo">Em gozo</option><option value="concluida">Concluída</option><option value="cancelada">Cancelada</option></select></article> })}</div><div className="vacation-pagination"><small>Mostrando {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filteredVacations.length)} de {filteredVacations.length}</small><div><button type="button" className="secondary-button" disabled={page === 1} onClick={() => setPage((current) => current - 1)}><ChevronLeft size={15} /> Anterior</button><strong>Página {page} de {pageCount}</strong><button type="button" className="secondary-button" disabled={page === pageCount} onClick={() => setPage((current) => current + 1)}>Próxima <ChevronRight size={15} /></button></div></div></>}
+    {filteredVacations.length === 0 ? <EmptyState title="Nenhum período encontrado" description={vacations.length ? 'Ajuste os filtros para visualizar outros períodos.' : 'Use o botão acima para registrar o primeiro período.'} /> : <><div className="hr-vacation-list">{visibleVacations.map((row) => { const currentStatus = effectiveStatus(row, today); const employee = employees.find((item) => item.id === row.funcionario_id); const overdueCount = overdueByEmployee.get(row.funcionario_id) || 0; const usedCount = usedVacationCountByEmployee.get(row.funcionario_id) || 0; const editing = editingScheduleId === row.id; return <article className={`hr-vacation-row status-${currentStatus}`} key={row.id}><div className="employee-avatar">{employee?.avatar_url ? <img src={employee.avatar_url} alt={`Foto de ${row.nome}`} /> : initials(row.nome)}</div><div className="hr-vacation-main"><strong>{row.nome}</strong><small>Admissão: {formatDate(employee?.data_admissao || null)} · {usedCount} férias usufruída(s)</small><small>{formatDate(row.inicio)} até {formatDate(row.fim)} · período aquisitivo {formatDate(row.periodo_aquisitivo_inicio)} até {formatDate(row.periodo_aquisitivo_fim)} · {row.dias_gozo ?? '—'} dia(s) de gozo</small>{overdueCount >= 2 && <small className="vacation-overdue-note"><AlertTriangle size={12} /> {overdueCount} períodos aquisitivos vencidos para este funcionário</small>}{row.observacoes && <small>{row.observacoes}</small>}<div className="vacation-document-links"><span>Documentos:</span>{documentControl(row, 'aviso')}{documentControl(row, 'recibo')}{documentControl(row, 'comprovante_pagamento')}</div><div className="vacation-row-actions"><button type="button" className="secondary-button" onClick={() => startReschedule(row)}><CalendarClock size={13} /> Reagendar</button>{editing && <div className="vacation-reschedule-editor"><label>Novo início<input type="date" value={scheduleDraft.inicio} onChange={(event) => setScheduleDraft((current) => ({ ...current, inicio: event.target.value }))} /></label><label>Novo fim<input type="date" value={scheduleDraft.fim} onChange={(event) => setScheduleDraft((current) => ({ ...current, fim: event.target.value }))} /></label><button type="button" className="primary-button" disabled={savingSchedule} onClick={() => void saveReschedule(row)}>{savingSchedule ? <RefreshCw className="spin" size={13} /> : <Save size={13} />} Salvar</button><button type="button" className="secondary-button" onClick={() => setEditingScheduleId(null)}>Cancelar</button></div>}</div></div><StatusPill value={statusLabel[currentStatus] || currentStatus} /><select className={`vacation-status-select status-${currentStatus}`} value={currentStatus} disabled={busyId === row.id} onChange={(e) => void update(row, e.target.value)} aria-label={`Atualizar férias de ${row.nome}`}><option value="agendada">Agendada</option><option value="em_gozo">Em gozo</option><option value="concluida">Concluída</option><option value="cancelada">Cancelada</option></select></article> })}</div><div className="vacation-pagination"><small>Mostrando {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filteredVacations.length)} de {filteredVacations.length}</small><div><button type="button" className="secondary-button" disabled={page === 1} onClick={() => setPage((current) => current - 1)}><ChevronLeft size={15} /> Anterior</button><strong>Página {page} de {pageCount}</strong><button type="button" className="secondary-button" disabled={page === pageCount} onClick={() => setPage((current) => current + 1)}>Próxima <ChevronRight size={15} /></button></div></div></>}
   </SectionCard>
 }

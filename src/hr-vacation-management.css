@@ -21,6 +21,12 @@
 .vacation-review-note span { display: grid; gap: 3px; }
 .vacation-review-note strong { color: var(--text); font-size: 11px; }
 .vacation-review-note small { color: var(--muted); font-size: 10px; line-height: 1.45; }
+.vacation-source-card { display: flex; align-items: center; gap: 13px; margin: 0 20px; padding: 15px; border: 1px solid rgba(53,105,147,.16); border-radius: 12px; background: linear-gradient(105deg, rgba(53,105,147,.06), rgba(255,255,255,.55)); }
+.vacation-source-icon { display: grid; place-items: center; width: 38px; height: 38px; flex: 0 0 auto; border-radius: 11px; color: var(--blue); background: rgba(53,105,147,.12); }
+.vacation-source-card > div:nth-child(2) { display: grid; flex: 1; gap: 3px; min-width: 0; }
+.vacation-source-card strong { color: var(--text); font-size: 12px; }
+.vacation-source-card small, .vacation-source-card span { color: var(--muted); font-size: 10px; line-height: 1.35; }
+.vacation-source-card .secondary-button { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .vacation-finance-preview { display: grid; margin: 0 20px 8px; }
 .vacation-finance-preview > div { display: flex; align-items: center; gap: 10px; padding: 13px 0; border-top: 1px solid var(--line); }
 .vacation-finance-preview > div > div { display: grid; min-width: 0; flex: 1; gap: 3px; }
@@ -30,6 +36,7 @@
 .vacation-finance-preview > div > svg { color: var(--muted-2); }
 @media (max-width: 900px) { .vacation-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .vacation-page-intro { align-items: flex-start; } .vacation-intro-mark { min-width: 145px; } }
 @media (max-width: 600px) { .vacation-page-intro { display: grid; padding: 20px; } .vacation-intro-mark { justify-items: start; padding: 14px 0 0; border-top: 1px solid var(--line); border-left: 0; } .vacation-kpi-grid { grid-template-columns: 1fr 1fr; gap: 9px; } .vacation-kpi { min-height: 111px; padding: 13px; } .vacation-kpi strong { font-size: 25px; } }
+@media (max-width: 700px) { .vacation-source-card { align-items: flex-start; flex-wrap: wrap; margin: 0 12px; } .vacation-source-card .secondary-button { margin-left: 51px; } }
 
 .vacation-reconciliation-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 0 20px 16px; }
 .reconciliation-card { display: flex; align-items: flex-start; gap: 11px; min-height: 112px; padding: 15px; border: 1px solid var(--line); border-left: 3px solid var(--blue); border-radius: 12px; background: var(--surface); }
@@ -63,6 +70,12 @@
 .vacation-document-links button:disabled, .vacation-document-upload.is-busy { cursor: wait; opacity: .6; }
 .vacation-document-links .vacation-document-action.is-missing { cursor: not-allowed; color: var(--danger); border-color: rgba(163,61,73,.2); background: rgba(163,61,73,.055); opacity: .52; }
 .vacation-document-missing { display: inline-flex; align-items: center; gap: 5px; }
+.vacation-row-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
+.vacation-row-actions > .secondary-button { display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px; font-size: 10px; }
+.vacation-reschedule-editor { display: flex; align-items: end; flex-wrap: wrap; gap: 7px; padding: 8px; border: 1px solid rgba(53,105,147,.18); border-radius: 9px; background: rgba(53,105,147,.045); }
+.vacation-reschedule-editor label { display: grid; gap: 3px; color: var(--muted); font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.vacation-reschedule-editor input { min-height: 28px; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; color: var(--text); background: var(--surface); font: inherit; font-size: 10px; }
+.vacation-reschedule-editor .primary-button, .vacation-reschedule-editor .secondary-button { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 5px 8px; font-size: 10px; }
 .vacation-document-upload { position: relative; }
 .vacation-document-file-input { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .vacation-document-upload:focus-within { outline: 2px solid var(--blue); outline-offset: 2px; }
