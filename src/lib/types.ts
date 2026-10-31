@@ -613,6 +613,8 @@ export interface AdminVacationRow {
 
 export interface AdminVacationManagementRow extends AdminVacationRow {
   avatar_url: string | null
+  aviso_documento: VacationDocumentLink | null
+  recibo_documento: VacationDocumentLink | null
   retorno_em: string | null
   aviso_emitido_em: string | null
   pagamento_previsto_em: string | null
@@ -627,6 +629,13 @@ export interface AdminVacationManagementRow extends AdminVacationRow {
   recibos_count: number
   reconciliacao_status: 'conciliado' | 'aviso_sem_recibo' | 'recibo_sem_aviso' | string
   calculo: Record<string, unknown> | null
+}
+
+export interface VacationDocumentLink {
+  id: string
+  tipo: 'aviso' | 'recibo' | string
+  arquivo_nome: string
+  url: string
 }
 
 export interface VacationReconciliationSummary {

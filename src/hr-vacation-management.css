@@ -55,3 +55,8 @@
 .vacation-status-select.status-concluida { border-color: rgba(46,113,78,.42); color: var(--green); }
 .vacation-status-select.status-cancelada { border-color: rgba(163,61,73,.42); color: var(--danger); }
 @media (max-width: 900px) { .vacation-reconciliation-grid { grid-template-columns: 1fr; } .hr-vacation-row { flex-wrap: wrap; } .vacation-status-select { margin-left: 49px; } }
+
+.vacation-document-links { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 7px; color: var(--muted); font-size: 10px; }
+.vacation-document-links a { display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px; border: 1px solid rgba(53,105,147,.2); border-radius: 7px; color: var(--blue); background: rgba(53,105,147,.06); font-size: 10px; font-weight: 800; text-decoration: none; }
+.vacation-document-links a:hover { border-color: rgba(53,105,147,.48); background: rgba(53,105,147,.12); }
+.document-missing { color: var(--danger); font-size: 10px; font-weight: 700; }
