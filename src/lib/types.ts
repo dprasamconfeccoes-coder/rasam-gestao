@@ -615,6 +615,7 @@ export interface AdminVacationManagementRow extends AdminVacationRow {
   avatar_url: string | null
   aviso_documento: VacationDocumentLink | null
   recibo_documento: VacationDocumentLink | null
+  comprovante_pagamento_documento: VacationDocumentLink | null
   retorno_em: string | null
   aviso_emitido_em: string | null
   pagamento_previsto_em: string | null
@@ -633,7 +634,7 @@ export interface AdminVacationManagementRow extends AdminVacationRow {
 
 export interface VacationDocumentLink {
   id: string
-  tipo: 'aviso' | 'recibo'
+  tipo: 'aviso' | 'recibo' | 'comprovante_pagamento'
   arquivo_nome: string
 }
 

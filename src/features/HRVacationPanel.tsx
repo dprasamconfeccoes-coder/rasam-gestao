@@ -1,15 +1,16 @@
-import { Check, FileText, Plus, RefreshCw, Upload, X } from 'lucide-react'
-import { useState, type ChangeEvent, type FormEvent } from 'react'
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, FileText, Plus, RefreshCw, Search, Upload, WalletCards, X } from 'lucide-react'
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
 import type { AdminVacationManagementRow, EmployeeRow } from '../lib/types'
 import { EmptyState, SectionCard, StatusPill, formatDate } from '../components/ui'
 import { createAdminVacation, getVacationDocumentUrl, updateAdminVacation, uploadVacationDocument } from '../lib/api'
 
 const emptyForm = { funcionarioId: '', periodoAquisitivoInicio: '', periodoAquisitivoFim: '', inicio: '', fim: '', status: 'agendada', observacoes: '' }
-type VacationDocumentType = 'aviso' | 'recibo'
+type VacationDocumentType = 'aviso' | 'recibo' | 'comprovante_pagamento'
 type VacationUploads = Record<VacationDocumentType, File | null>
-const emptyUploads: VacationUploads = { aviso: null, recibo: null }
+const emptyUploads: VacationUploads = { aviso: null, recibo: null, comprovante_pagamento: null }
 const maxPdfBytes = 10 * 1024 * 1024
-const documentLabel: Record<VacationDocumentType, string> = { aviso: 'Aviso', recibo: 'Recibo' }
+const pageSize = 15
+const documentLabel: Record<VacationDocumentType, string> = { aviso: 'Aviso', recibo: 'Recibo', comprovante_pagamento: 'Comprovante de pagamento' }
 const statusLabel: Record<string, string> = { agendada: 'Agendada', em_gozo: 'Em gozo', concluida: 'Concluída', cancelada: 'Cancelada' }
 
 function pdfIssue(file: File) {
@@ -34,6 +35,10 @@ function vacationDays(start: string, end: string) {
   return Math.floor((new Date(`${end}T00:00:00`).getTime() - new Date(`${start}T00:00:00`).getTime()) / 86400000) + 1
 }
 
+function isOverdueAcquisition(row: AdminVacationManagementRow, today: string) {
+  return Boolean(row.periodo_aquisitivo_fim && row.periodo_aquisitivo_fim < today && row.status !== 'cancelada' && row.status !== 'concluida')
+}
+
 export function HRVacationPanel({ token, employees, vacations, onDone }: { token: string; employees: EmployeeRow[]; vacations: AdminVacationManagementRow[]; onDone: () => Promise<void> }) {
   const [form, setForm] = useState(emptyForm)
   const [uploads, setUploads] = useState<VacationUploads>({ ...emptyUploads })
@@ -44,25 +49,47 @@ export function HRVacationPanel({ token, employees, vacations, onDone }: { token
   const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('prioridade')
+  const [documentFilter, setDocumentFilter] = useState('todos')
+  const today = new Date().toISOString().slice(0, 10)
+
+  const overdueByEmployee = useMemo(() => {
+    const counts = new Map<string, number>()
+    vacations.forEach((row) => { if (isOverdueAcquisition(row, today)) counts.set(row.funcionario_id, (counts.get(row.funcionario_id) || 0) + 1) })
+    return counts
+  }, [today, vacations])
+
+  const filteredVacations = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase('pt-BR')
+    return vacations.filter((row) => {
+      const status = effectiveStatus(row, today)
+      const employeeMatch = !term || [row.nome, row.cpf, row.cargo || ''].some((value) => value.toLocaleLowerCase('pt-BR').includes(term))
+      const statusMatch = statusFilter === 'todos' || (statusFilter === 'prioridade' ? overdueByEmployee.get(row.funcionario_id)! >= 2 || ['em_gozo', 'agendada'].includes(status) : statusFilter === 'vencidas' ? isOverdueAcquisition(row, today) : status === statusFilter)
+      const documents = [row.aviso_documento, row.recibo_documento, row.comprovante_pagamento_documento]
+      const documentMatch = documentFilter === 'todos' || (documentFilter === 'pendentes' ? documents.some((item) => !item) : documents.every(Boolean))
+      return employeeMatch && statusMatch && documentMatch
+    })
+  }, [documentFilter, overdueByEmployee, search, statusFilter, today, vacations])
+
+  const pageCount = Math.max(1, Math.ceil(filteredVacations.length / pageSize))
+  const visibleVacations = filteredVacations.slice((page - 1) * pageSize, page * pageSize)
+
+  useEffect(() => { setPage(1) }, [documentFilter, search, statusFilter])
+  useEffect(() => { if (page > pageCount) setPage(pageCount) }, [page, pageCount])
 
   function selectLaunchFile(tipo: VacationDocumentType, event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0] || null
     if (!file) return
     const issue = pdfIssue(file)
-    if (issue) {
-      setUploads((current) => ({ ...current, [tipo]: null }))
-      setError(issue)
-      return
-    }
+    if (issue) { setUploads((current) => ({ ...current, [tipo]: null })); setError(issue); return }
     setError('')
     setUploads((current) => ({ ...current, [tipo]: file }))
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setSaving(true)
-    setError('')
-    setMessage('')
+    event.preventDefault(); setSaving(true); setError(''); setMessage('')
     try {
       if (form.inicio > form.fim) throw new Error('O fim das férias não pode ser anterior ao início.')
       const days = vacationDays(form.inicio, form.fim)
@@ -72,159 +99,49 @@ export function HRVacationPanel({ token, employees, vacations, onDone }: { token
       if (sameAcquisition.length >= 3) throw new Error('A CLT permite no máximo três períodos de gozo para o mesmo período aquisitivo.')
       const existingLongPeriod = sameAcquisition.some((row) => row.inicio && row.fim && vacationDays(row.inicio, row.fim) >= 14)
       if (!existingLongPeriod && sameAcquisition.length === 0 && days < 14) throw new Error('No fracionamento, ao menos um período deve ter 14 dias corridos. Lance primeiro um período de 14 dias ou mais.')
-
-      const selectedFiles = (Object.keys(uploads) as VacationDocumentType[])
-        .flatMap((tipo) => uploads[tipo] ? [{ tipo, file: uploads[tipo] as File }] : [])
-      for (const { file } of selectedFiles) {
-        const issue = pdfIssue(file)
-        if (issue) throw new Error(issue)
-      }
-
+      const selectedFiles = (Object.keys(uploads) as VacationDocumentType[]).flatMap((tipo) => uploads[tipo] ? [{ tipo, file: uploads[tipo] as File }] : [])
+      selectedFiles.forEach(({ file }) => { const issue = pdfIssue(file); if (issue) throw new Error(issue) })
       const result = await createAdminVacation(token, form)
       if (!result.sucesso) throw new Error(result.erro || 'Não foi possível lançar as férias')
-      if (selectedFiles.length && !result.id) {
-        setForm(emptyForm)
-        setUploads({ ...emptyUploads })
-        setShowForm(false)
-        await onDone()
-        setError('As férias foram lançadas, mas o servidor não retornou o identificador para anexar os PDFs. Anexe os documentos na linha do período.')
-        return
-      }
-
+      if (selectedFiles.length && !result.id) { setForm(emptyForm); setUploads({ ...emptyUploads }); setShowForm(false); await onDone(); setError('As férias foram lançadas, mas o servidor não retornou o identificador para anexar os PDFs.'); return }
       const failedUploads: string[] = []
-      if (result.id) {
-        for (const { tipo, file } of selectedFiles) {
-          try {
-            await uploadVacationDocument(token, result.id, tipo, file)
-          } catch (uploadError) {
-            const detail = uploadError instanceof Error ? ` (${uploadError.message})` : ''
-            failedUploads.push(`${documentLabel[tipo]}${detail}`)
-          }
-        }
-      }
-
-      setForm(emptyForm)
-      setUploads({ ...emptyUploads })
-      setShowForm(false)
-      await onDone()
-      if (failedUploads.length) {
-        setError(`Férias lançadas, mas não foi possível anexar ${failedUploads.join(' e ')}. Use a opção de anexar na linha do período para tentar novamente.`)
-      } else {
-        setMessage(selectedFiles.length ? 'Férias lançadas; PDFs salvos no Storage privado do Supabase.' : 'Férias lançadas com sucesso.')
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível lançar as férias')
-    } finally {
-      setSaving(false)
-    }
+      if (result.id) for (const { tipo, file } of selectedFiles) { try { await uploadVacationDocument(token, result.id, tipo, file) } catch (uploadError) { failedUploads.push(documentLabel[tipo] + (uploadError instanceof Error ? ` (${uploadError.message})` : '')) } }
+      setForm(emptyForm); setUploads({ ...emptyUploads }); setShowForm(false); await onDone()
+      setMessage(failedUploads.length ? `Férias lançadas, mas não foi possível anexar ${failedUploads.join(' e ')}.` : selectedFiles.length ? 'Férias lançadas; documentos salvos no Storage privado do Supabase.' : 'Férias lançadas com sucesso.')
+    } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível lançar as férias') } finally { setSaving(false) }
   }
 
   async function update(row: AdminVacationManagementRow, status: string) {
-    setBusyId(row.id)
-    setError('')
-    setMessage('')
-    try {
-      const result = await updateAdminVacation(token, row.id, { inicio: row.inicio || '', fim: row.fim || '', status, observacoes: row.observacoes || '' })
-      if (!result.sucesso) throw new Error(result.erro || 'Não foi possível atualizar as férias')
-      setMessage('Status de férias atualizado.')
-      await onDone()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível atualizar as férias')
-    } finally {
-      setBusyId(null)
-    }
+    setBusyId(row.id); setError(''); setMessage('')
+    try { const result = await updateAdminVacation(token, row.id, { inicio: row.inicio || '', fim: row.fim || '', status, observacoes: row.observacoes || '' }); if (!result.sucesso) throw new Error(result.erro || 'Não foi possível atualizar as férias'); setMessage('Status de férias atualizado.'); await onDone() } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível atualizar as férias') } finally { setBusyId(null) }
   }
 
-  async function openDocument(documentId: string) {
+  async function openDocument(documentId: string, download = false) {
     const tab = window.open('about:blank', '_blank')
-    if (!tab) {
-      setError('O navegador bloqueou a abertura do PDF. Permita pop-ups para visualizar o documento.')
-      return
-    }
-    tab.opener = null
-    setOpeningDocumentId(documentId)
-    setError('')
-    setMessage('')
-    try {
-      const signed = await getVacationDocumentUrl(token, documentId)
-      if (!tab.closed) tab.location.replace(signed.url!)
-    } catch (err) {
-      tab.close()
-      setError(err instanceof Error ? err.message : 'Não foi possível abrir o PDF')
-    } finally {
-      setOpeningDocumentId(null)
-    }
+    if (!tab) { setError('O navegador bloqueou a abertura do PDF. Permita pop-ups para visualizar o documento.'); return }
+    tab.opener = null; setOpeningDocumentId(documentId); setError(''); setMessage('')
+    try { const signed = await getVacationDocumentUrl(token, documentId, download); if (!tab.closed) tab.location.replace(signed.url!) } catch (err) { tab.close(); setError(err instanceof Error ? err.message : 'Não foi possível abrir o PDF') } finally { setOpeningDocumentId(null) }
   }
 
   async function uploadToExisting(rowId: string, tipo: VacationDocumentType, file: File) {
-    const issue = pdfIssue(file)
-    if (issue) {
-      setError(issue)
-      return
-    }
-    const key = `${rowId}:${tipo}`
-    setUploadingDocumentKey(key)
-    setError('')
-    setMessage('')
-    try {
-      await uploadVacationDocument(token, rowId, tipo, file)
-      setMessage(`${documentLabel[tipo]} anexado e salvo no Supabase.`)
-      await onDone()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : `Não foi possível anexar o ${documentLabel[tipo].toLowerCase()}`)
-    } finally {
-      setUploadingDocumentKey(null)
-    }
+    const issue = pdfIssue(file); if (issue) { setError(issue); return }
+    const key = `${rowId}:${tipo}`; setUploadingDocumentKey(key); setError(''); setMessage('')
+    try { await uploadVacationDocument(token, rowId, tipo, file); setMessage(`${documentLabel[tipo]} anexado e salvo no Supabase.`); await onDone() } catch (err) { setError(err instanceof Error ? err.message : `Não foi possível anexar o ${documentLabel[tipo].toLowerCase()}`) } finally { setUploadingDocumentKey(null) }
   }
 
   function documentControl(row: AdminVacationManagementRow, tipo: VacationDocumentType) {
-    const document = tipo === 'aviso' ? row.aviso_documento : row.recibo_documento
-    if (document) {
-      const busy = openingDocumentId === document.id
-      return <button className="vacation-document-action" type="button" onClick={() => void openDocument(document.id)} disabled={busy} title={`Abrir ${document.arquivo_nome}`}>
-        {busy ? <RefreshCw className="spin" size={13} /> : <FileText size={13} />} {busy ? 'Abrindo…' : documentLabel[tipo]}
-      </button>
-    }
-    const key = `${row.id}:${tipo}`
-    const busy = uploadingDocumentKey === key
-    return <label className={`vacation-document-upload${busy ? ' is-busy' : ''}`} title={`Anexar PDF do ${documentLabel[tipo].toLowerCase()}`}>
-      {busy ? <RefreshCw className="spin" size={13} /> : <Upload size={13} />} {busy ? 'Enviando…' : `Anexar ${documentLabel[tipo].toLowerCase()}`}
-      <input className="vacation-document-file-input" type="file" accept="application/pdf,.pdf" disabled={busy} aria-label={`Anexar PDF do ${documentLabel[tipo].toLowerCase()}`} onChange={(event) => {
-        const input = event.currentTarget
-        const file = input.files?.[0]
-        input.value = ''
-        if (file) void uploadToExisting(row.id, tipo, file)
-      }} />
-    </label>
+    const document = tipo === 'aviso' ? row.aviso_documento : tipo === 'recibo' ? row.recibo_documento : row.comprovante_pagamento_documento
+    const shortLabel = tipo === 'comprovante_pagamento' ? 'Pagamento' : documentLabel[tipo]
+    if (document) { const busy = openingDocumentId === document.id; return <button className="vacation-document-action" type="button" onClick={() => void openDocument(document.id)} disabled={busy} title={`Abrir ${document.arquivo_nome}`}>{busy ? <RefreshCw className="spin" size={13} /> : tipo === 'comprovante_pagamento' ? <WalletCards size={13} /> : <FileText size={13} />} {busy ? 'Abrindo…' : shortLabel}</button> }
+    const key = `${row.id}:${tipo}`; const busy = uploadingDocumentKey === key
+    return <span className="vacation-document-missing"><button className="vacation-document-action is-missing" type="button" disabled title={`Sem comprovante de ${documentLabel[tipo].toLowerCase()}`}><AlertTriangle size={13} /> Sem {shortLabel.toLowerCase()}</button><label className={`vacation-document-upload${busy ? ' is-busy' : ''}`} title={`Anexar ${documentLabel[tipo].toLowerCase()}`}>{busy ? <RefreshCw className="spin" size={13} /> : <Upload size={13} />} {busy ? 'Enviando…' : 'Anexar'}<input className="vacation-document-file-input" type="file" accept="application/pdf,.pdf" disabled={busy} aria-label={`Anexar ${documentLabel[tipo].toLowerCase()}`} onChange={(event) => { const input = event.currentTarget; const file = input.files?.[0]; input.value = ''; if (file) void uploadToExisting(row.id, tipo, file) }} /></label></span>
   }
 
-  return <>
-    <SectionCard title="Gestão de férias" caption={`${vacations.length} período(s) lançado(s)`}>
-      <div className="hr-panel-toolbar"><div><strong>Períodos aquisitivos e de gozo</strong><small>O status é sugerido automaticamente pela data atual; cancelamentos e conclusões manuais são preservados.</small></div><button className="primary-button" type="button" onClick={() => { setShowForm(!showForm); setError(''); setMessage(''); if (showForm) setUploads({ ...emptyUploads }) }}>{showForm ? <X size={16} /> : <Plus size={16} />}{showForm ? 'Fechar lançamento' : 'Lançar férias'}</button></div>
-      {showForm && <form className="form-stack hr-vacation-form" onSubmit={submit}>
-        <div className="form-row"><label>Funcionário<select required value={form.funcionarioId} onChange={(e) => setForm({ ...form, funcionarioId: e.target.value })}><option value="">Selecione</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.nome} · {employee.cpf}</option>)}</select></label><label>Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}><option value="agendada">Agendada</option><option value="em_gozo">Em gozo</option><option value="concluida">Concluída</option><option value="cancelada">Cancelada</option></select></label></div>
-        <div className="form-row"><label>Início do período aquisitivo<input required type="date" value={form.periodoAquisitivoInicio} onChange={(e) => setForm({ ...form, periodoAquisitivoInicio: e.target.value })} /></label><label>Fim do período aquisitivo<input required type="date" value={form.periodoAquisitivoFim} onChange={(e) => setForm({ ...form, periodoAquisitivoFim: e.target.value })} /></label></div>
-        <div className="form-row"><label>Início das férias<input required type="date" value={form.inicio} onChange={(e) => setForm({ ...form, inicio: e.target.value })} /></label><label>Fim das férias<input required type="date" value={form.fim} onChange={(e) => setForm({ ...form, fim: e.target.value })} /></label></div>
-        <div className="form-row vacation-upload-row">
-          <label>PDF do aviso (opcional)<input type="file" accept="application/pdf,.pdf" onChange={(event) => selectLaunchFile('aviso', event)} /><small>PDF de até 10 MB, armazenado em bucket privado.</small>{uploads.aviso && <small className="vacation-upload-selection">Selecionado: {uploads.aviso.name}</small>}</label>
-          <label>PDF do recibo (opcional)<input type="file" accept="application/pdf,.pdf" onChange={(event) => selectLaunchFile('recibo', event)} /><small>PDF de até 10 MB, armazenado em bucket privado.</small>{uploads.recibo && <small className="vacation-upload-selection">Selecionado: {uploads.recibo.name}</small>}</label>
-        </div>
-        <label>Observações<textarea rows={3} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} placeholder="Abono, programação ou observações do RH" /></label>
-        <button className="primary-button" type="submit" disabled={saving}>{saving ? <RefreshCw className="spin" size={16} /> : <Check size={16} />} {saving ? 'Salvando…' : 'Salvar período de férias'}</button>
-      </form>}
-      {error && <div className="form-error"><X size={16} />{error}</div>}{message && <div className="form-success"><Check size={16} />{message}</div>}
-      {vacations.length === 0 ? <EmptyState title="Nenhuma férias lançada" description="Use o botão acima para registrar o primeiro período." /> : <div className="hr-vacation-list">{vacations.map((row) => {
-        const currentStatus = effectiveStatus(row)
-        const employee = employees.find((item) => item.id === row.funcionario_id)
-        return <article className={`hr-vacation-row status-${currentStatus}`} key={row.id}>
-          <div className="employee-avatar">{employee?.avatar_url ? <img src={employee.avatar_url} alt={`Foto de ${row.nome}`} /> : initials(row.nome)}</div>
-          <div className="hr-vacation-main"><strong>{row.nome}</strong><small>{formatDate(row.inicio)} até {formatDate(row.fim)} · período aquisitivo {formatDate(row.periodo_aquisitivo_inicio)} até {formatDate(row.periodo_aquisitivo_fim)}</small>{row.observacoes && <small>{row.observacoes}</small>}
-            <div className="vacation-document-links"><span>Documentos:</span>{documentControl(row, 'aviso')}{documentControl(row, 'recibo')}</div>
-          </div>
-          <StatusPill value={statusLabel[currentStatus] || currentStatus} />
-          <select className={`vacation-status-select status-${currentStatus}`} value={currentStatus} disabled={busyId === row.id} onChange={(e) => void update(row, e.target.value)} aria-label={`Atualizar férias de ${row.nome}`}><option value="agendada">Agendada</option><option value="em_gozo">Em gozo</option><option value="concluida">Concluída</option><option value="cancelada">Cancelada</option></select>
-        </article>
-      })}</div>}
-    </SectionCard>
-  </>
+  return <SectionCard title="Gestão de férias" caption={`${filteredVacations.length} de ${vacations.length} período(s) · 15 por página`}>
+    <div className="hr-panel-toolbar"><div><strong>Períodos aquisitivos e de gozo</strong><small>Prioridade inicial: funcionários com mais de um período vencido, férias em gozo ou agendadas.</small></div><button className="primary-button" type="button" onClick={() => { setShowForm(!showForm); setError(''); setMessage(''); if (showForm) setUploads({ ...emptyUploads }) }}>{showForm ? <X size={16} /> : <Plus size={16} />}{showForm ? 'Fechar lançamento' : 'Lançar férias'}</button></div>
+    <div className="vacation-filter-panel"><label className="vacation-search"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar funcionário, CPF ou cargo" /></label><label>Status<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="prioridade">Prioridade inicial</option><option value="todos">Todos os períodos</option><option value="vencidas">Aquisitivo vencido</option><option value="agendada">Agendadas</option><option value="em_gozo">Em gozo</option><option value="concluida">Concluídas</option><option value="cancelada">Canceladas</option></select></label><label>Documentação<select value={documentFilter} onChange={(event) => setDocumentFilter(event.target.value)}><option value="todos">Todos</option><option value="pendentes">Com pendência</option><option value="completos">Completos</option></select></label></div>
+    {showForm && <form className="form-stack hr-vacation-form" onSubmit={submit}><div className="form-row"><label>Funcionário<select required value={form.funcionarioId} onChange={(e) => setForm({ ...form, funcionarioId: e.target.value })}><option value="">Selecione</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.nome} · {employee.cpf}</option>)}</select></label><label>Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}><option value="agendada">Agendada</option><option value="em_gozo">Em gozo</option><option value="concluida">Concluída</option><option value="cancelada">Cancelada</option></select></label></div><div className="form-row"><label>Início do período aquisitivo<input required type="date" value={form.periodoAquisitivoInicio} onChange={(e) => setForm({ ...form, periodoAquisitivoInicio: e.target.value })} /></label><label>Fim do período aquisitivo<input required type="date" value={form.periodoAquisitivoFim} onChange={(e) => setForm({ ...form, periodoAquisitivoFim: e.target.value })} /></label></div><div className="form-row"><label>Início das férias<input required type="date" value={form.inicio} onChange={(e) => setForm({ ...form, inicio: e.target.value })} /></label><label>Fim das férias<input required type="date" value={form.fim} onChange={(e) => setForm({ ...form, fim: e.target.value })} /></label></div><div className="form-row vacation-upload-row"><label>PDF do aviso (opcional)<input type="file" accept="application/pdf,.pdf" onChange={(event) => selectLaunchFile('aviso', event)} /><small>Até 10 MB, bucket privado.</small>{uploads.aviso && <small className="vacation-upload-selection">Selecionado: {uploads.aviso.name}</small>}</label><label>PDF do recibo (opcional)<input type="file" accept="application/pdf,.pdf" onChange={(event) => selectLaunchFile('recibo', event)} /><small>Até 10 MB, bucket privado.</small>{uploads.recibo && <small className="vacation-upload-selection">Selecionado: {uploads.recibo.name}</small>}</label><label>Comprovante de pagamento (opcional)<input type="file" accept="application/pdf,.pdf" onChange={(event) => selectLaunchFile('comprovante_pagamento', event)} /><small>Transferência ou pagamento ao funcionário.</small>{uploads.comprovante_pagamento && <small className="vacation-upload-selection">Selecionado: {uploads.comprovante_pagamento.name}</small>}</label></div><label>Observações<textarea rows={3} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} placeholder="Abono, programação ou observações do RH" /></label><button className="primary-button" type="submit" disabled={saving}>{saving ? <RefreshCw className="spin" size={16} /> : <Check size={16} />} {saving ? 'Salvando…' : 'Salvar período de férias'}</button></form>}
+    {error && <div className="form-error"><X size={16} />{error}</div>}{message && <div className="form-success"><Check size={16} />{message}</div>}
+    {filteredVacations.length === 0 ? <EmptyState title="Nenhum período encontrado" description={vacations.length ? 'Ajuste os filtros para visualizar outros períodos.' : 'Use o botão acima para registrar o primeiro período.'} /> : <><div className="hr-vacation-list">{visibleVacations.map((row) => { const currentStatus = effectiveStatus(row, today); const employee = employees.find((item) => item.id === row.funcionario_id); const overdueCount = overdueByEmployee.get(row.funcionario_id) || 0; return <article className={`hr-vacation-row status-${currentStatus}`} key={row.id}><div className="employee-avatar">{employee?.avatar_url ? <img src={employee.avatar_url} alt={`Foto de ${row.nome}`} /> : initials(row.nome)}</div><div className="hr-vacation-main"><strong>{row.nome}</strong><small>{formatDate(row.inicio)} até {formatDate(row.fim)} · período aquisitivo {formatDate(row.periodo_aquisitivo_inicio)} até {formatDate(row.periodo_aquisitivo_fim)}</small>{overdueCount >= 2 && <small className="vacation-overdue-note"><AlertTriangle size={12} /> {overdueCount} períodos aquisitivos vencidos para este funcionário</small>}{row.observacoes && <small>{row.observacoes}</small>}<div className="vacation-document-links"><span>Documentos:</span>{documentControl(row, 'aviso')}{documentControl(row, 'recibo')}{documentControl(row, 'comprovante_pagamento')}</div></div><StatusPill value={statusLabel[currentStatus] || currentStatus} /><select className={`vacation-status-select status-${currentStatus}`} value={currentStatus} disabled={busyId === row.id} onChange={(e) => void update(row, e.target.value)} aria-label={`Atualizar férias de ${row.nome}`}><option value="agendada">Agendada</option><option value="em_gozo">Em gozo</option><option value="concluida">Concluída</option><option value="cancelada">Cancelada</option></select></article> })}</div><div className="vacation-pagination"><small>Mostrando {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filteredVacations.length)} de {filteredVacations.length}</small><div><button type="button" className="secondary-button" disabled={page === 1} onClick={() => setPage((current) => current - 1)}><ChevronLeft size={15} /> Anterior</button><strong>Página {page} de {pageCount}</strong><button type="button" className="secondary-button" disabled={page === pageCount} onClick={() => setPage((current) => current + 1)}>Próxima <ChevronRight size={15} /></button></div></div></>}
+  </SectionCard>
 }

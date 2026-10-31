@@ -301,7 +301,7 @@ export async function getWorkOrderDocumentUrl(token: string, documentId: string,
   return data
 }
 
-export async function uploadVacationDocument(token: string, feriasId: string, tipo: 'aviso' | 'recibo', file: File) {
+export async function uploadVacationDocument(token: string, feriasId: string, tipo: 'aviso' | 'recibo' | 'comprovante_pagamento', file: File) {
   const form = new FormData()
   form.set('action', 'upload')
   form.set('ferias_id', feriasId)
@@ -317,11 +317,11 @@ export async function uploadVacationDocument(token: string, feriasId: string, ti
   return data
 }
 
-export async function getVacationDocumentUrl(token: string, documentId: string) {
+export async function getVacationDocumentUrl(token: string, documentId: string, download = false) {
   const response = await fetch(`${config.supabaseUrl}/functions/v1/ferias-documento`, {
     method: 'POST',
     headers: { apikey: config.supabaseKey, Authorization: `Bearer ${token}`, 'x-app-token': token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'signed-url', documento_id: documentId }),
+    body: JSON.stringify({ action: 'signed-url', documento_id: documentId, download }),
   })
   const data = (await response.json()) as { sucesso: boolean; erro?: string; url?: string; expires_in?: number; nome_arquivo?: string }
   if (!response.ok || !data.sucesso || !data.url) throw new Error(data.erro || 'Não foi possível abrir o PDF de férias')

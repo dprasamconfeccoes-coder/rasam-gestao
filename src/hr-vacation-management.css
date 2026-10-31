@@ -61,8 +61,22 @@
 .vacation-document-links button, .vacation-document-upload { cursor: pointer; }
 .vacation-document-links a:hover, .vacation-document-links button:hover, .vacation-document-upload:hover { border-color: rgba(53,105,147,.48); background: rgba(53,105,147,.12); }
 .vacation-document-links button:disabled, .vacation-document-upload.is-busy { cursor: wait; opacity: .6; }
+.vacation-document-links .vacation-document-action.is-missing { cursor: not-allowed; color: var(--danger); border-color: rgba(163,61,73,.2); background: rgba(163,61,73,.055); opacity: .52; }
+.vacation-document-missing { display: inline-flex; align-items: center; gap: 5px; }
 .vacation-document-upload { position: relative; }
 .vacation-document-file-input { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .vacation-document-upload:focus-within { outline: 2px solid var(--blue); outline-offset: 2px; }
 .vacation-upload-selection { color: var(--muted); font-size: 11px; }
 .document-missing { color: var(--danger); font-size: 10px; font-weight: 700; }
+.vacation-filter-panel { display: grid; grid-template-columns: minmax(220px, 1.5fr) repeat(2, minmax(160px, .7fr)); gap: 10px; margin: 0 20px 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(54,40,45,.025); }
+.vacation-filter-panel label { display: grid; gap: 5px; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.vacation-filter-panel input, .vacation-filter-panel select { width: 100%; min-height: 34px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: var(--surface); font: inherit; font-size: 11px; text-transform: none; letter-spacing: normal; }
+.vacation-search { display: flex !important; align-items: center; align-self: end; grid-template-columns: auto 1fr !important; min-height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.vacation-search input { min-height: 30px; padding: 5px 7px; border: 0; outline: 0; }
+.vacation-overdue-note { display: inline-flex; align-items: center; gap: 4px; color: var(--danger) !important; font-weight: 800; }
+.vacation-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 20px 0; padding-top: 13px; border-top: 1px solid var(--line); color: var(--muted); }
+.vacation-pagination > div { display: flex; align-items: center; gap: 9px; }
+.vacation-pagination strong { color: var(--text); font-size: 10px; white-space: nowrap; }
+.vacation-pagination .secondary-button { display: inline-flex; align-items: center; gap: 4px; padding: 7px 9px; font-size: 10px; }
+@media (max-width: 900px) { .vacation-filter-panel { grid-template-columns: 1fr 1fr; } .vacation-search { grid-column: 1 / -1; } .vacation-pagination { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 600px) { .vacation-filter-panel { grid-template-columns: 1fr; margin: 0 12px 14px; } .vacation-search { grid-column: auto; } .vacation-pagination > div { width: 100%; justify-content: space-between; } .vacation-pagination .secondary-button { padding: 6px; } }

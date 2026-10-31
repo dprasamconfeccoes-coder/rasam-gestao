@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     const feriasId = String(form?.get("ferias_id") || "");
     const tipo = String(form?.get("tipo") || "");
     const file = form?.get("arquivo");
-    if (!uuid(feriasId) || !["aviso", "recibo"].includes(tipo)) {
+    if (!uuid(feriasId) || !["aviso", "recibo", "comprovante_pagamento"].includes(tipo)) {
       return out({ sucesso: false, erro: "Férias ou tipo de documento inválido" }, 400);
     }
     if (!(file instanceof File) || file.size < 1 || file.size > MAX || file.type !== "application/pdf") {
@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
     if (access.error || !access.data?.sucesso) {
       return out({ sucesso: false, erro: access.data?.erro || "Acesso negado" }, 403);
     }
-    const signed = await admin.storage.from(BUCKET).createSignedUrl(access.data.caminho, 300, { download: false });
+    const signed = await admin.storage.from(BUCKET).createSignedUrl(access.data.caminho, 300, { download: Boolean(body.download) });
     if (signed.error || !signed.data?.signedUrl) {
       return out({ sucesso: false, erro: "Não foi possível abrir o PDF" }, 502);
     }
