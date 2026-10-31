@@ -645,6 +645,36 @@ export interface VacationReconciliationSummary {
   recibos_sem_aviso: number
 }
 
+export interface VacationHistoricalProgrammingRow {
+  id: string
+  codigo_empregado: number
+  nome_relatorio: string
+  nome_sistema: string | null
+  funcionario_id: string | null
+  data_admissao: string | null
+  data_admissao_sistema: string | null
+  vencimento_ferias: string | null
+  ferias_vencidas: number
+  ferias_programadas: string | null
+  aquisitivo_inicio: string
+  aquisitivo_fim: string
+  dias_direito: number | null
+  dias_gozados_relatorio: number | null
+  dias_restantes_relatorio: number | null
+  dias_gozados_sistema: number
+  dias_disponiveis: number
+  dias_excedentes: number
+  periodos_sistema: number
+  limite_gozo: string | null
+  dias_afastamento: string | null
+  dias_faltas: string | null
+  avisos_sistema: number
+  recibos_sistema: number
+  situacao_confronto: 'conferido' | 'dias_excedentes' | 'sem_ferias_lancadas' | 'sem_vinculo' | string
+  fonte_emissao: string
+  fonte_nome: string
+}
+
 export interface VacationImportLine {
   id: string
   importacao_id: string

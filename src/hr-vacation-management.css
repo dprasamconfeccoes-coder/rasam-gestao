@@ -93,3 +93,29 @@
 .vacation-pagination .secondary-button { display: inline-flex; align-items: center; gap: 4px; padding: 7px 9px; font-size: 10px; }
 @media (max-width: 900px) { .vacation-filter-panel { grid-template-columns: 1fr 1fr; } .vacation-search { grid-column: 1 / -1; } .vacation-pagination { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 600px) { .vacation-filter-panel { grid-template-columns: 1fr; margin: 0 12px 14px; } .vacation-search { grid-column: auto; } .vacation-pagination > div { width: 100%; justify-content: space-between; } .vacation-pagination .secondary-button { padding: 6px; } }
+
+.vacation-history-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0 20px 14px; padding: 12px 13px; border: 1px solid rgba(53,105,147,.14); border-radius: 11px; background: linear-gradient(105deg, rgba(53,105,147,.055), rgba(255,255,255,.7)); }
+.vacation-history-toolbar > div:first-child { display: grid; gap: 3px; min-width: 0; }
+.vacation-history-toolbar strong { color: var(--text); font-size: 12px; }
+.vacation-history-toolbar small { color: var(--muted); font-size: 10px; }
+.vacation-history-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 7px; }
+.vacation-history-actions input { width: 190px; min-height: 32px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: var(--surface); font: inherit; font-size: 11px; }
+.vacation-history-actions .secondary-button { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; white-space: nowrap; }
+.vacation-history-table { margin: 0 20px 18px; border: 1px solid var(--line); border-radius: 11px; }
+.vacation-history-table table { min-width: 980px; }
+.vacation-history-table th { white-space: nowrap; color: var(--muted); background: rgba(54,40,45,.035); font-size: 9px; text-transform: uppercase; letter-spacing: .055em; }
+.vacation-history-table td { vertical-align: top; min-width: 118px; font-size: 11px; }
+.vacation-history-table td:first-child { min-width: 205px; }
+.vacation-history-table td strong, .vacation-history-table td small { display: block; }
+.vacation-history-table td strong { color: var(--text); font-size: 11px; }
+.vacation-history-table td small { margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.35; }
+.vacation-period-line { display: block; white-space: nowrap; color: var(--text); font-size: 10px; font-weight: 700; }
+.history-number { display: inline-flex; min-width: 90px; padding: 5px 7px; border-radius: 7px; font-size: 10px; font-weight: 800; }
+.history-number.is-ok { color: var(--green); background: rgba(46,113,78,.08); }
+.history-number.is-danger { color: var(--danger); background: rgba(163,61,73,.09); }
+.history-status { display: inline-flex; align-items: center; gap: 4px; max-width: 130px; padding: 5px 7px; border-radius: 7px; font-size: 9px; font-weight: 800; line-height: 1.2; }
+.history-status.conferido { color: var(--green); background: rgba(46,113,78,.09); }
+.history-status.dias_excedentes, .history-status.sem_vinculo { color: var(--danger); background: rgba(163,61,73,.09); }
+.history-status.sem_ferias_lancadas { color: var(--gold); background: rgba(215,168,74,.12); }
+@media (max-width: 760px) { .vacation-history-toolbar { align-items: stretch; flex-direction: column; margin: 0 12px 12px; } .vacation-history-actions { justify-content: stretch; } .vacation-history-actions input { width: 100%; flex: 1 1 150px; } .vacation-history-actions .secondary-button { flex: 1 1 auto; justify-content: center; } .vacation-history-table { margin: 0 12px 14px; } }
+@media print { .vacation-history-actions, .vacation-kpi-grid, .vacation-page-intro, .vacation-reconciliation-grid, .vacation-finance-preview, .hr-vacation-management > section:not(:first-of-type) { display: none !important; } .vacation-history-table { margin: 0; border: 0; } }

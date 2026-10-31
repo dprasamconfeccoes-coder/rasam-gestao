@@ -23,6 +23,7 @@ import type {
   AdminVacationManagementRow,
   VacationReconciliationSummary,
   VacationImportBatch,
+  VacationHistoricalProgrammingRow,
   CompanyDocument,
   DebtCategory,
   DebtDashboardResponse,
@@ -585,6 +586,10 @@ export function updateAdminVacation(token: string, id: string, payload: { inicio
     p_status: payload.status,
     p_observacoes: payload.observacoes || null,
   })
+}
+
+export function adminVacationHistoricalProgramming(token: string) {
+  return rpc<{ sucesso: boolean; erro?: string; programacao: VacationHistoricalProgrammingRow[]; fonte?: { nome: string; emissao: string; total_empregados: number } }>('app_admin_listar_ferias_programacao_historica', { p_token: token })
 }
 
 export function decideMedicalLeave(token: string, id: string, status: string, observacao: string) {
