@@ -80,6 +80,11 @@ function currentMonth() {
   return new Date().toISOString().slice(0, 7)
 }
 
+function latestPointMonth(items: Array<Record<string, unknown>>) {
+  const months = items.map((item) => readText(item, ['data', 'data_ponto', 'dia']).slice(0, 7)).filter((month) => /^\d{4}-\d{2}$/.test(month)).sort()
+  return months.at(-1) || currentMonth()
+}
+
 function readText(item: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
     const value = item[key]
@@ -89,7 +94,10 @@ function readText(item: Record<string, unknown>, keys: string[]) {
 }
 
 function formatHours(value: number) {
-  return `${value.toFixed(2).replace('.', ',')} h`
+  const totalMinutes = Math.max(0, Math.round(value * 60))
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = String(totalMinutes % 60).padStart(2, '0')
+  return `${hours} h ${minutes} min`
 }
 
 function pointDate(item: Record<string, unknown>) {
@@ -269,6 +277,7 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
       if (requestId !== recordSequence.current) return
       if (!result.sucesso || !result.funcionario) throw new Error(result.erro || 'Não foi possível abrir o prontuário.')
       setRecord(result)
+      setPreviewMonth(latestPointMonth(result.ponto || []))
     } catch (cause) { if (requestId === recordSequence.current) setRecordError(cause instanceof Error ? cause.message : 'Falha ao abrir o prontuário.') }
     finally { if (requestId === recordSequence.current) setRecordLoading(false) }
   }

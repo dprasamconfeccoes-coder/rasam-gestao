@@ -71,3 +71,5 @@ O prontuário mantém a mesma linguagem visual e passa a renderizar ponto em uma
 ## Correção de dados de ponto — 2026-11-01
 
 A RPC administrativa retornava apenas `registros_ponto`, enquanto horas extras, faltas, atrasos, abono e inconsistências ficam nas linhas de `ponto_import_linhas` e nas tabelas de revisão. A migration `0096_admin_prontuario_point_details.sql` passou a selecionar a última importação aplicada por funcionário e data, incluindo dias de falta sem marcação, e usa `registros_ponto` somente como fallback para datas sem linha importada. O payload agora expõe `horas_extras`, `extra_50`, `extra_100`, `dia_falta`, `horas_atraso`, `abono` e os estados de inconsistência com isolamento por empresa.
+
+O teste sintético da Cleide Santiago validou outubro de 2026 com 123,00 horas trabalhadas e 6,65 horas extras, equivalentes a 6h39min. Como novembro ainda não possui registros para ela, a prévia agora escolhe automaticamente a competência mais recente disponível ao abrir o funcionário e apresenta durações no formato horas/minutos.
