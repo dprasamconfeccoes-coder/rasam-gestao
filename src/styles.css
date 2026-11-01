@@ -79,7 +79,7 @@ input:focus, textarea:focus, select:focus { border-color: rgba(215,168,74,.8); b
 .boot-screen .brand-lockup { margin-bottom: 10px; }
 .app-shell { min-height: 100vh; background: var(--bg); }
 .sidebar { width: 270px; position: fixed; inset: 0 auto 0 0; z-index: 12; display: flex; flex-direction: column; background: #0e1117; border-right: 1px solid var(--line); }
-.sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 25px 24px; border-bottom: 1px solid var(--line); }
+.sidebar-brand { display: flex; align-items: center; flex: 0 0 80px; height: 80px; min-height: 80px; gap: 10px; padding: 0 24px; border-bottom: 1px solid var(--line); }
 .sidebar-brand strong { display: block; font-size: 17px; letter-spacing: -.04em; }
 .sidebar-brand > div > span { display: block; color: var(--gold); text-transform: uppercase; font-weight: 800; letter-spacing: .18em; font-size: 9px; }
 .close-mobile { display: none; margin-left: auto; border: 0; color: var(--muted); background: transparent; }
@@ -110,7 +110,7 @@ input:focus, textarea:focus, select:focus { border-color: rgba(215,168,74,.8); b
 .logout-button { display: flex; align-items: center; gap: 10px; margin: auto 21px 22px; padding: 12px 12px; border: 0; border-top: 1px solid var(--line); color: var(--muted); background: transparent; text-align: left; font-size: 12px; }
 .logout-button:hover { color: var(--danger); }
 .main-area { min-height: 100vh; margin-left: 270px; }
-.topbar { position: sticky; top: 0; z-index: 8; display: flex; align-items: center; justify-content: space-between; min-height: 69px; padding: 0 42px; background: rgba(11,13,17,.85); border-bottom: 1px solid var(--line); backdrop-filter: blur(18px); }
+.topbar { position: sticky; top: 0; z-index: 8; display: flex; align-items: center; justify-content: space-between; height: 80px; min-height: 80px; padding: 0 42px; background: rgba(11,13,17,.85); border-bottom: 1px solid var(--line); backdrop-filter: blur(18px); }
 .breadcrumbs { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
 .breadcrumbs strong { color: #eef0f4; }
 .topbar-actions { display: flex; align-items: center; gap: 20px; }

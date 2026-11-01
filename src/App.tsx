@@ -774,7 +774,7 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
     const result: PointRow[] = []
     for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
       const date = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`
-      result.push(recordsByDate.get(date) || { id: `sem-registro-${date}`, funcionario_id: isAdministrative ? employeeId : user.funcionario_id, data: date, entrada: null, saida_almoco: null, volta_almoco: null, saida: null, horas_trabalhadas: null, status: null })
+      result.push(recordsByDate.get(date) || { id: `sem-registro-${date}`, funcionario_id: isAdministrative ? employeeId ?? undefined : user.funcionario_id ?? undefined, data: date, entrada: null, saida_almoco: null, volta_almoco: null, saida: null, horas_trabalhadas: null, status: null })
     }
     return result
   }, [rows, range.inicio, range.fim, isAdministrative, employeeId, user.funcionario_id])
@@ -783,11 +783,15 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
     const nextIndex = selectedEmployeeIndex + direction
     if (nextIndex >= 0 && nextIndex < employees.length) setEmployeeId(employees[nextIndex].id)
   }
+  const isPositiveFlag = (value: string | null | undefined) => {
+    const normalized = String(value ?? '').trim().toLocaleLowerCase('pt-BR')
+    return Boolean(normalized && !['não', 'nao', 'n', '0', 'false'].includes(normalized))
+  }
   const rowKind = (row: PointRow) => {
     const marked = Boolean(row.entrada || row.saida || row.horas_trabalhadas)
     const note = `${row.justificativas || ''} ${row.inconsistencia_justificativa || ''}`.toLowerCase()
     if (note.includes('férias') || note.includes('ferias')) return 'ferias'
-    if (row.dia_falta && row.dia_falta.trim() && !['não', 'nao', 'n', '0'].includes(row.dia_falta.trim().toLowerCase())) return 'falta'
+    if (isPositiveFlag(row.dia_falta) || (row.status === 'falta' && !row.dia_falta)) return 'falta'
     if (hoursToNumber(row.horas_atraso) > 0) return 'atraso'
     if (!marked && (!row.previsto || !row.previsto.trim() || note.includes('folga'))) return 'folga'
     if (!marked) return 'sem-marcacao'
@@ -802,32 +806,48 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
     if (kind === 'falta') return <StatusPill value={row.justificativa_status === 'aceita' || row.inconsistencia_status === 'justificada' ? 'Falta justificada' : row.justificativa_status === 'recusada' || row.inconsistencia_status === 'recusada' ? 'Falta · justificativa recusada' : 'Falta injustificada'} />
     if (kind === 'atraso') return <StatusPill value={row.justificativa_status === 'aceita' || row.inconsistencia_status === 'justificada' ? 'Atraso justificado' : row.justificativa_status === 'recusada' || row.inconsistencia_status === 'recusada' ? 'Atraso · justificativa recusada' : 'Atraso' } />
     if (kind === 'extra') return <StatusPill value="Hora extra" />
-    return <StatusPill value={row.status || 'normal'} />
+    const status = row.status === 'falta' && row.dia_falta && !isPositiveFlag(row.dia_falta) ? 'normal' : row.status || 'normal'
+    return <StatusPill value={status} />
   }
   const hoursToNumber = (value: string | null | undefined) => {
-    const raw = String(value || '').trim().replace(',', '.')
+    const raw = String(value || '').trim()
     if (!raw) return 0
-    if (raw.includes(':')) { const [hours, minutes] = raw.split(':').map(Number); return (hours || 0) + (minutes || 0) / 60 }
-    const parsed = Number(raw.replace(/[^0-9.-]/g, ''))
-    return Number.isFinite(parsed) ? parsed : 0
+    if (raw.includes(':')) {
+      const match = /^(\d{1,3}):([0-5]\d)(?::([0-5]\d))?$/.exec(raw)
+      return match ? Number(match[1]) + Number(match[2]) / 60 + Number(match[3] || 0) / 3600 : 0
+    }
+    const normalized = raw.replace(',', '.')
+    if (!/^\d+(\.\d+)?$/.test(normalized)) return 0
+    const parsed = Number(normalized)
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0
   }
-  const shortTime = (value: string | null | undefined) => value ? String(value).slice(0, 5) : '—'
+  const shortTime = (value: string | null | undefined) => value ? String(value) : '—'
   const formatDelayMinutes = (minutes: number) => {
-    const rounded = Math.max(0, Math.round(minutes))
-    const hours = Math.floor(rounded / 60)
-    const remainder = rounded % 60
-    return hours > 0 ? `${hours}h ${String(remainder).padStart(2, '0')}min` : `${remainder} min`
+    const totalSeconds = Math.max(0, Math.round(minutes * 60))
+    const hours = Math.floor(totalSeconds / 3600)
+    const remainderMinutes = Math.floor((totalSeconds % 3600) / 60)
+    const seconds = totalSeconds % 60
+    const parts = [hours ? `${hours}h` : '', remainderMinutes ? `${remainderMinutes} min` : '', seconds ? `${seconds} s` : ''].filter(Boolean)
+    return parts.join(' ') || '0 s'
+  }
+  const formatDurationHours = (hours: number) => {
+    const totalSeconds = Math.max(0, Math.round(hours * 3600))
+    const wholeHours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const seconds = totalSeconds % 60
+    const parts = [wholeHours ? `${wholeHours} h` : '', minutes ? `${minutes} min` : '', seconds ? `${seconds} s` : ''].filter(Boolean)
+    return parts.join(' ') || '0 s'
   }
   const pointSummary = useMemo(() => {
     const extra50 = displayRows.reduce((sum, row) => sum + hoursToNumber(row.extra_50), 0)
     const extra100 = displayRows.reduce((sum, row) => sum + hoursToNumber(row.extra_100), 0)
-    const faltas = displayRows.filter((row) => Boolean(row.dia_falta && !['não', 'nao', 'n', '0'].includes(row.dia_falta.trim().toLowerCase())) || row.status === 'falta').length
+    const faltas = displayRows.filter((row) => isPositiveFlag(row.dia_falta) || (row.status === 'falta' && !row.dia_falta)).length
     const atrasos = displayRows.filter((row) => hoursToNumber(row.horas_atraso) > 0).length
     const totalAtrasoMinutos = displayRows.reduce((sum, row) => sum + hoursToNumber(row.horas_atraso) * 60, 0)
     const diasComMarcacao = displayRows.filter((row) => row.entrada || row.saida || row.horas_trabalhadas).length
     return { extra50, extra100, faltas, atrasos, totalAtrasoMinutos, diasComMarcacao, diasSemMarcacao: displayRows.length - diasComMarcacao, totalExtras: extra50 + extra100 }
   }, [displayRows])
-  const hasInconsistency = (row: PointRow) => Boolean(row.inconsistencia_tipo || row.dia_falta || row.horas_atraso)
+  const hasInconsistency = (row: PointRow) => Boolean(row.inconsistencia_tipo || isPositiveFlag(row.dia_falta) || hoursToNumber(row.horas_atraso) > 0)
   async function persistReviewInconsistency(row: PointRow, status: 'aprovada' | 'justificada') {
     const funcionarioId = row.funcionario_id || (isAdministrative ? employeeId : user.funcionario_id)
     if (!funcionarioId) return
@@ -937,7 +957,7 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
       </div>
     </div>
     <div className="point-summary-grid">
-      <section className="point-chart-card"><div className="point-chart-heading"><div><span className="eyebrow">Resumo de horas</span><strong>{pointSummary.totalExtras.toFixed(1)} h extras</strong></div><CalendarDays size={18} /></div><div className="point-bar-row"><span>Extra 50%</span><div className="point-bar-track"><i style={{ width: `${pointSummary.totalExtras ? Math.max(4, pointSummary.extra50 / pointSummary.totalExtras * 100) : 0}%` }} /></div><b>{pointSummary.extra50.toFixed(1)} h</b></div><div className="point-bar-row"><span>Extra 100%</span><div className="point-bar-track is-pink"><i style={{ width: `${pointSummary.totalExtras ? Math.max(4, pointSummary.extra100 / pointSummary.totalExtras * 100) : 0}%` }} /></div><b>{pointSummary.extra100.toFixed(1)} h</b></div></section>
+      <section className="point-chart-card"><div className="point-chart-heading"><div><span className="eyebrow">Resumo de horas</span><strong>{formatDurationHours(pointSummary.totalExtras)} extras</strong></div><CalendarDays size={18} /></div><div className="point-bar-row"><span>Extra 50%</span><div className="point-bar-track"><i style={{ width: `${pointSummary.totalExtras ? Math.max(4, pointSummary.extra50 / pointSummary.totalExtras * 100) : 0}%` }} /></div><b>{formatDurationHours(pointSummary.extra50)}</b></div><div className="point-bar-row"><span>Extra 100%</span><div className="point-bar-track is-pink"><i style={{ width: `${pointSummary.totalExtras ? Math.max(4, pointSummary.extra100 / pointSummary.totalExtras * 100) : 0}%` }} /></div><b>{formatDurationHours(pointSummary.extra100)}</b></div></section>
       <section className="point-chart-card"><div className="point-chart-heading"><div><span className="eyebrow">Resumo de ocorrências</span><strong>{pointSummary.faltas} faltas identificadas</strong><small className="point-chart-detail">{pointSummary.atrasos} {pointSummary.atrasos === 1 ? 'dia com atraso' : 'dias com atraso'} · {formatDelayMinutes(pointSummary.totalAtrasoMinutos)} acumulados</small></div><AlertCircle size={18} /></div><div className="point-bar-row"><span>Faltas</span><div className="point-bar-track is-danger"><i style={{ width: `${pointSummary.faltas ? 100 : 0}%` }} /></div><b>{pointSummary.faltas}</b></div><div className="point-bar-row"><span>Atrasos</span><div className="point-bar-track is-gold"><i style={{ width: `${pointSummary.atrasos ? Math.min(100, pointSummary.atrasos / Math.max(pointSummary.faltas, pointSummary.atrasos) * 100) : 0}%` }} /></div><b>{pointSummary.atrasos} dias</b></div></section>
     </div>
     <SectionCard title={isAdministrative ? `Ficha de ${selectedEmployee?.nome || 'funcionário'}` : 'Minha ficha de ponto'} caption={`${periodLabel} · ${range.inicio ? `${formatDate(range.inicio)} a ${formatDate(range.fim || range.inicio)}` : 'aguardando período'} · ${pointSummary.diasComMarcacao} com marcação · ${pointSummary.diasSemMarcacao} sem marcação`}>
@@ -945,7 +965,7 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
         <p className="table-scroll-hint">Os dias são exibidos do primeiro ao último dia do período. Dias sem horário aparecem como “Sem marcação”.</p>
         <table className="point-daily-table">
           <thead><tr><th rowSpan={2}>Dia</th><th colSpan={2}>Entrada e almoço</th><th colSpan={2}>Retorno e saída</th><th rowSpan={2}>Horas</th><th rowSpan={2}>Status</th><th colSpan={4}>Ocorrências do arquivo</th>{isAdministrative ? <><th rowSpan={2}>Inconsistência</th><th rowSpan={2}>Análise</th></> : <th rowSpan={2}>Justificativa</th>}</tr><tr><th>Entrada</th><th>Almoço</th><th>Retorno</th><th>Saída</th><th>Dia falta</th><th>Atraso</th><th>Extra 50%</th><th>Desconto DSR</th></tr></thead>
-          <tbody>{displayRows.map((row) => { const kind = rowKind(row); return <tr key={row.id} className={`point-row-${kind}`}><td><strong>{formatDate(row.data)}</strong></td><td>{shortTime(row.entrada)}</td><td>{shortTime(row.saida_almoco)}</td><td>{shortTime(row.volta_almoco)}</td><td>{shortTime(row.saida)}</td><td>{row.horas_trabalhadas ? String(row.horas_trabalhadas).slice(0, 5) : '—'}</td><td>{renderPointStatus(row)}</td><td>{row.dia_falta || '—'}</td><td>{row.horas_atraso || '—'}</td><td>{row.extra_50 || '—'}</td><td>{row.desconta_dsr || '—'}</td>{isAdministrative ? <><td>{hasInconsistency(row) ? renderAdministrativeIssueStatus(row) : '—'}</td><td>{renderAdministrativeReview(row)}</td></> : <td>{renderEmployeeJustification(row)}</td>}</tr> })}</tbody>
+          <tbody>{displayRows.map((row) => { const kind = rowKind(row); return <tr key={row.id} className={`point-row-${kind}`}><td><strong>{formatDate(row.data)}</strong></td><td>{shortTime(row.entrada)}</td><td>{shortTime(row.saida_almoco)}</td><td>{shortTime(row.volta_almoco)}</td><td>{shortTime(row.saida)}</td><td>{row.horas_trabalhadas ? String(row.horas_trabalhadas) : '—'}</td><td>{renderPointStatus(row)}</td><td>{row.dia_falta || '—'}</td><td>{row.horas_atraso || '—'}</td><td>{row.extra_50 || '—'}</td><td>{row.desconta_dsr || '—'}</td>{isAdministrative ? <><td>{hasInconsistency(row) ? renderAdministrativeIssueStatus(row) : '—'}</td><td>{renderAdministrativeReview(row)}</td></> : <td>{renderEmployeeJustification(row)}</td>}</tr> })}</tbody>
         </table>
       </div>}
     </SectionCard>
@@ -1119,27 +1139,81 @@ function normalizeHeader(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
 }
 
-function pointRowsFromMatrix(matrix: string[][]) {
+function pointDateFromCell(value: unknown) {
+  const toIsoDate = (year: number, month: number, day: number) => {
+    if (![year, month, day].every(Number.isInteger) || year < 1000 || month < 1 || month > 12 || day < 1 || day > 31) return ''
+    const date = new Date(Date.UTC(year, month - 1, day))
+    if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return ''
+    return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const parsed = XLSX.SSF.parse_date_code(value)
+    return parsed ? toIsoDate(parsed.y, parsed.m, parsed.d) : ''
+  }
+  if (value instanceof Date && Number.isFinite(value.getTime())) {
+    return toIsoDate(value.getUTCFullYear(), value.getUTCMonth() + 1, value.getUTCDate())
+  }
+  const raw = String(value ?? '').trim()
+  const iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|[ T])/)
+  if (iso) return toIsoDate(Number(iso[1]), Number(iso[2]), Number(iso[3]))
+  const brazilian = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:$|[ T])/)
+  return brazilian ? toIsoDate(Number(brazilian[3]), Number(brazilian[2]), Number(brazilian[1])) : ''
+}
+
+function normalizeClockTime(value: string) {
+  const text = value.trim()
+  const twelveHour = /^(0?[1-9]|1[0-2]):([0-5]\d)(?::([0-5]\d))?\s*(AM|PM)$/i.exec(text)
+  if (twelveHour) {
+    const period = twelveHour[4].toUpperCase()
+    const hour = (Number(twelveHour[1]) % 12) + (period === 'PM' ? 12 : 0)
+    return `${String(hour).padStart(2, '0')}:${twelveHour[2]}${twelveHour[3] ? `:${twelveHour[3]}` : ''}`
+  }
+  const twentyFourHour = /^(\d{1,2}):([0-5]\d)(?::([0-5]\d))?$/.exec(text)
+  if (!twentyFourHour || Number(twentyFourHour[1]) > 23) return text
+  return `${String(Number(twentyFourHour[1])).padStart(2, '0')}:${twentyFourHour[2]}${twentyFourHour[3] ? `:${twentyFourHour[3]}` : ''}`
+}
+
+function pointRowsFromMatrix(
+  matrix: unknown[][],
+  displayMatrix: unknown[][] = matrix,
+  cellMetadata?: (rowIndex: number, columnIndex: number) => { value: unknown; ambiguous: boolean; explicitDecimal: boolean } | undefined,
+) {
   if (matrix.length < 2) return []
-  const headers = matrix[0].map(normalizeHeader)
+  const headers = matrix[0].map((value) => normalizeHeader(String(value ?? '')))
   const find = (...names: string[]) => {
     const normalized = names.map(normalizeHeader)
     const exact = headers.findIndex((header) => normalized.includes(header))
     return exact >= 0 ? exact : headers.findIndex((header) => normalized.some((name) => header.startsWith(name)))
   }
-  const get = (cells: string[], ...names: string[]) => { const index = find(...names); return index >= 0 ? String(cells[index] || '').trim() : '' }
-  return matrix.slice(1).map((cells) => {
-    const rawDate = get(cells, 'Dia').split(' ')[0]
-    const parts = rawDate.split('/')
-    const data = parts.length === 3 ? `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}` : ''
-    return {
-      cpf: get(cells, 'CPF do funcionário', 'CPF'), nome: get(cells, 'Nome do funcionário', 'Nome'), data,
-      previsto: get(cells, 'Previsto'), entrada_1: get(cells, 'Entrada 1'), saida_1: get(cells, 'Saída 1', 'Saida 1'),
-      entrada_2: get(cells, 'Entrada 2'), saida_2: get(cells, 'Saída 2', 'Saida 2'), total_normais: get(cells, 'Total Normais'),
-      total_noturno: get(cells, 'Total Noturno'), dia_falta: get(cells, 'Dia Falta'), horas_atraso: get(cells, 'Horas Atraso'),
-      abono: get(cells, 'Abono'), extra_50: get(cells, 'Extra   50%D', 'Extra 50%D'), extra_100: get(cells, 'Extra   100%D', 'Extra 100%D'),
-      desconta_dsr: get(cells, 'Desconta DSR'), justificativas: get(cells, 'Justificativas'),
+  const get = (cells: unknown[], displayCells: unknown[], ...names: string[]) => { const index = find(...names); return index >= 0 ? String(displayCells[index] ?? cells[index] ?? '').trim() : '' }
+  return matrix.slice(1).map((cells, rowIndex) => {
+    const displayCells = displayMatrix[rowIndex + 1] || cells
+    const cell = (...names: string[]) => get(cells, displayCells, ...names)
+    const clock = (...names: string[]) => normalizeClockTime(cell(...names))
+    const validationErrors: string[] = []
+    const rawExcelDurationCells: Record<string, unknown> = {}
+    const duration = (key: string, label: string, ...names: string[]) => {
+      const index = find(...names)
+      const metadata = index >= 0 ? cellMetadata?.(rowIndex, index) : undefined
+      if (metadata?.ambiguous) {
+        validationErrors.push(`Formato numérico ambíguo em “${label}”: não é possível distinguir horas decimais de fração de dia. Formate a célula como [h]:mm ou envie HH:MM/horas decimais explícitas.`)
+        rawExcelDurationCells[key] = metadata.value
+      }
+      return metadata?.explicitDecimal ? String(metadata.value) : cell(...names)
     }
+    const dateIndex = find('Dia')
+    const data = pointDateFromCell(dateIndex >= 0 ? cells[dateIndex] : '')
+    const row = {
+      cpf: cell('CPF do funcionário', 'CPF'), nome: cell('Nome do funcionário', 'Nome'), data,
+      previsto: cell('Previsto'), entrada_1: clock('Entrada 1'), saida_1: clock('Saída 1', 'Saida 1'),
+      entrada_2: clock('Entrada 2'), saida_2: clock('Saída 2', 'Saida 2'), total_normais: duration('total_normais', 'Total Normais', 'Total Normais'),
+      total_noturno: duration('total_noturno', 'Total Noturno', 'Total Noturno'), dia_falta: cell('Dia Falta'), horas_atraso: duration('horas_atraso', 'Horas Atraso', 'Horas Atraso'),
+      abono: cell('Abono'), extra_50: duration('extra_50', 'Extra 50%', 'Extra   50%D', 'Extra 50%D'), extra_100: duration('extra_100', 'Extra 100%', 'Extra   100%D', 'Extra 100%D'),
+      desconta_dsr: cell('Desconta DSR'), justificativas: cell('Justificativas'),
+    }
+    return validationErrors.length
+      ? { ...row, import_validation_errors: validationErrors, raw_excel_duration_cells: rawExcelDurationCells }
+      : row
   }).filter((row) => row.cpf || row.nome)
 }
 
@@ -1147,7 +1221,18 @@ async function pointRowsFromFile(file: File) {
   if (/\.xlsx?$/i.test(file.name)) {
     const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false })
     const sheet = workbook.Sheets[workbook.SheetNames[0]]
-    return pointRowsFromMatrix(XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '' }))
+    const rawMatrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '', raw: true })
+    const displayMatrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '', raw: false })
+    const cellMetadata = (rowIndex: number, columnIndex: number) => {
+      const address = XLSX.utils.encode_cell({ r: rowIndex + 1, c: columnIndex })
+      const source = sheet[address] as { v?: unknown; z?: string } | undefined
+      if (!source || typeof source.v !== 'number' || source.v === 0) return undefined
+      const format = source.z || 'General'
+      if (XLSX.SSF.is_date(format)) return { value: source.v, ambiguous: false, explicitDecimal: false }
+      const explicitDecimal = /^(?:0(?:\.0+)?|#,##0(?:\.0+)?)$/.test(format)
+      return { value: source.v, ambiguous: !explicitDecimal, explicitDecimal }
+    }
+    return pointRowsFromMatrix(rawMatrix, displayMatrix, cellMetadata)
   }
   return pointRowsFromMatrix(parseDelimited(await file.text()))
 }
@@ -1168,6 +1253,9 @@ function PointImportsView({ token }: { token: string }) {
   const [loading, setLoading] = useState(false); const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState(''); const [message, setMessage] = useState('')
   const pending = imports.find((item) => item.id === pendingId)
+  const pendingInconsistencyCount = pending
+    ? pending.linhas_inconsistentes ?? (rows.length ? rows.filter((row) => Boolean(row.inconsistencia)).length : pending.linhas_nao_encontradas)
+    : 0
 
   async function reload() { const data = await listPointImports(token); if (!data.sucesso) throw new Error(data.erro || 'Falha ao consultar o histórico'); setImports(data.importacoes || []) }
   useEffect(() => { reload().catch((err) => setError(err instanceof Error ? err.message : 'Falha ao consultar o histórico')) }, [token])
@@ -1186,15 +1274,27 @@ function PointImportsView({ token }: { token: string }) {
       if (!linhas.length) throw new Error('Não foi possível reconhecer linhas no arquivo. Use o exportador original, em CSV ou Excel.')
       const result = await importPoint(token, { tipo, competencia, arquivoNome: file.name, linhas })
       if (!result.sucesso || !result.importacao_id) throw new Error(result.erro || 'Falha ao analisar a importação')
-      await reload(); await loadPreview(result.importacao_id)
-      setFile(null); setMessage('Prévia criada. Revise as inconsistências antes de aplicar os registros encontrados.')
+      await reload(); await loadPreview(result.importacao_id, tipo)
+      setFile(null)
+      setMessage(result.reutilizada
+        ? `Este conteúdo já corresponde a um lote nesta competência (status: ${result.status || 'pendente'}); o lote existente foi carregado sem criar duplicata.`
+        : 'Prévia criada. Revise as inconsistências antes de aplicar os registros encontrados.')
     } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao analisar o arquivo.') } finally { setLoading(false) }
   }
 
   async function applyPending() {
     if (!pendingId) return
     setActionLoading(true); setError('')
-    try { const result = await applyPointImport(token, pendingId); if (!result.sucesso) throw new Error(result.erro || 'Não foi possível aplicar os registros'); await reload(); await loadPreview(pendingId); setMessage(`${result.linhas_aplicadas || 0} registros válidos aplicados. As inconsistências ficaram preservadas para correção.`) }
+    try {
+      const result = await applyPointImport(token, pendingId)
+      if (!result.sucesso) throw new Error(result.erro || 'Não foi possível aplicar os registros')
+      await reload(); await loadPreview(pendingId, pending?.tipo || tipo)
+      const duplicateNote = result.grupos_duplicados_conflitantes
+        ? ` ${result.grupos_duplicados_conflitantes} combinação(ões) com dados divergentes não foram aplicadas; revise as linhas marcadas em vermelho.`
+        : result.linhas_duplicadas ? ` ${result.linhas_duplicadas} linhas duplicadas foram ignoradas.` : ''
+      const inconsistencyNote = result.linhas_inconsistentes ? ` ${result.linhas_inconsistentes} linhas inconsistentes permaneceram no histórico para correção.` : ' Nenhuma linha inconsistente permaneceu.'
+      setMessage(`${result.linhas_aplicadas || 0} registros válidos aplicados.${duplicateNote}${inconsistencyNote}`)
+    }
     catch (err) { setError(err instanceof Error ? err.message : 'Falha ao aplicar os registros.') } finally { setActionLoading(false) }
   }
 
@@ -1212,14 +1312,14 @@ function PointImportsView({ token }: { token: string }) {
 
   return <div className="import-page">
     <PageHeading eyebrow="Administração · dados reais" title="Importar ponto" description="Analise o arquivo, confira os CPFs e aplique somente os registros válidos. As inconsistências ficam rastreáveis para correção posterior." action={<button className="secondary-button" onClick={loadRows}><Download size={16} /> Gerar PDF do ponto</button>} />
-    <div className="import-flow-note"><div className="import-step"><b>1</b><span><strong>Analisar</strong><small>CPF, data e formato</small></span></div><ChevronRight size={16} /><div className="import-step"><b>2</b><span><strong>Revisar</strong><small>Válidos e inconsistências</small></span></div><ChevronRight size={16} /><div className="import-step"><b>3</b><span><strong>Aplicar</strong><small>Sem bloquear os válidos</small></span></div></div>
+    <div className="import-flow-note"><div className="import-step"><b>1</b><span><strong>Analisar</strong><small>CPF, data, horários e durações</small></span></div><ChevronRight size={16} /><div className="import-step"><b>2</b><span><strong>Revisar</strong><small>Válidos e inconsistências</small></span></div><ChevronRight size={16} /><div className="import-step"><b>3</b><span><strong>Aplicar</strong><small>Sem bloquear os válidos</small></span></div></div>
     <div className="import-layout">
       <SectionCard title="Nova importação" caption="O arquivo é apenas analisado até você confirmar"><form className="form-stack import-form" onSubmit={submit}><div className="form-row"><label>Tipo de ponto<select value={tipo} onChange={(event) => setTipo(event.target.value as 'diario' | 'mensal')}><option value="mensal">Ponto mensal / fechamento</option><option value="diario">Ponto diário</option></select></label><label>Competência<input value={competencia} onChange={(event) => setCompetencia(event.target.value)} placeholder="10/2026" /></label></div><label>Arquivo exportado<input type="file" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => setFile(event.target.files?.[0] || null)} required /><span className="field-note">Aceita o CSV exato do aplicativo e planilhas Excel. O cruzamento é feito exclusivamente pelo CPF.</span></label>{file && <div className="selected-file"><FileSpreadsheet size={18} /><div><strong>{file.name}</strong><small>{(file.size / 1024).toFixed(0)} KB · pronto para análise</small></div></div>}{error && <div className="form-error"><AlertCircle size={16} />{error}</div>}{message && <div className="form-success"><Check size={16} />{message}</div>}<button className="primary-button" type="submit" disabled={loading}>{loading ? <><RefreshCw className="spin" size={16} /> Analisando arquivo…</> : <><Upload size={16} /> Analisar e cruzar CPFs</>}</button></form></SectionCard>
-      <SectionCard title="Critérios de validação" caption="Regras explícitas da carga"><div className="import-rules"><div><Check size={16} /><span><strong>CPF encontrado</strong><small>Registro fica elegível para aplicação.</small></span></div><div><AlertCircle size={16} /><span><strong>CPF não encontrado</strong><small>Fica marcado como inconsistência, sem bloquear os demais.</small></span></div><div><ShieldCheck size={16} /><span><strong>Auditoria</strong><small>Usuário, arquivo, competência e resultado ficam no histórico.</small></span></div></div></SectionCard>
+      <SectionCard title="Critérios de validação" caption="Regras explícitas da carga"><div className="import-rules"><div><Check size={16} /><span><strong>CPF encontrado</strong><small>Registro fica elegível para aplicação.</small></span></div><div><AlertCircle size={16} /><span><strong>CPF não encontrado</strong><small>Fica marcado como inconsistência, sem bloquear os demais.</small></span></div><div><AlertCircle size={16} /><span><strong>Horário ou duração inválidos</strong><small>Minutos fora de 00–59 ou texto residual são marcados e não aplicados.</small></span></div><div><ShieldCheck size={16} /><span><strong>Auditoria</strong><small>Usuário, arquivo, competência e resultado ficam no histórico.</small></span></div></div></SectionCard>
     </div>
-    {pending && <SectionCard title="Revisão antes da aplicação" caption={`Importação ${pending.tipo === 'mensal' ? 'mensal' : 'diária'} · ${pending.arquivo_nome}`} className="import-review-card"><div className="import-summary"><div className="import-stat"><span>Linhas lidas</span><strong>{pending.total_linhas}</strong></div><div className="import-stat valid"><span>CPFs encontrados</span><strong>{pending.linhas_encontradas}</strong></div><div className="import-stat invalid"><span>Inconsistências</span><strong>{pending.linhas_nao_encontradas}</strong></div><div className="import-stat"><span>Importado por</span><strong>{pending.imported_by_name || 'Você'}</strong></div></div><div className="import-review-actions"><div><strong>{pending.linhas_nao_encontradas ? 'Atenção: há linhas que precisam de correção.' : 'Tudo conferido: não há inconsistências.'}</strong><small>Aplicar registra somente os CPFs encontrados e mantém as demais linhas no histórico.</small></div><div className="button-row"><button className="primary-button" onClick={() => void applyPending()} disabled={actionLoading || pending.status !== 'pendente'}>{actionLoading ? <RefreshCw className="spin" size={16} /> : <Check size={16} />} {pending.status === 'aplicada' ? 'Registros aplicados' : 'Aplicar registros válidos'}</button><button className="secondary-button" onClick={() => void ignorePending()} disabled={actionLoading}>{pending.status === 'aplicada' ? 'Arquivar alerta' : pending.status === 'ignorada' ? 'Importação ignorada' : 'Ignorar e arquivar'}</button></div></div></SectionCard>}
-    <SectionCard title="Histórico e rastreabilidade" caption="Importações, operador, competência e resultado ficam preservados"><div className="import-history">{imports.length === 0 ? <EmptyState title="Nenhuma importação ainda" description="A primeira análise aparecerá aqui com o operador e os resultados." /> : imports.map((item) => <button className={`import-history-row ${pendingId === item.id ? 'is-selected' : ''}`} key={item.id} onClick={() => void loadPreview(item.id, item.tipo)}><span className="document-icon"><FileSpreadsheet size={18} /></span><span className="import-history-main"><strong>{item.tipo === 'mensal' ? 'Mensal' : 'Diário'} · {item.competencia || 'sem competência'}</strong><small>{item.arquivo_nome} · {item.imported_by_name || 'Usuário'} · {formatDate(item.created_at)}</small></span><span className="import-history-count"><b>{item.linhas_encontradas}/{item.total_linhas}</b><small>CPFs válidos</small></span><StatusPill value={item.status === 'aplicada' ? 'Aplicada' : item.status === 'ignorada' ? 'Ignorada' : item.linhas_nao_encontradas ? `${item.linhas_nao_encontradas} inconsistências` : 'Pendente'} /></button>)}</div></SectionCard>
-    {rows.length > 0 && <SectionCard title="Linhas da importação" caption={`${rows.length} registros · vermelho indica inconsistência de CPF ou data`} className="import-preview-card"><div className="table-wrap"><table><thead><tr><th>Data</th><th>Funcionário no arquivo</th><th>CPF</th><th>Entrada</th><th>Saída</th><th>Resultado</th></tr></thead><tbody>{rows.slice(0, 100).map((row) => <tr className={row.encontrado ? '' : 'row-inconsistent'} key={row.id}><td>{formatDate(row.data)}</td><td><strong>{row.nome_csv}</strong>{!row.encontrado && <small className="table-note">{row.inconsistencia || 'Inconsistência'}</small>}</td><td className="mono">{maskCpf(row.cpf)}</td><td>{row.entrada_1 || '—'}</td><td>{row.saida_1 || '—'}</td><td><StatusPill value={row.encontrado ? 'Encontrado' : 'Inconsistente'} /></td></tr>)}</tbody></table></div>{rows.length > 100 && <div className="table-footnote">Exibindo as primeiras 100 linhas desta prévia.</div>}</SectionCard>}
+    {pending && <SectionCard title="Revisão antes da aplicação" caption={`Importação ${pending.tipo === 'mensal' ? 'mensal' : 'diária'} · ${pending.arquivo_nome}`} className="import-review-card"><div className="import-summary"><div className="import-stat"><span>Linhas lidas</span><strong>{pending.total_linhas}</strong></div><div className="import-stat valid"><span>CPFs encontrados</span><strong>{pending.linhas_encontradas}</strong></div><div className="import-stat invalid"><span>Inconsistências</span><strong>{pendingInconsistencyCount}</strong></div><div className="import-stat"><span>Importado por</span><strong>{pending.imported_by_name || 'Você'}</strong></div></div><div className="import-review-actions"><div><strong>{pendingInconsistencyCount ? 'Atenção: há linhas que precisam de correção.' : 'Tudo conferido: não há inconsistências.'}</strong><small>Aplicar registra somente os CPFs encontrados e mantém as demais linhas no histórico.</small></div><div className="button-row"><button className="primary-button" onClick={() => void applyPending()} disabled={actionLoading || pending.status !== 'pendente'}>{actionLoading ? <RefreshCw className="spin" size={16} /> : <Check size={16} />} {pending.status === 'aplicada' ? 'Registros aplicados' : 'Aplicar registros válidos'}</button><button className="secondary-button" onClick={() => void ignorePending()} disabled={actionLoading}>{pending.status === 'aplicada' ? 'Arquivar alerta' : pending.status === 'ignorada' ? 'Importação ignorada' : 'Ignorar e arquivar'}</button></div></div></SectionCard>}
+    <SectionCard title="Histórico e rastreabilidade" caption="Importações, operador, competência e resultado ficam preservados"><div className="import-history">{imports.length === 0 ? <EmptyState title="Nenhuma importação ainda" description="A primeira análise aparecerá aqui com o operador e os resultados." /> : imports.map((item) => <button className={`import-history-row ${pendingId === item.id ? 'is-selected' : ''}`} key={item.id} onClick={() => void loadPreview(item.id, item.tipo)}><span className="document-icon"><FileSpreadsheet size={18} /></span><span className="import-history-main"><strong>{item.tipo === 'mensal' ? 'Mensal' : 'Diário'} · {item.competencia || 'sem competência'}</strong><small>{item.arquivo_nome} · {item.imported_by_name || 'Usuário'} · {formatDate(item.created_at)}</small></span><span className="import-history-count"><b>{item.linhas_encontradas}/{item.total_linhas}</b><small>CPFs válidos</small></span><StatusPill value={item.status === 'aplicada' ? 'Aplicada' : item.status === 'ignorada' ? 'Ignorada' : (item.linhas_inconsistentes ?? item.linhas_nao_encontradas) ? `${item.linhas_inconsistentes ?? item.linhas_nao_encontradas} inconsistências` : 'Pendente'} /></button>)}</div></SectionCard>
+    {rows.length > 0 && <SectionCard title="Linhas da importação" caption={`${rows.length} registros · vermelho indica inconsistência ou conflito de duplicidade`} className="import-preview-card"><div className="table-wrap"><table><thead><tr><th>Data</th><th>Funcionário no arquivo</th><th>CPF</th><th>Entrada</th><th>Saída</th><th>Resultado</th></tr></thead><tbody>{rows.slice(0, 100).map((row) => { const needsReview = Boolean(row.inconsistencia); return <tr className={row.encontrado && !needsReview ? '' : 'row-inconsistent'} key={row.id}><td>{formatDate(row.data)}</td><td><strong>{row.nome_csv}</strong>{needsReview && <small className="table-note">{row.inconsistencia}</small>}</td><td className="mono">{maskCpf(row.cpf)}</td><td>{row.entrada_1 || '—'}</td><td>{row.saida_1 || '—'}</td><td><StatusPill value={!row.encontrado ? 'Inconsistente' : needsReview ? 'Revisar' : 'Encontrado'} /></td></tr>})}</tbody></table></div>{rows.length > 100 && <div className="table-footnote">Exibindo as primeiras 100 linhas desta prévia.</div>}</SectionCard>}
   </div>
 }
 

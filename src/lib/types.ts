@@ -25,7 +25,7 @@ export type ModuleKey =
 
 export interface SessionUser {
   usuario_id: string
-  funcionario_id: string
+  funcionario_id: string | null
   perfil: Profile
   nome: string
   cargo: string
@@ -128,6 +128,9 @@ export interface EmployeeRow {
   motivo_demissao: string | null
   tipo_vinculo: string | null
   salario: number | null
+  valor_mensal?: number | null
+  valor_diaria?: number | null
+  salario_periodo?: string | null
   ativo: boolean
   perfil: Profile
   avatar_url: string | null
@@ -484,7 +487,7 @@ export interface PointImportRow {
   id: string
   cpf: string
   nome_csv: string
-  data: string
+  data: string | null
   entrada_1: string | null
   saida_1: string | null
   entrada_2: string | null
@@ -510,6 +513,7 @@ export interface PointImportSummary {
   total_linhas: number
   linhas_encontradas: number
   linhas_nao_encontradas: number
+  linhas_inconsistentes?: number
   cpfs_nao_encontrados: string[]
   imported_by_name: string | null
   status: 'pendente' | 'aplicada' | 'ignorada'
@@ -949,6 +953,8 @@ export interface OwnProntuarioResponse {
     data_admissao: string | null
     salario: number | null
     salario_periodo: string | null
+    valor_mensal: number | null
+    valor_diaria: number | null
     horario_trabalho: string | null
     horario_intervalo: string | null
     telefone_celular: string | null
@@ -985,7 +991,7 @@ export interface EmployeeTimelineResponse {
 }
 
 export interface FechamentoSummary { funcionarios?: number; faltas_injustificadas?: number; faltas_justificadas?: number; horas_extras_50?: number; horas_extras_100?: number; extras_50_valor?: number; extras_100_valor?: number; dsr_desconto?: number }
-export interface FechamentoResult { sucesso: boolean; erro?: string; fechamento_id?: string; competencia?: string; status?: string; mensagem?: string; resumo?: FechamentoSummary }
+export interface FechamentoResult { sucesso: boolean; erro?: string; fechamento_id?: string; competencia?: string; status?: string; mensagem?: string; source_fingerprint?: string | null; resumo?: FechamentoSummary }
 export interface FechamentoPreview extends FechamentoResult { confirmado_at?: string | null; regras?: Record<string, unknown>; linhas?: Array<Record<string, unknown>> }
 export interface FechamentoReport { sucesso: boolean; erro?: string; competencia?: string; tipo?: string; linhas?: Array<Record<string, unknown>> }
 export interface FinanceiroLancamento { id?: string; tipo?: 'pagar'|'receber'|string; categoria?: string; descricao?: string; valor?: number|string; vencimento?: string; status?: string; pago_em?: string|null; observacoes?: string|null; created_at?: string }

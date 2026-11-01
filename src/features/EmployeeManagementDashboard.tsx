@@ -30,6 +30,14 @@ function maskedCpf(value: string) {
   return digits.length === 11 ? `***.***.***-${digits.slice(-2)}` : value
 }
 
+function remunerationLabel(employee: Pick<EmployeeRow, 'tipo_vinculo' | 'salario' | 'valor_mensal' | 'valor_diaria' | 'salario_periodo'>) {
+  if (employee.tipo_vinculo === 'diarista') {
+    return employee.valor_diaria != null ? `Diária · ${formatMoney(employee.valor_diaria)}` : 'Diária não informada'
+  }
+  const amount = employee.valor_mensal ?? employee.salario
+  return amount == null ? 'Remuneração não informada' : `${employee.salario_periodo || 'Mês'} · ${formatMoney(amount)}`
+}
+
 function readText(item: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
     const value = item[key]
@@ -70,8 +78,11 @@ function RegistrationWizard({ open, token, onClose, onCreated }: { open: boolean
     }
     const monthly = parseMoney(form.valorMensal)
     const daily = parseMoney(form.valorDiaria)
-    if (step === 1 && form.tipoVinculo === 'formal' && !(monthly && monthly > 0) && !(daily && daily > 0)) {
-      return setError('Para vínculo formal, informe o valor mensal ou a diária.')
+    if (step === 1 && form.tipoVinculo === 'formal' && !(monthly && monthly > 0)) {
+      return setError('Para vínculo formal, informe o valor mensal.')
+    }
+    if (step === 1 && form.tipoVinculo === 'diarista' && !(daily && daily > 0)) {
+      return setError('Para vínculo diarista, informe o valor da diária.')
     }
     setStep((current) => Math.min(2, current + 1))
   }
@@ -110,11 +121,11 @@ function RegistrationWizard({ open, token, onClose, onCreated }: { open: boolean
           <label>Data de nascimento *<input required type="date" value={form.dataNascimento} onChange={(event) => setForm({ ...form, dataNascimento: event.target.value })} /></label>
         </div><small className="employee-form-help">O CPF será validado novamente pelo servidor antes de salvar.</small></div> : null}
         {step === 1 ? <div className="employee-form-section"><strong>Vínculo e remuneração</strong><div className="employee-form-grid">
-          <label>Tipo de vínculo *<select required value={form.tipoVinculo} onChange={(event) => setForm({ ...form, tipoVinculo: event.target.value })}><option value="formal">Formal / CLT</option><option value="informal">Informal</option><option value="experiencia">Experiência</option></select></label>
+          <label>Tipo de vínculo *<select required value={form.tipoVinculo} onChange={(event) => { const tipoVinculo = event.target.value; setForm({ ...form, tipoVinculo, valorMensal: tipoVinculo === 'diarista' ? '' : form.valorMensal, valorDiaria: tipoVinculo === 'diarista' ? form.valorDiaria : '' }) }}><option value="formal">Formal / CLT</option><option value="informal">Informal</option><option value="experiencia">Experiência</option><option value="diarista">Diarista · pagamento por dia</option></select></label>
           <label>Cargo<input value={form.cargo} onChange={(event) => setForm({ ...form, cargo: event.target.value })} placeholder="Ex.: Costureira" /></label>
-          <label>Valor mensal<input inputMode="decimal" value={form.valorMensal} onChange={(event) => setForm({ ...form, valorMensal: event.target.value.replace(/[^0-9,.]/g, '') })} placeholder="R$ 0,00" /></label>
-          <label>Valor da diária<input inputMode="decimal" value={form.valorDiaria} onChange={(event) => setForm({ ...form, valorDiaria: event.target.value.replace(/[^0-9,.]/g, '') })} placeholder="R$ 0,00" /></label>
-        </div><small className="employee-form-help">Para vínculo formal, informe remuneração mensal ou diária; o sistema mantém os dois valores separados.</small></div> : null}
+          {form.tipoVinculo !== 'diarista' ? <label>Valor mensal{form.tipoVinculo === 'formal' ? ' *' : ''}<input inputMode="decimal" required={form.tipoVinculo === 'formal'} value={form.valorMensal} onChange={(event) => setForm({ ...form, valorMensal: event.target.value.replace(/[^0-9,.]/g, '') })} placeholder="R$ 0,00" /></label> : null}
+          {form.tipoVinculo === 'diarista' ? <label>Valor da diária *<input inputMode="decimal" required value={form.valorDiaria} onChange={(event) => setForm({ ...form, valorDiaria: event.target.value.replace(/[^0-9,.]/g, '') })} placeholder="R$ 0,00" /></label> : null}
+        </div><small className="employee-form-help">Vínculo formal exige valor mensal. A diária só é aceita para o vínculo diarista; informal e experiência não recebem diária automaticamente.</small></div> : null}
         {step === 2 ? <><div className="employee-form-section"><strong>Contato e acesso</strong><div className="employee-form-grid">
           <label>Telefone<input autoComplete="tel" value={form.telefone} onChange={(event) => setForm({ ...form, telefone: event.target.value })} placeholder="(00) 00000-0000" /></label>
           <label className="employee-form-wide">Endereço<input autoComplete="street-address" value={form.endereco} onChange={(event) => setForm({ ...form, endereco: event.target.value })} placeholder="Rua, número, bairro e cidade" /></label>
@@ -211,7 +222,7 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
           {suggestionsOpen && filters.busca.trim().length >= 2 ? <div className="employee-suggestions" role="listbox">{suggestionsLoading ? <div className="employee-suggestion-status"><RefreshCw size={14} className="spin" /> Buscando…</div> : suggestions.length ? suggestions.map((employee) => <button type="button" key={employee.id} onMouseDown={(event) => event.preventDefault()} onClick={() => { setSuggestionsOpen(false); void openRecord(employee) }}><span className="employee-suggestion-avatar">{employee.avatar_url ? <img src={employee.avatar_url} alt="" /> : <UserRound size={15} />}</span><span><strong>{employee.nome}</strong><small>{employee.cargo || 'Cargo não informado'} · CPF {maskedCpf(employee.cpf)}</small></span><ChevronRight size={14} /></button>) : <div className="employee-suggestion-status">Nenhuma pessoa encontrada.</div>}</div> : null}
         </label>
         <label>Situação<select value={filters.situacao} onChange={(event) => setFilters({ ...filters, situacao: event.target.value })}><option value="">Todas</option><option value="Trabalhando">Trabalhando</option><option value="Em férias">Em férias</option><option value="Afastado">Afastado</option><option value="Inativo">Inativo</option></select></label>
-        <label>Vínculo<select value={filters.tipoVinculo} onChange={(event) => setFilters({ ...filters, tipoVinculo: event.target.value })}><option value="">Todos</option><option value="formal">Formal / CLT</option><option value="informal">Informal</option><option value="experiencia">Experiência</option></select></label>
+        <label>Vínculo<select value={filters.tipoVinculo} onChange={(event) => setFilters({ ...filters, tipoVinculo: event.target.value })}><option value="">Todos</option><option value="formal">Formal / CLT</option><option value="informal">Informal</option><option value="experiencia">Experiência</option><option value="diarista">Diarista</option></select></label>
         <label>Cargo<input value={filters.cargo} onChange={(event) => setFilters({ ...filters, cargo: event.target.value })} placeholder="Ex.: costureira" /></label>
         <label>Remuneração mínima<input inputMode="decimal" value={filters.salarioMin} onChange={(event) => setFilters({ ...filters, salarioMin: event.target.value.replace(/[^0-9,.]/g, '') })} placeholder="R$ 0,00" /></label>
         <label>Remuneração máxima<input inputMode="decimal" value={filters.salarioMax} onChange={(event) => setFilters({ ...filters, salarioMax: event.target.value.replace(/[^0-9,.]/g, '') })} placeholder="Sem limite" /></label>
@@ -225,7 +236,7 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
       <div className="employee-directory-results">{page.registros.length ? page.registros.map((employee) => <button className="employee-directory-result" type="button" key={employee.id} onClick={() => void openRecord(employee)}>
         <span className="employee-directory-avatar">{employee.avatar_url ? <img src={employee.avatar_url} alt="" /> : <UserRound size={20} />}</span>
         <span className="employee-directory-main"><strong>{employee.nome}</strong><small>{employee.cargo || 'Cargo não informado'} · CPF {maskedCpf(employee.cpf)}</small><small>{employee.tipo_vinculo || 'Vínculo não informado'} · admissão {formatDate(employee.data_admissao)}</small></span>
-        <span className="employee-directory-meta"><b>{employee.salario === null ? 'Remuneração não informada' : formatMoney(employee.salario)}</b><StatusPill value={employee.situacao} /></span><ChevronRight size={17} />
+        <span className="employee-directory-meta"><b>{remunerationLabel(employee)}</b><StatusPill value={employee.situacao} /></span><ChevronRight size={17} />
       </button>) : <EmptyState title="Nenhum funcionário encontrado" description="Ajuste os filtros e faça uma nova busca." />}</div>
       {page.total > 20 ? <div className="employee-directory-pagination"><button className="secondary-button compact-button" type="button" disabled={pageNumber === 0} onClick={() => void runSearch(activeFilters, pageNumber - 1)}><ChevronLeft size={15} /> Anterior</button><span>{pageNumber + 1} / {totalPages}</span><button className="secondary-button compact-button" type="button" disabled={pageNumber + 1 >= totalPages} onClick={() => void runSearch(activeFilters, pageNumber + 1)}>Próxima <ChevronRight size={15} /></button></div> : null}
     </SectionCard> : null}
@@ -235,7 +246,7 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
       {recordLoading ? <LoadingState label="Montando prontuário…" /> : recordError ? <ErrorState message={recordError} /> : record ? <>
         <div className="employee-record-tabs">{tabs.map(([key, label]) => { const count = key === 'resumo' || key === 'timeline' ? null : collection(key).length; return <button type="button" key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}{count !== null ? <small>{count}</small> : null}</button> })}</div>
         {tab === 'resumo' ? <div className="employee-record-summary">
-          <SectionCard title="Resumo funcional" caption="Dados principais do vínculo"><div className="employee-record-metrics"><div><span>Situação</span><StatusPill value={selected.situacao} /></div><div><span>Remuneração cadastrada</span><strong>{selected.salario === null ? 'Não informada' : formatMoney(selected.salario)}</strong></div><div><span>Admissão</span><strong>{formatDate(selected.data_admissao)}</strong></div><div><span>Vínculo</span><strong>{selected.tipo_vinculo || 'Não informado'}</strong></div><div><span>Atestados</span><strong>{collection('atestados').length}</strong></div><div><span>Afastamentos</span><strong>{collection('afastamentos').length}</strong></div></div></SectionCard>
+          <SectionCard title="Resumo funcional" caption="Dados principais do vínculo"><div className="employee-record-metrics"><div><span>Situação</span><StatusPill value={selected.situacao} /></div><div><span>Remuneração cadastrada</span><strong>{remunerationLabel(selected)}</strong></div><div><span>Admissão</span><strong>{formatDate(selected.data_admissao)}</strong></div><div><span>Vínculo</span><strong>{selected.tipo_vinculo || 'Não informado'}</strong></div><div><span>Atestados</span><strong>{collection('atestados').length}</strong></div><div><span>Afastamentos</span><strong>{collection('afastamentos').length}</strong></div></div></SectionCard>
           <SectionCard title="Movimentos recentes" caption="O histórico completo fica na linha do tempo"><div className="employee-record-attention"><p><BriefcaseBusiness size={17} /> {collection('advertencias').length} advertência(s) e {collection('justificativas').length} justificativa(s).</p><p><CalendarDays size={17} /> {collection('ferias').length} período(s) de férias e {collection('ponto').length} registros recentes de ponto.</p><p><FileText size={17} /> {collection('documentos').length} documento(s) e {collection('holerites').length} holerite(s).</p></div></SectionCard>
         </div> : tab === 'timeline' ? <EmployeeTimeline token={token} funcionarioId={selected.id} /> : <SectionCard title={title} caption={`${items.length} registro(s) carregado(s) · a linha do tempo tem paginação independente`}><RecordList items={items} /></SectionCard>}
       </> : null}

@@ -91,7 +91,7 @@ export function dashboard(token: string) {
 }
 
 export function listEmployees(token: string) {
-  return rpc<EmployeeRow[]>('app_listar_funcionarios', { p_token: token })
+  return rpc<EmployeeRow[]>('app_listar_funcionarios_v2', { p_token: token })
 }
 export function searchEmployees(token: string, filters: { busca?: string; situacao?: string; tipoVinculo?: string; cargo?: string; salarioMin?: number | null; salarioMax?: number | null; offset?: number; limite?: number } = {}) {
   return rpc<import('./types').EmployeeSearchPage>('app_admin_buscar_funcionarios', {
@@ -437,7 +437,7 @@ export function updateWorkOrderProgress(token: string, orderId: string, tamanhos
 }
 
 export function importPoint(token: string, payload: { tipo: 'diario' | 'mensal'; competencia: string; arquivoNome: string; linhas: Record<string, unknown>[] }) {
-  return rpc<{ sucesso: boolean; erro?: string; importacao_id?: string; status?: string; total_linhas?: number; linhas_encontradas?: number; linhas_nao_encontradas?: number; cpfs_nao_encontrados?: string[] }>('app_importar_ponto', {
+  return rpc<{ sucesso: boolean; erro?: string; importacao_id?: string; status?: string; total_linhas?: number; linhas_encontradas?: number; linhas_nao_encontradas?: number; cpfs_nao_encontrados?: string[]; reutilizada?: boolean }>('app_importar_ponto', {
     p_token: token,
     p_tipo: payload.tipo,
     p_competencia: payload.competencia,
@@ -451,7 +451,7 @@ export function listPointImports(token: string) {
 }
 
 export function applyPointImport(token: string, importacaoId: string) {
-  return rpc<{ sucesso: boolean; erro?: string; status?: string; linhas_aplicadas?: number; linhas_inconsistentes?: number }>('app_aplicar_importacao_ponto', { p_token: token, p_importacao_id: importacaoId })
+  return rpc<{ sucesso: boolean; erro?: string; status?: string; linhas_aplicadas?: number; linhas_inconsistentes?: number; linhas_duplicadas?: number; grupos_duplicados_conflitantes?: number }>('app_aplicar_importacao_ponto', { p_token: token, p_importacao_id: importacaoId })
 }
 
 export function ignorePointImport(token: string, importacaoId: string) {
@@ -915,8 +915,8 @@ export function adminVisualizarFechamento(token: string, competencia: string) {
   return rpc<import('./types').FechamentoPreview>('app_admin_visualizar_fechamento', { p_token: token, p_competencia: competencia })
 }
 
-export function adminConfirmarFechamento(token: string, competencia: string, confirmacao: string) {
-  return rpc<import('./types').FechamentoResult>('app_admin_confirmar_fechamento', { p_token: token, p_competencia: competencia, p_confirmacao: confirmacao })
+export function adminConfirmarFechamento(token: string, competencia: string, confirmacao: string, sourceFingerprint: string) {
+  return rpc<import('./types').FechamentoResult>('app_admin_confirmar_fechamento', { p_token: token, p_competencia: competencia, p_confirmacao: confirmacao, p_source_fingerprint: sourceFingerprint })
 }
 
 export function adminRelatorioFechamento(token: string, competencia: string, tipo: 'escritorio' | 'vale', incluirInformaisVale = false) {

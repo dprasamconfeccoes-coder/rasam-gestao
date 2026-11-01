@@ -30,6 +30,14 @@ function dateValue(record: Record<string, unknown>, keys: string[]) {
   return formatDate(value(record, keys))
 }
 
+function remunerationLabel(employee: NonNullable<OwnProntuarioResponse['funcionario']>) {
+  if (employee.tipo_vinculo === 'diarista') {
+    return employee.valor_diaria != null ? `Diária · ${formatMoney(employee.valor_diaria)}` : 'Diária não informada'
+  }
+  const amount = employee.valor_mensal ?? employee.salario
+  return amount == null ? 'Não informada' : `${employee.salario_periodo || 'Mês'} · ${formatMoney(amount)}`
+}
+
 function OwnHistory({ items, tab }: { items: Array<Record<string, unknown>>; tab: OwnTab }) {
   if (!items.length) return <EmptyState title="Nenhum registro nesta seção" description="Quando houver novos lançamentos, eles aparecerão aqui no seu prontuário." />
   return (
@@ -114,7 +122,7 @@ export function EmployeeOwnDossier({ token }: { token: string }) {
                   <div><span><CalendarDays size={15} /> Admissão</span><strong>{formatDate(employee.data_admissao)}</strong></div>
                   <div><span><BadgeCheck size={15} /> Tipo de vínculo</span><strong>{employee.tipo_vinculo || 'Não informado'}</strong></div>
                   <div><span><FileText size={15} /> Horário</span><strong>{employee.horario_trabalho || 'Não informado'}</strong></div>
-                  {employee.salario !== null ? <div><span><FileText size={15} /> Remuneração cadastrada</span><strong>{formatMoney(employee.salario)}{employee.salario_periodo ? ` · ${employee.salario_periodo}` : ''}</strong></div> : null}
+                  <div><span><FileText size={15} /> Remuneração cadastrada</span><strong>{remunerationLabel(employee)}</strong></div>
                 </div>
               </SectionCard>
               <SectionCard title="Registros do prontuário" caption="Acesse cada seção para consultar seus próprios históricos">
