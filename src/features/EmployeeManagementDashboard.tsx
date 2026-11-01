@@ -56,11 +56,24 @@ function hoursValue(item: Record<string, unknown>) {
   return durationValue(item.horas_trabalhadas ?? item.horas ?? item.total_horas ?? item.total_normais)
 }
 
+function extraHoursValue(item: Record<string, unknown>) {
+  const direct = item.horas_extras ?? item.extra_horas ?? item.extras
+  if (direct !== undefined && direct !== null && String(direct).trim()) return durationValue(direct)
+  return durationValue(item.extra_50) + durationValue(item.extra_100)
+}
+
+function absenceValue(item: Record<string, unknown>) {
+  const value = String(item.dia_falta ?? item.falta ?? item.falta_apontada ?? '').trim().toLowerCase()
+  return (value && !['não', 'nao', 'n', '0', 'false', 'normal'].includes(value)) || String(item.status ?? '').toLowerCase() === 'falta'
+}
+
 function isRelevantPoint(item: Record<string, unknown>) {
   const status = String(item.status ?? item.situacao ?? item.inconsistencia ?? '').toLowerCase()
-  const extra = asNumber(item.horas_extras ?? item.extra_horas ?? item.extras)
-  const absence = String(item.dia_falta ?? item.falta ?? item.tipo ?? '').toLowerCase()
-  return Boolean(extra && extra > 0) || Boolean(absence && !['não', 'nao', 'n', '0', 'false', 'normal'].includes(absence)) || Boolean(status && !['normal', 'encontrado', 'regular', 'aprovado'].includes(status))
+  const extra = extraHoursValue(item)
+  const late = durationValue(item.horas_atraso)
+  const absence = absenceValue(item)
+  const abono = String(item.abono ?? '').toLowerCase()
+  return extra > 0 || late > 0 || absence || Boolean(abono && !['não', 'nao', 'n', '0', 'false'].includes(abono)) || Boolean(status && !['normal', 'encontrado', 'regular', 'aprovado'].includes(status))
 }
 
 function currentMonth() {
@@ -94,7 +107,7 @@ function PointRecordList({ items }: { items: Array<Record<string, unknown>> }) {
   if (!items.length) return <EmptyState title="Nenhum registro de ponto" description="Não há marcações disponíveis para este funcionário." />
   return <div className="point-record-list">{items.map((item, index) => {
     const worked = hoursValue(item)
-    const extras = durationValue(item.horas_extras ?? item.extra_horas ?? item.extras)
+    const extras = extraHoursValue(item)
     const status = pointStatus(item)
     const entrance = readText(item, ['entrada', 'hora_entrada', 'inicio', 'batida_entrada'])
     const exit = readText(item, ['saida', 'hora_saida', 'fim', 'batida_saida'])
@@ -310,8 +323,8 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
       {recordLoading ? <LoadingState label="Montando prévia mensal…" /> : recordError ? <ErrorState message={recordError} /> : record ? (() => {
         const monthPoints = collection('ponto').filter((item) => String(item.data ?? item.data_ponto ?? item.dia ?? '').slice(0, 7) === previewMonth)
         const worked = monthPoints.reduce((sum, item) => sum + hoursValue(item), 0)
-        const extras = monthPoints.reduce((sum, item) => sum + durationValue(item.horas_extras ?? item.extra_horas ?? item.extras), 0)
-        const absences = monthPoints.filter((item) => { const value = String(item.dia_falta ?? item.falta ?? '').toLowerCase(); return value && !['não', 'nao', 'n', '0', 'false'].includes(value) }).length
+        const extras = monthPoints.reduce((sum, item) => sum + extraHoursValue(item), 0)
+        const absences = monthPoints.filter(absenceValue).length
         const relevant = monthPoints.filter(isRelevantPoint).length
         const relevantItems = monthPoints.filter(isRelevantPoint).slice(0, 3)
         return <div className="employee-preview">

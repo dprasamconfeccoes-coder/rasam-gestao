@@ -27,3 +27,4 @@
 - [ ] **Publicação de teste:** validar o build e publicar a branch de teste no GitHub Pages sem alterar a branch principal.
 - [ ] **Prévia executiva refinada:** a prévia mensal deve separar identidade, vínculo/remuneração, indicadores de jornada e alertas relevantes, usando espaçamento, hierarquia tipográfica e estados visuais claros; o gestor deve conseguir compreender a competência sem abrir o prontuário completo.
 - [ ] **Ponto com apresentação operacional:** a aba de ponto deve usar uma listagem própria com data, entrada, saída, horas trabalhadas, extras e situação, em vez da lista genérica de registros, sem inventar valores quando o dado não existir.
+- [x] **Dados reais de ponto na prévia e no prontuário:** a RPC administrativa deve combinar a última importação aplicada com o registro consolidado, retornando horas normais, extras 50/100, faltas, atrasos, abono e inconsistências no tenant correto; o frontend deve reconhecer esses campos sem criar valores.

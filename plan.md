@@ -67,3 +67,7 @@ A publicação de teste usa o workflow já versionado em `.github/workflows/depl
 A prévia deve funcionar como uma tela de decisão para o gestor, e não como um recorte do prontuário: identidade e contexto do vínculo ficam separados dos indicadores da competência; cada indicador mostra valor e interpretação curta; alertas relevantes aparecem em uma lista objetiva; e a ação de abrir o prontuário permanece secundária, porém evidente. A superfície clara usa bordas suaves, sombras discretas, tipografia hierárquica e espaçamento consistente para reduzir a sensação de conteúdo colado.
 
 O prontuário mantém a mesma linguagem visual e passa a renderizar ponto em uma lista operacional própria, com data, entrada, saída, horas trabalhadas, extras e situação em colunas legíveis. Os dados exibidos são exclusivamente os retornados pelo prontuário, preservando a distinção entre remuneração mensal e diária e sem criar valores de compensação.
+
+## Correção de dados de ponto — 2026-11-01
+
+A RPC administrativa retornava apenas `registros_ponto`, enquanto horas extras, faltas, atrasos, abono e inconsistências ficam nas linhas de `ponto_import_linhas` e nas tabelas de revisão. A migration `0096_admin_prontuario_point_details.sql` passou a selecionar a última importação aplicada por funcionário e data, incluindo dias de falta sem marcação, e usa `registros_ponto` somente como fallback para datas sem linha importada. O payload agora expõe `horas_extras`, `extra_50`, `extra_100`, `dia_falta`, `horas_atraso`, `abono` e os estados de inconsistência com isolamento por empresa.
