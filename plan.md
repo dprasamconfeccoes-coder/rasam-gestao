@@ -26,11 +26,43 @@ Movimento visual: **editorial operacional dark**, com alto contraste e acentos m
 - `src/features/AdminCenter.tsx`: workspace administrativo unificado.
 - `src/features/PayslipImportDashboard.tsx`: importação administrativa e histórico de holerites.
 - `src/features/EmployeeDirectory.tsx`: busca administrativa e entrada para o prontuário do funcionário (próxima etapa).
+- `src/features/PointManagementDashboard.tsx`: navegação do módulo Gestão de ponto, consulta individual paginada da equipe, importações e estados de carregamento/erro.
+- `src/features/PointSchedulesPanel.tsx`: criação e edição de modelos de jornada, atribuições, vigências e histórico por funcionário.
+- `src/features/point-management.css`: estilos responsivos do módulo, reutilizando as cores RF e componentes existentes.
 - `src/lib/api.ts`: chamadas RPC tipadas.
 - `src/lib/types.ts`: contratos de domínio.
-- `supabase/migrations/0008_saas_operational_model.sql`: tenant, vínculos, prontuário, fechamento, benefícios e financeiro.
-- `supabase/migrations/0009_saas_operational_rpcs.sql`: RPCs de cadastro, prontuário, fechamento e relatórios.
+- `supabase/migrations/0094_point_management_schedules.sql`: estrutura aditiva das jornadas versionadas e RPCs administrativos multiempresa.
 - `public/manus-routes.json`: rotas de produto.
+
+## Módulo completo — Gestão de ponto
+
+### Experiência do gestor
+
+- Renomear o item administrativo atual **Importar ponto** para **Gestão de ponto**, sem remover o acesso de funcionário a **Meu ponto**.
+- Reunir três áreas do mesmo módulo: **Ponto da equipe**, **Importações** e **Jornadas**.
+- Abrir a consulta da equipe com a competência atual calculada no horário local do navegador. O gestor vê um funcionário por página, pode buscar por nome/CPF e navegar entre pessoas com paginação; funcionários sem marcação no mês continuam consultáveis.
+- Consultar mês por funcionário, exibir os dias do período, marcações, horas trabalhadas, ocorrências e dados de jornada quando existentes. Mostrar horas extras 50% e 100% conforme os valores recebidos no arquivo de origem.
+- Comparar jornada prevista e realizada de forma informativa, sem converter diferença em extra legal, falta ou desconto automático. A classificação de hora extra permanece baseada nos campos explicitamente importados até o usuário definir regras adicionais.
+
+### Importação preservada e aprimorada
+
+- Preservar leitura de CSV e XLS/XLSX, cruzamento exclusivamente por CPF, prévia antes de gravar, identificação de inconsistências, aplicação parcial de linhas válidas, histórico e arquivamento rastreável.
+- Iniciar cada nova importação com a competência do mês atual, no fuso local; permitir editar a competência antes de enviar. Converter a seleção visual de mês para o contrato existente `MM/AAAA`.
+- Continuar usando as RPCs existentes `app_importar_ponto`, `app_listar_ponto_importado`, `app_aplicar_importacao_ponto` e `app_ignorar_importacao_ponto`.
+
+### Jornada e vínculo
+
+- Oferecer modelos reutilizáveis de jornada com dois modos: horários fixos por dia da semana e carga horária semanal distribuída pelos dias selecionados, com ajuste diário. Cada dia pode ser descanso ou ter um ou mais períodos de trabalho, contemplando jornada integral e meio período.
+- Criar, editar e inativar modelos sem reescrever versões anteriores. Ao atribuir ou alterar a jornada de um funcionário, registrar data de vigência e preservar o histórico.
+- Permitir atribuição para os tipos de vínculo existentes, inclusive diaristas, sem presumir carga legal ou elegibilidade trabalhista apenas pelo vínculo.
+- Preservar `funcionarios.horario_trabalho` e `horario_intervalo` em texto e todo o histórico atual; não inferir nem converter automaticamente esses textos em jornadas estruturadas.
+
+### Persistência, acesso e operação
+
+- Armazenar modelos versionados, períodos semanais e atribuições em novas estruturas relacionais/JSON validadas no Supabase. Implementar gravação/leitura via RPCs `SECURITY DEFINER` que validam sessão, perfil administrativo e `empresa_id`; não conceder acesso público direto às tabelas.
+- A migração é exclusivamente aditiva: cria as novas estruturas e funções, sem atualizar, apagar ou recalcular registros existentes.
+- Desenvolver e validar primeiro no checkout local do repositório GitHub Pages `dprasamconfeccoes-coder/rasam-gestao`, preservando o visual e os padrões existentes. Compilar e revisar código antes da homologação.
+- O workflow do GitHub publica automaticamente em GitHub Pages ao receber push em `main`. Não enviar para `main`, aplicar alterações ao Supabase ativo nem publicar sem aprovação explícita posterior do usuário após revisão do conteúdo exato.
 
 ## Entregas incluídas
 

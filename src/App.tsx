@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import * as XLSX from 'xlsx'
 import {
   AlertCircle,
   AlertTriangle,
@@ -66,6 +65,7 @@ import {
   getSession,
   getPayslipDocumentUrl,
   getToken,
+  listEmployeePointSchedules,
   listEmployees,
   listMedicalLeaves,
   listNotices,
@@ -73,6 +73,7 @@ import {
   markNoticeRead,
   listPayslips,
   listPoint,
+  searchEmployees,
   unreadNoticeCount,
   login,
   logout,
@@ -92,6 +93,7 @@ import type {
   DashboardResponse,
   EmployeeProfile,
   EmployeeRow,
+  EmployeeSearchPage,
   FactoryProductionLot,
   FinanceiroLancamento,
   LoginResponse,
@@ -105,6 +107,7 @@ import type {
   SessionUser,
   PointImportRow,
   PointImportSummary,
+  PointScheduleAssignment,
 } from './lib/types'
 import { getNotificationPermission, requestNotificationPermission, showDashboardNotification, subscribeDashboardRealtime, type DashboardLiveEvent } from './lib/dashboard-realtime'
 import { buildOverviewReportRows, downloadDashboardCsv, exportDashboardPdf, type OverviewReportEnrichment, type OverviewReportRow } from './features/dashboard-executive-report'
@@ -119,6 +122,7 @@ import { PayslipImportDashboard } from './features/PayslipImportDashboard'
 import { EmployeeManagementDashboard } from './features/EmployeeManagementDashboard'
 import { EmployeeOwnDossier } from './features/EmployeeOwnDossier'
 import { PayrollBenefitsDiscounts } from './features/PayrollBenefitsDiscounts'
+import { formatDuration, periodMinutes } from './lib/point-schedules'
 import {
   EmptyState,
   ErrorState,
@@ -134,6 +138,9 @@ import './styles.css'
 import './overview-dashboard.css'
 import './hr-vacation-management.css'
 
+const PointManagementDashboard = lazy(() => import('./features/PointManagementDashboard').then((module) => ({ default: module.PointManagementDashboard })))
+const PointSchedulesPanel = lazy(() => import('./features/PointSchedulesPanel').then((module) => ({ default: module.PointSchedulesPanel })))
+
 const managerProfiles: Profile[] = ['gestor', 'administrador', 'admin']
 const adminProfiles: Profile[] = ['administrador', 'admin']
 
@@ -148,7 +155,7 @@ const navItems: NavItem[] = [
   { key: 'acordos', label: 'Acordos e parcelas', description: 'Pagamentos trabalhistas', icon: Scale, group: 'Controle', profiles: adminProfiles },
   { key: 'dividas', label: 'Dívidas', description: 'Saldos e vencimentos', icon: WalletCards, group: 'Controle', profiles: adminProfiles },
   { key: 'relatorios', label: 'Relatórios', description: 'Leituras da operação', icon: BarChart3, group: 'Controle', profiles: managerProfiles },
-  { key: 'importacoes', label: 'Importar ponto', description: 'CSV diário e mensal', icon: FileSpreadsheet, group: 'Controle', profiles: managerProfiles },
+  { key: 'importacoes', label: 'Gestão de ponto', description: 'Equipe, importações e jornadas', icon: FileSpreadsheet, group: 'Controle', profiles: managerProfiles },
   { key: 'importar_holerite', label: 'Importar holerite', description: 'PDF por funcionário e competência', icon: Receipt, group: 'Controle', profiles: managerProfiles },
   { key: 'beneficios_descontos', label: 'Benefícios e descontos', description: 'Lançamentos em folha por competência', icon: CircleDollarSign, group: 'Controle', profiles: adminProfiles },
   { key: 'rh', label: 'Recursos humanos', description: 'Painel e operações de RH', icon: BriefcaseBusiness, group: 'Pessoas', profiles: adminProfiles },
@@ -703,13 +710,24 @@ function EmployeeProfileView({ token, onProfileUpdated }: { token: string; onPro
   return <><PageHeading eyebrow="Minha área · cadastro" title="Meu perfil" description="Confira os dados que o RH mantém no sistema." />{loading ? <LoadingState /> : error && !profile ? <ErrorState message={error} /> : profile ? <div className="profile-layout"><SectionCard title={profile.nome} caption={profile.cargo || 'Cargo não informado'}><div className="profile-identity"><UserAvatar name={profile.nome} url={profile.avatar_url} className="profile-avatar" /><div><strong>Foto do perfil</strong><span>JPG, PNG ou WebP · até 800 KB</span><div className="profile-avatar-actions"><label className="secondary-button">{savingAvatar ? <RefreshCw className="spin" size={15} /> : <Upload size={15} />} {profile.avatar_url ? 'Trocar foto' : 'Adicionar foto'}<input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={savingAvatar} onChange={(event) => { void changeAvatar(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>{profile.avatar_url && <button className="text-button" type="button" onClick={() => void removeAvatar()} disabled={savingAvatar}>Remover</button>}</div></div></div>{error && <div className="form-error profile-error"><AlertCircle size={16} />{error}</div>}<div className="detail-grid"><div><span>CPF</span><strong>{maskCpf(profile.cpf)}</strong></div><div><span>Data de nascimento</span><strong>{formatDate(profile.data_nascimento)}</strong></div><div><span>Admissão</span><strong>{formatDate(profile.data_admissao)}</strong></div><div><span>Telefone</span><strong>{profile.telefone_celular || 'Não informado'}</strong></div><div className="wide"><span>Endereço</span><strong>{profile.endereco || 'Não informado'}</strong></div></div></SectionCard><SectionCard title="Dados de trabalho" caption="Visão pessoal"><div className="security-row"><span>Cargo</span><strong>{profile.cargo || 'Não informado'}</strong></div><div className="security-row"><span>Função</span><strong>{profile.funcao || 'Não informado'}</strong></div><div className="security-row"><span>Situação</span><strong><StatusPill value={profile.ativo ? 'Ativo' : 'Inativo'} /></strong></div></SectionCard></div> : null}</>
 }
 
-function PointView({ token, user }: { token: string; user: SessionUser }) {
+function PointView({ token, user, refreshSignal = 0 }: { token: string; user: SessionUser; refreshSignal?: number }) {
   const isAdministrative = user.perfil === 'admin' || user.perfil === 'administrador' || user.perfil === 'gestor'
   const [rows, setRows] = useState<PointRow[]>([])
-  const [employees, setEmployees] = useState<EmployeeRow[]>([])
+  const [loadedPointKey, setLoadedPointKey] = useState('')
+  const [employeePage, setEmployeePage] = useState<EmployeeSearchPage | null>(null)
+  const [employeeOffset, setEmployeeOffset] = useState(0)
+  const [employeeSearchInput, setEmployeeSearchInput] = useState('')
+  const [employeeSearch, setEmployeeSearch] = useState('')
+  const [employeeSearchKey, setEmployeeSearchKey] = useState(0)
+  const [employeeLoading, setEmployeeLoading] = useState(false)
+  const [employeeError, setEmployeeError] = useState('')
   const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'previous_month' | 'custom'>('month')
   const [employeeId, setEmployeeId] = useState('')
-  const [monthReference, setMonthReference] = useState(new Date().toISOString().slice(0, 7))
+  const [scheduleAssignments, setScheduleAssignments] = useState<PointScheduleAssignment[]>([])
+  const [monthReference, setMonthReference] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
   const [loading, setLoading] = useState(true)
@@ -724,6 +742,55 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
   const [pendingAction, setPendingAction] = useState<{ title: string; description: string; confirmLabel: string; run: () => Promise<void> | void } | null>(null)
   const [reviewModalRow, setReviewModalRow] = useState<PointRow | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const pointReviewDialogRef = useRef<HTMLDivElement | null>(null)
+  const pointConfirmDialogRef = useRef<HTMLDivElement | null>(null)
+  const pointDialogReturnFocusRef = useRef<HTMLElement | null>(null)
+  const pointConfirmReturnFocusRef = useRef<HTMLElement | null>(null)
+  const pointDialogStateRef = useRef<'review' | 'confirm' | null>(null)
+  const activePointDialog = pendingAction ? 'confirm' : reviewModalRow ? 'review' : null
+  pointDialogStateRef.current = activePointDialog
+
+  function rememberPointDialogFocus() {
+    if (!pointDialogReturnFocusRef.current && document.activeElement instanceof HTMLElement) pointDialogReturnFocusRef.current = document.activeElement
+  }
+
+  useEffect(() => {
+    if (!activePointDialog) return
+    rememberPointDialogFocus()
+    const dialog = activePointDialog === 'confirm' ? pointConfirmDialogRef.current : pointReviewDialogRef.current
+    const selector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+    const focusables = dialog ? Array.from(dialog.querySelectorAll<HTMLElement>(selector)) : []
+    const confirmTrigger = activePointDialog === 'review' ? pointConfirmReturnFocusRef.current : null
+    const triggerIsDisabled = confirmTrigger && 'disabled' in confirmTrigger && Boolean((confirmTrigger as HTMLButtonElement).disabled)
+    if (confirmTrigger?.isConnected && !triggerIsDisabled) confirmTrigger.focus()
+    else focusables[0]?.focus()
+    if (activePointDialog === 'review') pointConfirmReturnFocusRef.current = null
+    function handleDialogKeys(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        if (activePointDialog === 'confirm') setPendingAction(null)
+        else setReviewModalRow(null)
+        return
+      }
+      if (event.key !== 'Tab') return
+      const currentFocusables = dialog ? Array.from(dialog.querySelectorAll<HTMLElement>(selector)).filter((element) => !('disabled' in element && Boolean((element as HTMLButtonElement).disabled))) : []
+      if (!currentFocusables.length) { event.preventDefault(); dialog?.focus(); return }
+      const first = currentFocusables[0]
+      const last = currentFocusables[currentFocusables.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+      else if (!dialog?.contains(document.activeElement) || !currentFocusables.includes(document.activeElement as HTMLElement)) { event.preventDefault(); (event.shiftKey ? last : first).focus() }
+    }
+    document.addEventListener('keydown', handleDialogKeys)
+    return () => {
+      document.removeEventListener('keydown', handleDialogKeys)
+      if (pointDialogStateRef.current === null) {
+        pointDialogReturnFocusRef.current?.focus()
+        pointDialogReturnFocusRef.current = null
+        pointConfirmReturnFocusRef.current = null
+      }
+    }
+  }, [activePointDialog])
 
   const range = useMemo(() => {
     const toIso = (date: Date) => {
@@ -747,27 +814,56 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
     const firstDay = new Date(reference.getFullYear(), reference.getMonth() + monthOffset, 1)
     return { inicio: toIso(firstDay), fim: toIso(new Date(firstDay.getFullYear(), firstDay.getMonth() + 1, 0)) }
   }, [period, customStart, customEnd, monthReference])
+  const targetEmployeeId = isAdministrative ? employeeId : user.funcionario_id
+  const pointRequestKey = [targetEmployeeId || '', period, range.inicio || '', range.fim || '', customStart, customEnd, refreshSignal, refreshKey].join('|')
 
   useEffect(() => {
     if (!isAdministrative) return
-    listEmployees(token).then((data) => { setEmployees(data); setEmployeeId((current) => current || data[0]?.id || '') }).catch(() => undefined)
-  }, [token, isAdministrative])
+    let cancelled = false
+    setEmployeeLoading(true)
+    setEmployeeError('')
+    setEmployeePage(null)
+    setEmployeeId('')
+    searchEmployees(token, { busca: employeeSearch || undefined, offset: employeeOffset, limite: 1 })
+      .then((result) => {
+        if (!result.sucesso) throw new Error(result.erro || 'Falha ao buscar funcionários.')
+        if (cancelled) return
+        setEmployeePage(result)
+        setEmployeeId(result.registros?.[0]?.id || '')
+      })
+      .catch((cause) => {
+        if (cancelled) return
+        setEmployeePage(null)
+        setEmployeeError(cause instanceof Error ? cause.message : 'Falha ao buscar funcionários.')
+      })
+      .finally(() => { if (!cancelled) setEmployeeLoading(false) })
+    return () => { cancelled = true }
+  }, [token, isAdministrative, employeeSearch, employeeOffset, employeeSearchKey])
 
   useEffect(() => {
-    const targetEmployeeId = isAdministrative ? employeeId : user.funcionario_id
-    if (!targetEmployeeId || (period === 'custom' && (!customStart || !customEnd))) { setLoading(false); return }
+    if (!targetEmployeeId || (period === 'custom' && (!customStart || !customEnd))) { setLoading(false); setRows([]); setScheduleAssignments([]); setLoadedPointKey(''); setError(''); return }
     let cancelled = false
-    setLoading(true); setError('')
-    listPoint(token, { inicio: range.inicio, fim: range.fim, funcionarioId: targetEmployeeId, limite: 1000 })
-      .then((data) => { if (!data.sucesso) throw new Error(data.erro || 'Falha de consulta'); if (!cancelled) setRows(data.registros || []) })
+    setLoading(true); setError(''); setRows([]); setLoadedPointKey(''); setScheduleAssignments([])
+    const pointRequest = listPoint(token, { inicio: range.inicio, fim: range.fim, funcionarioId: targetEmployeeId, limite: 1000 })
+    const scheduleRequest = isAdministrative
+      ? listEmployeePointSchedules(token, targetEmployeeId, range.inicio || undefined, range.fim || undefined)
+      : Promise.resolve(null)
+    Promise.all([pointRequest, scheduleRequest])
+      .then(([data, scheduleResult]) => {
+        if (!data.sucesso) throw new Error(data.erro || 'Falha de consulta')
+        if (isAdministrative && scheduleResult && !scheduleResult.sucesso) throw new Error(scheduleResult.erro || 'Falha ao consultar a jornada configurada.')
+        if (!cancelled) { setRows(data.registros || []); setScheduleAssignments(scheduleResult?.atribuicoes || []); setLoadedPointKey(pointRequestKey) }
+      })
       .catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Falha de consulta') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [token, user.funcionario_id, isAdministrative, employeeId, period, range.inicio, range.fim, customStart, customEnd, refreshKey])
+  }, [token, user.funcionario_id, targetEmployeeId, isAdministrative, period, range.inicio, range.fim, customStart, customEnd, refreshKey, pointRequestKey])
 
-  const selectedEmployee = employees.find((employee) => employee.id === employeeId)
+  const employees = employeePage?.registros || []
+  const employeeCount = employeePage?.total || 0
+  const selectedEmployee = employees[0]
   const displayRows = useMemo(() => {
-    if (!range.inicio || !range.fim) return []
+    if (!range.inicio || !range.fim || loadedPointKey !== pointRequestKey) return []
     const recordsByDate = new Map(rows.map((row) => [row.data.slice(0, 10), row]))
     const start = new Date(`${range.inicio}T00:00:00`)
     const end = new Date(`${range.fim}T00:00:00`)
@@ -777,26 +873,54 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
       result.push(recordsByDate.get(date) || { id: `sem-registro-${date}`, funcionario_id: isAdministrative ? employeeId : user.funcionario_id, data: date, entrada: null, saida_almoco: null, volta_almoco: null, saida: null, horas_trabalhadas: null, status: null })
     }
     return result
-  }, [rows, range.inicio, range.fim, isAdministrative, employeeId, user.funcionario_id])
-  const selectedEmployeeIndex = employees.findIndex((employee) => employee.id === employeeId)
+  }, [rows, range.inicio, range.fim, isAdministrative, employeeId, user.funcionario_id, loadedPointKey, pointRequestKey])
+  const selectedEmployeeIndex = employees.length ? employeeOffset : -1
   const moveEmployee = (direction: -1 | 1) => {
-    const nextIndex = selectedEmployeeIndex + direction
-    if (nextIndex >= 0 && nextIndex < employees.length) setEmployeeId(employees[nextIndex].id)
+    const nextIndex = employeeOffset + direction
+    if (nextIndex >= 0 && nextIndex < employeeCount) setEmployeeOffset(nextIndex)
+  }
+  const scheduleForDate = (date: string) => {
+    const dateKey = date.slice(0, 10)
+    const assignment = scheduleAssignments.find((item) => item.vigencia_inicio <= dateKey && (!item.vigencia_fim || item.vigencia_fim >= dateKey))
+    if (!assignment) return null
+    const cursor = new Date(`${dateKey}T12:00:00`)
+    const weekday = cursor.getDay() || 7
+    const day = assignment.dias_semana?.[String(weekday)]
+    if (!day?.ativo) return { expectedMinutes: 0, isWorkday: false }
+    const expectedMinutes = assignment.modo === 'horarios_fixos'
+      ? (day.periodos || []).reduce((total, period) => total + periodMinutes(period), 0)
+      : Math.max(0, Number(day.minutos || 0))
+    return { expectedMinutes, isWorkday: expectedMinutes > 0 }
+  }
+  const isPositiveFlag = (value: string | null | undefined) => {
+    const normalized = String(value || '').trim().toLowerCase()
+    if (!normalized) return false
+    if (['não', 'nao', 'n', '0', '0.0', 'false', 'falso', '—', '-'].includes(normalized)) return false
+    const numeric = Number(normalized.replace(',', '.'))
+    return !Number.isFinite(numeric) || numeric !== 0
   }
   const rowKind = (row: PointRow) => {
     const marked = Boolean(row.entrada || row.saida || row.horas_trabalhadas)
     const note = `${row.justificativas || ''} ${row.inconsistencia_justificativa || ''}`.toLowerCase()
+    const status = String(row.status || '').toLowerCase()
+    const previsto = String(row.previsto || '').toLowerCase()
+    const schedule = scheduleForDate(row.data)
     if (note.includes('férias') || note.includes('ferias')) return 'ferias'
-    if (row.dia_falta && row.dia_falta.trim() && !['não', 'nao', 'n', '0'].includes(row.dia_falta.trim().toLowerCase())) return 'falta'
+    if (isPositiveFlag(row.dia_falta) || status.includes('falta')) return 'falta'
     if (hoursToNumber(row.horas_atraso) > 0) return 'atraso'
-    if (!marked && (!row.previsto || !row.previsto.trim() || note.includes('folga'))) return 'folga'
-    if (!marked) return 'sem-marcacao'
+    if (!marked && schedule?.isWorkday) return 'sem-marcacao'
+    if (!marked && schedule && !schedule.isWorkday) return 'folga'
+    if (!marked && (note.includes('folga') || /folga|descanso|repouso/.test(status) || /folga|descanso|repouso/.test(previsto))) return 'folga'
+    if (!marked && status.includes('sem marcação')) return 'sem-marcacao'
+    if (!marked && previsto.trim()) return 'sem-marcacao'
+    if (!marked) return 'sem-escala'
     if (hoursToNumber(row.extra_50) > 0 || hoursToNumber(row.extra_100) > 0) return 'extra'
     return 'normal'
   }
   const renderPointStatus = (row: PointRow) => {
     const kind = rowKind(row)
     if (kind === 'sem-marcacao') return <span className="point-unmarked-status"><AlertCircle size={14} />Sem marcação</span>
+    if (kind === 'sem-escala') return <StatusPill value="Sem escala" />
     if (kind === 'folga') return <StatusPill value="Folga" />
     if (kind === 'ferias') return <StatusPill value="Férias" />
     if (kind === 'falta') return <StatusPill value={row.justificativa_status === 'aceita' || row.inconsistencia_status === 'justificada' ? 'Falta justificada' : row.justificativa_status === 'recusada' || row.inconsistencia_status === 'recusada' ? 'Falta · justificativa recusada' : 'Falta injustificada'} />
@@ -821,13 +945,14 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
   const pointSummary = useMemo(() => {
     const extra50 = displayRows.reduce((sum, row) => sum + hoursToNumber(row.extra_50), 0)
     const extra100 = displayRows.reduce((sum, row) => sum + hoursToNumber(row.extra_100), 0)
-    const faltas = displayRows.filter((row) => Boolean(row.dia_falta && !['não', 'nao', 'n', '0'].includes(row.dia_falta.trim().toLowerCase())) || row.status === 'falta').length
+    const faltas = displayRows.filter((row) => isPositiveFlag(row.dia_falta) || String(row.status || '').toLowerCase().includes('falta')).length
     const atrasos = displayRows.filter((row) => hoursToNumber(row.horas_atraso) > 0).length
     const totalAtrasoMinutos = displayRows.reduce((sum, row) => sum + hoursToNumber(row.horas_atraso) * 60, 0)
     const diasComMarcacao = displayRows.filter((row) => row.entrada || row.saida || row.horas_trabalhadas).length
-    return { extra50, extra100, faltas, atrasos, totalAtrasoMinutos, diasComMarcacao, diasSemMarcacao: displayRows.length - diasComMarcacao, totalExtras: extra50 + extra100 }
+    const diasSemMarcacao = displayRows.filter((row) => rowKind(row) === 'sem-marcacao').length
+    return { extra50, extra100, faltas, atrasos, totalAtrasoMinutos, diasComMarcacao, diasSemMarcacao, totalExtras: extra50 + extra100 }
   }, [displayRows])
-  const hasInconsistency = (row: PointRow) => Boolean(row.inconsistencia_tipo || row.dia_falta || row.horas_atraso)
+  const hasInconsistency = (row: PointRow) => Boolean(row.inconsistencia_tipo || isPositiveFlag(row.dia_falta) || hoursToNumber(row.horas_atraso) > 0)
   async function persistReviewInconsistency(row: PointRow, status: 'aprovada' | 'justificada') {
     const funcionarioId = row.funcionario_id || (isAdministrative ? employeeId : user.funcionario_id)
     if (!funcionarioId) return
@@ -841,6 +966,7 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
     } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao analisar a inconsistência.') } finally { setDecisionBusy('') }
   }
   function requestReviewInconsistency(row: PointRow, status: 'aprovada' | 'justificada') {
+    rememberPointDialogFocus()
     setPendingAction({ title: status === 'aprovada' ? 'Aprovar ocorrência?' : 'Salvar justificativa?', description: status === 'aprovada' ? `A ocorrência de ${formatDate(row.data)} será aprovada e registrada na auditoria.` : `A justificativa será encaminhada para ${formatDate(row.data)} e ficará disponível para o funcionário.`, confirmLabel: status === 'aprovada' ? 'Aprovar ocorrência' : 'Salvar justificativa', run: () => persistReviewInconsistency(row, status) })
   }
   async function persistSubmittedJustificationReview(row: PointRow, status: 'aceita' | 'recusada') {
@@ -854,6 +980,8 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
     } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao analisar a justificativa.') } finally { setDecisionBusy('') }
   }
   function requestSubmittedJustificationReview(row: PointRow, status: 'aceita' | 'recusada') {
+    rememberPointDialogFocus()
+    pointConfirmReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     setPendingAction({
       title: status === 'aceita' ? 'Aceitar justificativa?' : 'Recusar justificativa?',
       description: status === 'aceita' ? `A justificativa de ${formatDate(row.data)} será aceita e o dia ficará identificado como justificado.` : `A justificativa de ${formatDate(row.data)} será recusada e o ponto permanecerá como lançado. Informe o motivo para o funcionário.`,
@@ -899,9 +1027,10 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
   }
   const renderAdministrativeIssueStatus = (row: PointRow) => {
     const label = row.justificativa_status === 'pendente' ? 'Justificativa pendente' : row.justificativa_status === 'aceita' || row.inconsistencia_status === 'justificada' ? 'Justificada' : row.justificativa_status === 'recusada' || row.inconsistencia_status === 'recusada' ? 'Justificativa recusada' : row.inconsistencia_status === 'aprovada' ? 'Aprovada' : 'Injustificado'
-    return <div className="point-issue-cell"><StatusPill value={label} /><small>{row.horas_atraso ? `Atraso: ${row.horas_atraso}` : row.dia_falta ? `Falta: ${row.dia_falta}` : row.inconsistencia}</small></div>
+    const detail = hoursToNumber(row.horas_atraso) > 0 ? `Atraso: ${row.horas_atraso}` : isPositiveFlag(row.dia_falta) ? `Falta: ${row.dia_falta}` : row.inconsistencia || 'Revisar ocorrência importada'
+    return <div className="point-issue-cell"><StatusPill value={label} /><small>{detail}</small></div>
   }
-  const openReviewModal = (row: PointRow) => { setReviewModalRow(row); setJustificationText(row.justificativa_resposta || '') }
+  const openReviewModal = (row: PointRow) => { rememberPointDialogFocus(); setReviewModalRow(row); setJustificationText(row.justificativa_resposta || '') }
   const renderAdministrativeReview = (row: PointRow) => {
     if (!hasInconsistency(row)) return '—'
     if (row.justificativa_id) return <div className="point-review-actions"><StatusPill value={row.justificativa_status === 'aceita' ? 'Aceita' : row.justificativa_status === 'recusada' ? 'Recusada' : 'Pendente'} /><button className="icon-button point-review-trigger" type="button" onClick={() => openReviewModal(row)} aria-label={`Abrir justificativa de ${formatDate(row.data)}`} title="Abrir justificativa"><FileText size={15} /></button></div>
@@ -910,11 +1039,11 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
   }
   const periodLabel = period === 'day' ? 'Hoje' : period === 'week' ? 'Esta semana' : period === 'month' ? 'Mês selecionado' : period === 'previous_month' ? 'Mês anterior' : 'Período personalizado'
   const title = isAdministrative ? `Ponto · ${selectedEmployee?.nome || 'Funcionário'}` : 'Meu ponto'
-  const description = isAdministrative ? 'Ficha individual de jornada. Selecione o funcionário e consulte todos os dias do período.' : 'Sua ficha individual de jornada, com todos os dias do período selecionado.'
+  const description = isAdministrative ? 'Consulte a ficha mensal de cada pessoa, os horários importados e a comparação informativa com a jornada configurada.' : 'Sua ficha individual de jornada, com todos os dias do período selecionado.'
   return <>
-    <PageHeading eyebrow="Minha área · jornada" title={title} description={description} />
+    <PageHeading eyebrow={isAdministrative ? 'Gestão de ponto · equipe' : 'Minha área · jornada'} title={title} description={description} />
     {isAdministrative ? <>
-      <div className="point-employee-nav"><button className="icon-button" type="button" onClick={() => moveEmployee(-1)} disabled={selectedEmployeeIndex <= 0} aria-label="Funcionário anterior"><ChevronLeft size={18} /></button><div><span>Ficha individual</span><strong>{selectedEmployee?.nome || 'Selecione um funcionário'}</strong><small>{selectedEmployeeIndex >= 0 ? `${selectedEmployeeIndex + 1} de ${employees.length} funcionários · ordem alfabética` : 'Selecione um funcionário'}</small></div><button className="icon-button" type="button" onClick={() => moveEmployee(1)} disabled={selectedEmployeeIndex < 0 || selectedEmployeeIndex >= employees.length - 1} aria-label="Próximo funcionário"><ChevronRight size={18} /></button></div>
+      <div className="point-employee-nav"><button className="icon-button" type="button" onClick={() => moveEmployee(-1)} disabled={selectedEmployeeIndex <= 0 || employeeLoading} aria-label="Funcionário anterior"><ChevronLeft size={18} /></button><div><span>Ficha individual</span><strong>{selectedEmployee?.nome || (employeeLoading ? 'Carregando funcionário…' : 'Selecione um funcionário')}</strong><small>{employeeCount ? `${employeeOffset + 1} de ${employeeCount} funcionários${employeeSearch ? ' encontrados' : ''}` : employeeLoading ? 'Consultando equipe…' : 'Nenhum funcionário encontrado'}</small></div><button className="icon-button" type="button" onClick={() => moveEmployee(1)} disabled={selectedEmployeeIndex < 0 || selectedEmployeeIndex >= employeeCount - 1 || employeeLoading} aria-label="Próximo funcionário"><ChevronRight size={18} /></button></div>
       {selectedEmployee ? <section className="point-employee-heading" aria-label="Resumo do funcionário e período do ponto">
         <UserAvatar name={selectedEmployee.nome} url={selectedEmployee.avatar_url} className="point-employee-avatar" />
         <div className="point-employee-identity">
@@ -930,27 +1059,47 @@ function PointView({ token, user }: { token: string; user: SessionUser }) {
     <div className="point-filter-panel">
       <div className="point-filter-heading"><div><strong>Filtros da ficha de ponto</strong><span>{isAdministrative ? 'Cada funcionário é consultado em uma ficha individual.' : 'Consulte sua jornada dia a dia.'}</span></div>{isAdministrative ? <span className="point-filter-scope"><UsersRound size={15} /> Visão administrativa</span> : null}</div>
       <div className="point-filter-fields">
-        {isAdministrative ? <label>Funcionário<select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}><option value="">Selecione um funcionário</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.nome} · {maskCpf(employee.cpf)}</option>)}</select></label> : null}
+        {isAdministrative ? <form className="point-employee-search" onSubmit={(event) => { event.preventDefault(); setEmployeeOffset(0); setEmployeeSearch(employeeSearchInput.trim()); setEmployeeSearchKey((value) => value + 1) }}><label>Buscar funcionário por nome ou CPF<input type="search" value={employeeSearchInput} onChange={(event) => setEmployeeSearchInput(event.target.value)} placeholder="Digite um nome ou CPF" autoComplete="off" /></label><button className="secondary-button" type="submit" disabled={employeeLoading}><Search size={15} /> Buscar</button></form> : null}
         <label>Período<select value={period} onChange={(event) => setPeriod(event.target.value as typeof period)}><option value="day">Ponto do dia</option><option value="week">Ponto da semana</option><option value="month">Mês de referência</option><option value="previous_month">Mês anterior</option><option value="custom">Período personalizado</option></select></label>
         {(period === 'month' || period === 'previous_month') ? <label>Mês de referência<input type="month" value={monthReference} onChange={(event) => setMonthReference(event.target.value)} /></label> : null}
         {period === 'custom' ? <><label>Data inicial<input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} /></label><label>Data final<input type="date" value={customEnd} min={customStart || undefined} onChange={(event) => setCustomEnd(event.target.value)} /></label></> : <div className="point-filter-current"><CalendarDays size={17} /><span>{periodLabel}<small>{range.inicio ? `${formatDate(range.inicio)}${range.fim && range.fim !== range.inicio ? ` até ${formatDate(range.fim)}` : ''}` : 'Selecione as datas'}</small></span></div>}
       </div>
+      {employeeError ? <div className="point-employee-search-error" role="alert">{employeeError}</div> : null}
     </div>
-    <div className="point-summary-grid">
+    <div className={`point-summary-grid${loading || error || loadedPointKey !== pointRequestKey ? ' is-loading' : ''}`}>
       <section className="point-chart-card"><div className="point-chart-heading"><div><span className="eyebrow">Resumo de horas</span><strong>{pointSummary.totalExtras.toFixed(1)} h extras</strong></div><CalendarDays size={18} /></div><div className="point-bar-row"><span>Extra 50%</span><div className="point-bar-track"><i style={{ width: `${pointSummary.totalExtras ? Math.max(4, pointSummary.extra50 / pointSummary.totalExtras * 100) : 0}%` }} /></div><b>{pointSummary.extra50.toFixed(1)} h</b></div><div className="point-bar-row"><span>Extra 100%</span><div className="point-bar-track is-pink"><i style={{ width: `${pointSummary.totalExtras ? Math.max(4, pointSummary.extra100 / pointSummary.totalExtras * 100) : 0}%` }} /></div><b>{pointSummary.extra100.toFixed(1)} h</b></div></section>
       <section className="point-chart-card"><div className="point-chart-heading"><div><span className="eyebrow">Resumo de ocorrências</span><strong>{pointSummary.faltas} faltas identificadas</strong><small className="point-chart-detail">{pointSummary.atrasos} {pointSummary.atrasos === 1 ? 'dia com atraso' : 'dias com atraso'} · {formatDelayMinutes(pointSummary.totalAtrasoMinutos)} acumulados</small></div><AlertCircle size={18} /></div><div className="point-bar-row"><span>Faltas</span><div className="point-bar-track is-danger"><i style={{ width: `${pointSummary.faltas ? 100 : 0}%` }} /></div><b>{pointSummary.faltas}</b></div><div className="point-bar-row"><span>Atrasos</span><div className="point-bar-track is-gold"><i style={{ width: `${pointSummary.atrasos ? Math.min(100, pointSummary.atrasos / Math.max(pointSummary.faltas, pointSummary.atrasos) * 100) : 0}%` }} /></div><b>{pointSummary.atrasos} dias</b></div></section>
     </div>
     <SectionCard title={isAdministrative ? `Ficha de ${selectedEmployee?.nome || 'funcionário'}` : 'Minha ficha de ponto'} caption={`${periodLabel} · ${range.inicio ? `${formatDate(range.inicio)} a ${formatDate(range.fim || range.inicio)}` : 'aguardando período'} · ${pointSummary.diasComMarcacao} com marcação · ${pointSummary.diasSemMarcacao} sem marcação`}>
       {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : !displayRows.length ? <EmptyState title={isAdministrative && !employeeId ? 'Selecione um funcionário' : 'Nenhum dia para exibir'} description={isAdministrative && !employeeId ? 'Escolha um funcionário para abrir a ficha individual de ponto.' : 'Ajuste o período para consultar a jornada.'} /> : <div className="table-wrap">
-        <p className="table-scroll-hint">Os dias são exibidos do primeiro ao último dia do período. Dias sem horário aparecem como “Sem marcação”.</p>
-        <table className="point-daily-table">
-          <thead><tr><th rowSpan={2}>Dia</th><th colSpan={2}>Entrada e almoço</th><th colSpan={2}>Retorno e saída</th><th rowSpan={2}>Horas</th><th rowSpan={2}>Status</th><th colSpan={4}>Ocorrências do arquivo</th>{isAdministrative ? <><th rowSpan={2}>Inconsistência</th><th rowSpan={2}>Análise</th></> : <th rowSpan={2}>Justificativa</th>}</tr><tr><th>Entrada</th><th>Almoço</th><th>Retorno</th><th>Saída</th><th>Dia falta</th><th>Atraso</th><th>Extra 50%</th><th>Desconto DSR</th></tr></thead>
-          <tbody>{displayRows.map((row) => { const kind = rowKind(row); return <tr key={row.id} className={`point-row-${kind}`}><td><strong>{formatDate(row.data)}</strong></td><td>{shortTime(row.entrada)}</td><td>{shortTime(row.saida_almoco)}</td><td>{shortTime(row.volta_almoco)}</td><td>{shortTime(row.saida)}</td><td>{row.horas_trabalhadas ? String(row.horas_trabalhadas).slice(0, 5) : '—'}</td><td>{renderPointStatus(row)}</td><td>{row.dia_falta || '—'}</td><td>{row.horas_atraso || '—'}</td><td>{row.extra_50 || '—'}</td><td>{row.desconta_dsr || '—'}</td>{isAdministrative ? <><td>{hasInconsistency(row) ? renderAdministrativeIssueStatus(row) : '—'}</td><td>{renderAdministrativeReview(row)}</td></> : <td>{renderEmployeeJustification(row)}</td>}</tr> })}</tbody>
+        <p className="table-scroll-hint">Os dias são exibidos do primeiro ao último dia do período. Extras 50%/100% vêm do arquivo importado; a diferença da jornada configurada é apenas informativa e não calcula adicional, desconto ou banco de horas.</p>
+        <table className={isAdministrative ? 'point-daily-table is-administrative' : 'point-daily-table'}>
+          <thead><tr><th rowSpan={2}>Dia</th><th colSpan={2}>Entrada e almoço</th><th colSpan={2}>Retorno e saída</th><th rowSpan={2}>Horas</th><th rowSpan={2}>Status</th><th colSpan={5}>Ocorrências do arquivo</th>{isAdministrative ? <><th colSpan={2}>Jornada configurada</th><th rowSpan={2}>Inconsistência</th><th rowSpan={2}>Análise</th></> : <th rowSpan={2}>Justificativa</th>}</tr><tr><th>Entrada</th><th>Almoço</th><th>Retorno</th><th>Saída</th><th>Dia falta</th><th>Atraso</th><th>Extra 50%</th><th>Extra 100%</th><th>Desconto DSR</th>{isAdministrative ? <><th>Previsto</th><th>Diferença informativa</th></> : null}</tr></thead>
+          <tbody>{displayRows.map((row) => {
+            const kind = rowKind(row)
+            const schedule = isAdministrative ? scheduleForDate(row.data) : null
+            const marked = Boolean(row.entrada || row.saida || row.horas_trabalhadas)
+            const difference = schedule?.isWorkday && marked ? Math.round(hoursToNumber(row.horas_trabalhadas) * 60) - schedule.expectedMinutes : null
+            return <tr key={row.id} className={`point-row-${kind}`}><td><strong>{formatDate(row.data)}</strong></td><td>{shortTime(row.entrada)}</td><td>{shortTime(row.saida_almoco)}</td><td>{shortTime(row.volta_almoco)}</td><td>{shortTime(row.saida)}</td><td>{row.horas_trabalhadas ? String(row.horas_trabalhadas).slice(0, 5) : '—'}</td><td>{renderPointStatus(row)}</td><td>{row.dia_falta || '—'}</td><td>{row.horas_atraso || '—'}</td><td>{row.extra_50 || '—'}</td><td>{row.extra_100 || '—'}</td><td>{row.desconta_dsr || '—'}</td>{isAdministrative ? <><td>{schedule ? schedule.isWorkday ? formatDuration(schedule.expectedMinutes) : 'Descanso' : '—'}</td><td className={difference === null ? '' : difference > 0 ? 'point-schedule-positive' : difference < 0 ? 'point-schedule-negative' : ''}>{difference === null ? '—' : `${difference > 0 ? '+' : difference < 0 ? '−' : ''}${formatDuration(Math.abs(difference))}`}</td><td>{hasInconsistency(row) ? renderAdministrativeIssueStatus(row) : '—'}</td><td>{renderAdministrativeReview(row)}</td></> : <td>{renderEmployeeJustification(row)}</td>}</tr>
+          })}</tbody>
         </table>
       </div>}
     </SectionCard>
-    {reviewModalRow ? <div className="point-review-backdrop" role="dialog" aria-modal="true" aria-labelledby="point-review-title" onClick={(event) => { if (event.target === event.currentTarget) setReviewModalRow(null) }}><section className="point-review-dialog"><div className="point-review-dialog-head"><div><span className="eyebrow">Análise de justificativa</span><h3 id="point-review-title">{formatDate(reviewModalRow.data)}</h3></div><button className="icon-button" type="button" onClick={() => setReviewModalRow(null)} aria-label="Fechar análise"><X size={17} /></button></div><div className="point-review-dialog-body"><div className="point-review-summary"><div><span>Ocorrência</span><strong>{reviewModalRow.horas_atraso ? `Atraso de ${reviewModalRow.horas_atraso}` : reviewModalRow.dia_falta ? `Falta: ${reviewModalRow.dia_falta}` : 'Inconsistência de ponto'}</strong></div><div><span>Tipo</span><strong>{reviewModalRow.justificativa_motivo ? 'Justificativa do funcionário' : 'Análise administrativa'}</strong></div></div><div className="point-review-message"><span>Motivo informado</span><p>{reviewModalRow.justificativa_motivo || 'O funcionário não enviou uma justificativa textual.'}</p></div>{reviewModalRow.justificativa_arquivo_url ? <a className="point-review-attachment" href={reviewModalRow.justificativa_arquivo_url} target="_blank" rel="noreferrer"><FileText size={15} /> {reviewModalRow.justificativa_arquivo_nome || 'Abrir anexo'}</a> : <small className="point-review-no-attachment">Nenhum anexo enviado.</small>}<label className="point-review-response"><span>Resposta ao funcionário</span><textarea value={justificationText} onChange={(event) => setJustificationText(event.target.value)} placeholder="Escreva uma resposta. Para recusar, informe o motivo." rows={3} readOnly={reviewModalRow.justificativa_status !== 'pendente'} /></label></div><div className="point-review-dialog-actions"><button className="secondary-button" type="button" onClick={() => setReviewModalRow(null)}>Fechar</button>{reviewModalRow.justificativa_status === 'pendente' ? <><button className="secondary-button danger-button" type="button" onClick={() => requestSubmittedJustificationReview(reviewModalRow, 'recusada')} disabled={decisionBusy === reviewModalRow.data}><X size={15} /> Recusar</button><button className="primary-button" type="button" onClick={() => requestSubmittedJustificationReview(reviewModalRow, 'aceita')} disabled={decisionBusy === reviewModalRow.data}><Check size={15} /> Aceitar</button></> : null}</div></section></div> : null}
-    {pendingAction ? <div className="point-confirm-backdrop" role="dialog" aria-modal="true" aria-labelledby="point-confirm-title"><div className="point-confirm-dialog"><div className="point-confirm-icon"><ShieldCheck size={22} /></div><div><h3 id="point-confirm-title">{pendingAction.title}</h3><p>{pendingAction.description}</p></div><div className="point-confirm-actions"><button className="secondary-button" type="button" onClick={() => setPendingAction(null)}>Cancelar</button><button className="primary-button" type="button" onClick={async () => { const action = pendingAction; setPendingAction(null); await action.run() }}><Check size={15} /> {pendingAction.confirmLabel}</button></div></div></div> : null}
+    {reviewModalRow ? <div className="point-review-backdrop" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) setReviewModalRow(null) }}>
+      <div ref={pointReviewDialogRef} className="point-review-dialog" role="dialog" aria-modal={activePointDialog === 'review'} aria-hidden={activePointDialog === 'confirm'} inert={activePointDialog === 'confirm'} aria-labelledby="point-review-title" tabIndex={-1}>
+        <div className="point-review-dialog-head"><div><span className="eyebrow">Análise de justificativa</span><h3 id="point-review-title">{formatDate(reviewModalRow.data)}</h3></div><button className="icon-button" type="button" onClick={() => setReviewModalRow(null)} aria-label="Fechar análise"><X size={17} /></button></div>
+        <div className="point-review-dialog-body">
+          <div className="point-review-summary"><div><span>Ocorrência</span><strong>{hoursToNumber(reviewModalRow.horas_atraso) > 0 ? `Atraso de ${reviewModalRow.horas_atraso}` : isPositiveFlag(reviewModalRow.dia_falta) ? `Falta: ${reviewModalRow.dia_falta}` : 'Inconsistência de ponto'}</strong></div><div><span>Tipo</span><strong>{reviewModalRow.justificativa_motivo ? 'Justificativa do funcionário' : 'Análise administrativa'}</strong></div></div>
+          <div className="point-review-message"><span>Motivo informado</span><p>{reviewModalRow.justificativa_motivo || 'O funcionário não enviou uma justificativa textual.'}</p></div>
+          {reviewModalRow.justificativa_arquivo_url ? <a className="point-review-attachment" href={reviewModalRow.justificativa_arquivo_url} target="_blank" rel="noreferrer"><FileText size={15} /> {reviewModalRow.justificativa_arquivo_nome || 'Abrir anexo'}</a> : <small className="point-review-no-attachment">Nenhum anexo enviado.</small>}
+          <label className="point-review-response"><span>Resposta ao funcionário</span><textarea value={justificationText} onChange={(event) => setJustificationText(event.target.value)} placeholder="Escreva uma resposta. Para recusar, informe o motivo." rows={3} readOnly={reviewModalRow.justificativa_status !== 'pendente'} /></label>
+        </div>
+        <div className="point-review-dialog-actions"><button className="secondary-button" type="button" onClick={() => setReviewModalRow(null)}>Fechar</button>{reviewModalRow.justificativa_status === 'pendente' ? <><button className="secondary-button danger-button" type="button" onClick={() => requestSubmittedJustificationReview(reviewModalRow, 'recusada')} disabled={decisionBusy === reviewModalRow.data}><X size={15} /> Recusar</button><button className="primary-button" type="button" onClick={() => requestSubmittedJustificationReview(reviewModalRow, 'aceita')} disabled={decisionBusy === reviewModalRow.data}><Check size={15} /> Aceitar</button></> : null}</div>
+      </div>
+    </div> : null}
+    {pendingAction ? <div className="point-confirm-backdrop" role="presentation">
+      <div ref={pointConfirmDialogRef} className="point-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="point-confirm-title" tabIndex={-1}><div className="point-confirm-icon"><ShieldCheck size={22} /></div><div><h3 id="point-confirm-title">{pendingAction.title}</h3><p>{pendingAction.description}</p></div><div className="point-confirm-actions"><button className="secondary-button" type="button" onClick={() => setPendingAction(null)}>Cancelar</button><button className="primary-button" type="button" onClick={async () => { const action = pendingAction; setPendingAction(null); await action.run() }}><Check size={15} /> {pendingAction.confirmLabel}</button></div></div>
+    </div> : null}
   </>
 }
 
@@ -1145,6 +1294,7 @@ function pointRowsFromMatrix(matrix: string[][]) {
 
 async function pointRowsFromFile(file: File) {
   if (/\.xlsx?$/i.test(file.name)) {
+    const XLSX = await import('xlsx')
     const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false })
     const sheet = workbook.Sheets[workbook.SheetNames[0]]
     return pointRowsFromMatrix(XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '' }))
@@ -1152,73 +1302,133 @@ async function pointRowsFromFile(file: File) {
   return pointRowsFromMatrix(parseDelimited(await file.text()))
 }
 
-function printReport(title: string, columns: string[], rows: string[][]) {
+function printReport(title: string, columns: string[], rows: string[][], targetWindow?: Window | null) {
   const escape = (value: string) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] || char))
   const html = `<html><head><title>${escape(title)}</title><style>body{font:12px Arial;color:#151821;padding:24px}h1{font-size:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccd0d8;padding:6px;text-align:left}th{background:#f0f2f5}</style></head><body><h1>${escape(title)}</h1><p>RF Gestão · gerado em ${new Date().toLocaleString('pt-BR')}</p><table><thead><tr>${columns.map((x) => `<th>${escape(x)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((x) => `<td>${escape(x || '—')}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=()=>window.print()</script></body></html>`
-  const popup = window.open('', '_blank'); if (!popup) return; popup.document.write(html); popup.document.close()
+  const popup = targetWindow || window.open('', '_blank'); if (!popup) return; popup.document.open(); popup.document.write(html); popup.document.close()
 }
 
 function PointImportsView({ token }: { token: string }) {
   const [tipo, setTipo] = useState<'diario' | 'mensal'>('mensal')
-  const [competencia, setCompetencia] = useState('10/2026')
+  const [competencia, setCompetencia] = useState(() => {
+    const now = new Date()
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`
+  })
   const [file, setFile] = useState<File | null>(null)
   const [imports, setImports] = useState<PointImportSummary[]>([])
   const [rows, setRows] = useState<PointImportRow[]>([])
+  const previewRequestRef = useRef(0)
+  const importOperationLockRef = useRef(false)
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false); const [actionLoading, setActionLoading] = useState(false)
+  const [reportLoading, setReportLoading] = useState(false)
   const [error, setError] = useState(''); const [message, setMessage] = useState('')
   const pending = imports.find((item) => item.id === pendingId)
+  const competenciaMonth = useMemo(() => {
+    const [month, year] = competencia.split('/')
+    return month && year ? `${year}-${month}` : ''
+  }, [competencia])
 
   async function reload() { const data = await listPointImports(token); if (!data.sucesso) throw new Error(data.erro || 'Falha ao consultar o histórico'); setImports(data.importacoes || []) }
   useEffect(() => { reload().catch((err) => setError(err instanceof Error ? err.message : 'Falha ao consultar o histórico')) }, [token])
 
-  async function loadPreview(importacaoId: string, importType: 'diario' | 'mensal' = tipo) {
-    const listed = await listImportedPoint(token, importType, importacaoId)
-    if (!listed.sucesso) throw new Error(listed.erro || 'Falha ao carregar a prévia')
-    setRows(listed.registros || []); setPendingId(importacaoId)
+  async function loadPreview(importacaoId: string, importType: 'diario' | 'mensal' = tipo): Promise<boolean> {
+    const requestId = previewRequestRef.current + 1
+    previewRequestRef.current = requestId
+    setRows([]); setPendingId(null); setError(''); setMessage('')
+    try {
+      const listed = await listImportedPoint(token, importType, importacaoId)
+      if (requestId !== previewRequestRef.current) return false
+      if (!listed.sucesso) throw new Error(listed.erro || 'Falha ao carregar a prévia')
+      setRows(listed.registros || []); setPendingId(importacaoId)
+      return true
+    } catch (cause) {
+      if (requestId !== previewRequestRef.current) return false
+      setError(cause instanceof Error ? cause.message : 'Falha ao carregar a prévia da importação.')
+      return false
+    }
   }
 
   async function submit(event: FormEvent) {
-    event.preventDefault(); if (!file) { setError('Selecione o arquivo exportado pelo aplicativo de ponto.'); return }
+    event.preventDefault()
+    if (importOperationLockRef.current) return
+    if (!file) { setError('Selecione o arquivo exportado pelo aplicativo de ponto.'); return }
+    importOperationLockRef.current = true
+    previewRequestRef.current += 1
     setLoading(true); setError(''); setMessage(''); setRows([]); setPendingId(null)
     try {
       const linhas = await pointRowsFromFile(file)
       if (!linhas.length) throw new Error('Não foi possível reconhecer linhas no arquivo. Use o exportador original, em CSV ou Excel.')
       const result = await importPoint(token, { tipo, competencia, arquivoNome: file.name, linhas })
       if (!result.sucesso || !result.importacao_id) throw new Error(result.erro || 'Falha ao analisar a importação')
-      await reload(); await loadPreview(result.importacao_id)
-      setFile(null); setMessage('Prévia criada. Revise as inconsistências antes de aplicar os registros encontrados.')
-    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao analisar o arquivo.') } finally { setLoading(false) }
+      setFile(null)
+      await reload()
+      if (await loadPreview(result.importacao_id)) setMessage('Prévia criada. Revise as inconsistências antes de aplicar os registros encontrados.')
+    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao analisar o arquivo.') } finally { importOperationLockRef.current = false; setLoading(false) }
   }
 
   async function applyPending() {
-    if (!pendingId) return
+    if (!pendingId || importOperationLockRef.current) return
+    importOperationLockRef.current = true
+    const importId = pendingId
+    previewRequestRef.current += 1
     setActionLoading(true); setError('')
-    try { const result = await applyPointImport(token, pendingId); if (!result.sucesso) throw new Error(result.erro || 'Não foi possível aplicar os registros'); await reload(); await loadPreview(pendingId); setMessage(`${result.linhas_aplicadas || 0} registros válidos aplicados. As inconsistências ficaram preservadas para correção.`) }
-    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao aplicar os registros.') } finally { setActionLoading(false) }
+    try { const result = await applyPointImport(token, importId); if (!result.sucesso) throw new Error(result.erro || 'Não foi possível aplicar os registros'); await reload(); await loadPreview(importId); setMessage(`${result.linhas_aplicadas || 0} registros válidos aplicados. As inconsistências ficaram preservadas para correção.`) }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao aplicar os registros.') } finally { importOperationLockRef.current = false; setActionLoading(false) }
   }
 
   async function ignorePending() {
-    if (!pendingId) return
+    if (!pendingId || importOperationLockRef.current) return
+    importOperationLockRef.current = true
+    const importId = pendingId
+    previewRequestRef.current += 1
     setActionLoading(true); setError('')
-    try { const result = await ignorePointImport(token, pendingId); if (!result.sucesso) throw new Error(result.erro || 'Não foi possível arquivar a importação'); await reload(); setPendingId(null); setRows([]); setMessage('Importação arquivada no histórico de auditoria.') }
-    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao arquivar a importação.') } finally { setActionLoading(false) }
+    try { const result = await ignorePointImport(token, importId); if (!result.sucesso) throw new Error(result.erro || 'Não foi possível arquivar a importação'); await reload(); setPendingId(null); setRows([]); setMessage('Importação arquivada no histórico de auditoria.') }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao arquivar a importação.') } finally { importOperationLockRef.current = false; setActionLoading(false) }
   }
 
   async function loadRows() {
-    const listed = await listImportedPoint(token, tipo)
-    if (listed.sucesso) { setRows(listed.registros || []); printReport(`Ponto ${tipo} · ${competencia}`, ['Data','Funcionário','CPF','Entrada','Saída','Horas normais','Atraso/Falta'], (listed.registros || []).map((row) => [formatDate(row.data), row.nome_csv, maskCpf(row.cpf), row.entrada_1 || '', row.saida_1 || '', row.total_normais || '', row.horas_atraso || row.dia_falta || ''])) }
+    if (importOperationLockRef.current) { setError('Aguarde a conclusão da operação de importação antes de gerar o relatório.'); return }
+    const selectedImport = imports.find((item) => item.tipo === tipo && item.competencia === competencia && item.status === 'aplicada')
+    if (!selectedImport) { setError(`Não há uma importação aplicada de ponto ${tipo} para a competência ${competencia}.`); return }
+    const reportWindow = window.open('', '_blank')
+    if (!reportWindow) { setError('Permita pop-ups neste site para gerar o relatório imprimível.'); return }
+    importOperationLockRef.current = true
+    setReportLoading(true); setError('')
+    try {
+      reportWindow.document.write('<p style="font:14px Arial;padding:24px">Preparando relatório de ponto…</p>')
+      const listed = await listImportedPoint(token, tipo, selectedImport.id)
+      if (!listed.sucesso) throw new Error(listed.erro || 'Não foi possível carregar os registros da importação selecionada.')
+      const reportRows = listed.registros || []
+      if (!reportRows.length) throw new Error('A importação aplicada não contém linhas para relatar.')
+      printReport(`Ponto ${tipo} · ${competencia}`, ['Data','Funcionário','CPF','Entrada','Saída','Horas normais','Extra 50%','Extra 100%','Atraso/Falta'], reportRows.map((row) => [formatDate(row.data), row.nome_csv, maskCpf(row.cpf), row.entrada_1 || '', row.saida_1 || '', row.total_normais || '', row.extra_50 || '', row.extra_100 || '', row.horas_atraso || row.dia_falta || '']), reportWindow)
+    } catch (cause) {
+      reportWindow.close()
+      setError(cause instanceof Error ? cause.message : 'Falha ao gerar o relatório de ponto.')
+    } finally { importOperationLockRef.current = false; setReportLoading(false) }
   }
 
   return <div className="import-page">
-    <PageHeading eyebrow="Administração · dados reais" title="Importar ponto" description="Analise o arquivo, confira os CPFs e aplique somente os registros válidos. As inconsistências ficam rastreáveis para correção posterior." action={<button className="secondary-button" onClick={loadRows}><Download size={16} /> Gerar PDF do ponto</button>} />
+    <PageHeading eyebrow="Administração · dados reais" title="Importar ponto" description="Analise o arquivo, confira os CPFs e aplique somente os registros válidos. As inconsistências ficam rastreáveis para correção posterior." action={<button className="secondary-button" onClick={loadRows} disabled={reportLoading || loading || actionLoading}>{reportLoading || loading || actionLoading ? <RefreshCw size={16} className="spin" /> : <Download size={16} />} {reportLoading ? 'Preparando PDF…' : loading || actionLoading ? 'Aguarde a operação atual…' : 'Gerar PDF do ponto'}</button>} />
     <div className="import-flow-note"><div className="import-step"><b>1</b><span><strong>Analisar</strong><small>CPF, data e formato</small></span></div><ChevronRight size={16} /><div className="import-step"><b>2</b><span><strong>Revisar</strong><small>Válidos e inconsistências</small></span></div><ChevronRight size={16} /><div className="import-step"><b>3</b><span><strong>Aplicar</strong><small>Sem bloquear os válidos</small></span></div></div>
     <div className="import-layout">
-      <SectionCard title="Nova importação" caption="O arquivo é apenas analisado até você confirmar"><form className="form-stack import-form" onSubmit={submit}><div className="form-row"><label>Tipo de ponto<select value={tipo} onChange={(event) => setTipo(event.target.value as 'diario' | 'mensal')}><option value="mensal">Ponto mensal / fechamento</option><option value="diario">Ponto diário</option></select></label><label>Competência<input value={competencia} onChange={(event) => setCompetencia(event.target.value)} placeholder="10/2026" /></label></div><label>Arquivo exportado<input type="file" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => setFile(event.target.files?.[0] || null)} required /><span className="field-note">Aceita o CSV exato do aplicativo e planilhas Excel. O cruzamento é feito exclusivamente pelo CPF.</span></label>{file && <div className="selected-file"><FileSpreadsheet size={18} /><div><strong>{file.name}</strong><small>{(file.size / 1024).toFixed(0)} KB · pronto para análise</small></div></div>}{error && <div className="form-error"><AlertCircle size={16} />{error}</div>}{message && <div className="form-success"><Check size={16} />{message}</div>}<button className="primary-button" type="submit" disabled={loading}>{loading ? <><RefreshCw className="spin" size={16} /> Analisando arquivo…</> : <><Upload size={16} /> Analisar e cruzar CPFs</>}</button></form></SectionCard>
+      <SectionCard title="Nova importação" caption="O arquivo é apenas analisado até você confirmar">
+        <form className="form-stack import-form" onSubmit={submit}>
+          <div className="form-row">
+            <label>Tipo de ponto<select value={tipo} onChange={(event) => setTipo(event.target.value as 'diario' | 'mensal')} disabled={loading || actionLoading || reportLoading}><option value="mensal">Ponto mensal / fechamento</option><option value="diario">Ponto diário</option></select></label>
+            <label>Competência · mês atual por padrão<input type="month" value={competenciaMonth} onChange={(event) => { const [year, month] = event.target.value.split('-'); setCompetencia(year && month ? `${month}/${year}` : '') }} required disabled={loading || actionLoading || reportLoading} /></label>
+          </div>
+          <label>Arquivo exportado<input type="file" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => setFile(event.target.files?.[0] || null)} required disabled={loading || actionLoading || reportLoading} /><span className="field-note">Aceita o CSV exato do aplicativo e planilhas Excel. O cruzamento é feito exclusivamente pelo CPF.</span></label>
+          {file && <div className="selected-file"><FileSpreadsheet size={18} /><div><strong>{file.name}</strong><small>{(file.size / 1024).toFixed(0)} KB · pronto para análise</small></div></div>}
+          {error && <div className="form-error"><AlertCircle size={16} />{error}</div>}
+          {message && <div className="form-success"><Check size={16} />{message}</div>}
+          <button className="primary-button" type="submit" disabled={loading || actionLoading || reportLoading}>{loading ? <><RefreshCw className="spin" size={16} /> Analisando arquivo…</> : actionLoading || reportLoading ? <><RefreshCw className="spin" size={16} /> Aguarde a operação atual…</> : <><Upload size={16} /> Analisar e cruzar CPFs</>}</button>
+        </form>
+      </SectionCard>
       <SectionCard title="Critérios de validação" caption="Regras explícitas da carga"><div className="import-rules"><div><Check size={16} /><span><strong>CPF encontrado</strong><small>Registro fica elegível para aplicação.</small></span></div><div><AlertCircle size={16} /><span><strong>CPF não encontrado</strong><small>Fica marcado como inconsistência, sem bloquear os demais.</small></span></div><div><ShieldCheck size={16} /><span><strong>Auditoria</strong><small>Usuário, arquivo, competência e resultado ficam no histórico.</small></span></div></div></SectionCard>
     </div>
-    {pending && <SectionCard title="Revisão antes da aplicação" caption={`Importação ${pending.tipo === 'mensal' ? 'mensal' : 'diária'} · ${pending.arquivo_nome}`} className="import-review-card"><div className="import-summary"><div className="import-stat"><span>Linhas lidas</span><strong>{pending.total_linhas}</strong></div><div className="import-stat valid"><span>CPFs encontrados</span><strong>{pending.linhas_encontradas}</strong></div><div className="import-stat invalid"><span>Inconsistências</span><strong>{pending.linhas_nao_encontradas}</strong></div><div className="import-stat"><span>Importado por</span><strong>{pending.imported_by_name || 'Você'}</strong></div></div><div className="import-review-actions"><div><strong>{pending.linhas_nao_encontradas ? 'Atenção: há linhas que precisam de correção.' : 'Tudo conferido: não há inconsistências.'}</strong><small>Aplicar registra somente os CPFs encontrados e mantém as demais linhas no histórico.</small></div><div className="button-row"><button className="primary-button" onClick={() => void applyPending()} disabled={actionLoading || pending.status !== 'pendente'}>{actionLoading ? <RefreshCw className="spin" size={16} /> : <Check size={16} />} {pending.status === 'aplicada' ? 'Registros aplicados' : 'Aplicar registros válidos'}</button><button className="secondary-button" onClick={() => void ignorePending()} disabled={actionLoading}>{pending.status === 'aplicada' ? 'Arquivar alerta' : pending.status === 'ignorada' ? 'Importação ignorada' : 'Ignorar e arquivar'}</button></div></div></SectionCard>}
-    <SectionCard title="Histórico e rastreabilidade" caption="Importações, operador, competência e resultado ficam preservados"><div className="import-history">{imports.length === 0 ? <EmptyState title="Nenhuma importação ainda" description="A primeira análise aparecerá aqui com o operador e os resultados." /> : imports.map((item) => <button className={`import-history-row ${pendingId === item.id ? 'is-selected' : ''}`} key={item.id} onClick={() => void loadPreview(item.id, item.tipo)}><span className="document-icon"><FileSpreadsheet size={18} /></span><span className="import-history-main"><strong>{item.tipo === 'mensal' ? 'Mensal' : 'Diário'} · {item.competencia || 'sem competência'}</strong><small>{item.arquivo_nome} · {item.imported_by_name || 'Usuário'} · {formatDate(item.created_at)}</small></span><span className="import-history-count"><b>{item.linhas_encontradas}/{item.total_linhas}</b><small>CPFs válidos</small></span><StatusPill value={item.status === 'aplicada' ? 'Aplicada' : item.status === 'ignorada' ? 'Ignorada' : item.linhas_nao_encontradas ? `${item.linhas_nao_encontradas} inconsistências` : 'Pendente'} /></button>)}</div></SectionCard>
+    {pending && <SectionCard title="Revisão antes da aplicação" caption={`Importação ${pending.tipo === 'mensal' ? 'mensal' : 'diária'} · ${pending.arquivo_nome}`} className="import-review-card"><div className="import-summary"><div className="import-stat"><span>Linhas lidas</span><strong>{pending.total_linhas}</strong></div><div className="import-stat valid"><span>CPFs encontrados</span><strong>{pending.linhas_encontradas}</strong></div><div className="import-stat invalid"><span>Inconsistências</span><strong>{pending.linhas_nao_encontradas}</strong></div><div className="import-stat"><span>Importado por</span><strong>{pending.imported_by_name || 'Você'}</strong></div></div><div className="import-review-actions"><div><strong>{pending.linhas_nao_encontradas ? 'Atenção: há linhas que precisam de correção.' : 'Tudo conferido: não há inconsistências.'}</strong><small>Aplicar registra somente os CPFs encontrados e mantém as demais linhas no histórico.</small></div><div className="button-row"><button className="primary-button" onClick={() => void applyPending()} disabled={loading || actionLoading || reportLoading || pending.status !== 'pendente'}>{actionLoading || reportLoading ? <RefreshCw className="spin" size={16} /> : <Check size={16} />} {pending.status === 'aplicada' ? 'Registros aplicados' : 'Aplicar registros válidos'}</button><button className="secondary-button" onClick={() => void ignorePending()} disabled={loading || actionLoading || reportLoading}>{pending.status === 'aplicada' ? 'Arquivar alerta' : pending.status === 'ignorada' ? 'Importação ignorada' : 'Ignorar e arquivar'}</button></div></div></SectionCard>}
+    <SectionCard title="Histórico e rastreabilidade" caption="Importações, operador, competência e resultado ficam preservados"><div className="import-history">{imports.length === 0 ? <EmptyState title="Nenhuma importação ainda" description="A primeira análise aparecerá aqui com o operador e os resultados." /> : imports.map((item) => <button className={`import-history-row ${pendingId === item.id ? 'is-selected' : ''}`} key={item.id} onClick={() => void loadPreview(item.id, item.tipo)} disabled={loading || actionLoading || reportLoading}><span className="document-icon"><FileSpreadsheet size={18} /></span><span className="import-history-main"><strong>{item.tipo === 'mensal' ? 'Mensal' : 'Diário'} · {item.competencia || 'sem competência'}</strong><small>{item.arquivo_nome} · {item.imported_by_name || 'Usuário'} · {formatDate(item.created_at)}</small></span><span className="import-history-count"><b>{item.linhas_encontradas}/{item.total_linhas}</b><small>CPFs válidos</small></span><StatusPill value={item.status === 'aplicada' ? 'Aplicada' : item.status === 'ignorada' ? 'Ignorada' : item.linhas_nao_encontradas ? `${item.linhas_nao_encontradas} inconsistências` : 'Pendente'} /></button>)}</div></SectionCard>
     {rows.length > 0 && <SectionCard title="Linhas da importação" caption={`${rows.length} registros · vermelho indica inconsistência de CPF ou data`} className="import-preview-card"><div className="table-wrap"><table><thead><tr><th>Data</th><th>Funcionário no arquivo</th><th>CPF</th><th>Entrada</th><th>Saída</th><th>Resultado</th></tr></thead><tbody>{rows.slice(0, 100).map((row) => <tr className={row.encontrado ? '' : 'row-inconsistent'} key={row.id}><td>{formatDate(row.data)}</td><td><strong>{row.nome_csv}</strong>{!row.encontrado && <small className="table-note">{row.inconsistencia || 'Inconsistência'}</small>}</td><td className="mono">{maskCpf(row.cpf)}</td><td>{row.entrada_1 || '—'}</td><td>{row.saida_1 || '—'}</td><td><StatusPill value={row.encontrado ? 'Encontrado' : 'Inconsistente'} /></td></tr>)}</tbody></table></div>{rows.length > 100 && <div className="table-footnote">Exibindo as primeiras 100 linhas desta prévia.</div>}</SectionCard>}
   </div>
 }
@@ -1285,7 +1495,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'atestados') return <EmployeeMedicalLeaves token={token} />
     if (active === 'avisos') return <NoticesView token={token} onUnreadChange={setUnreadNotices} canMarkRead={user.perfil === 'funcionario'} />
     if (active === 'solicitacoes') return <EmployeeHRRequests token={token} />
-    if (active === 'importacoes') return <PointImportsView token={token} />
+    if (active === 'importacoes') return <Suspense fallback={<LoadingState label="Carregando gestão de ponto…" />}><PointManagementDashboard team={(refreshSignal) => <PointView token={token} user={user} refreshSignal={refreshSignal} />} imports={<PointImportsView token={token} />} schedules={<PointSchedulesPanel token={token} />} /></Suspense>
     if (active === 'importar_holerite') return <PayslipImportDashboard token={token} />
     if (active === 'beneficios_descontos') return <PayrollBenefitsDiscounts token={token} />
     if (active === 'acordos') return <AgreementsDashboard token={token} />

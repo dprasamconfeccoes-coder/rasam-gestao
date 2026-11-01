@@ -43,6 +43,9 @@ import type {
   PointRow,
   PointImportRow,
   PointImportSummary,
+  PointScheduleAssignmentResponse,
+  PointScheduleListResponse,
+  PointScheduleWeek,
   RequestRow,
   SessionUser,
 } from './types'
@@ -164,6 +167,51 @@ export function listPoint(token: string, filters: { inicio?: string | null; fim?
     p_inicio: filters.inicio ?? null,
     p_fim: filters.fim ?? null,
     p_funcionario_id: filters.funcionarioId ?? null,
+  })
+}
+
+export function listPointSchedules(token: string) {
+  return rpc<PointScheduleListResponse>('app_admin_listar_jornadas_ponto', { p_token: token })
+}
+
+export function savePointSchedule(token: string, payload: {
+  id: string | null
+  nome: string
+  descricao: string | null
+  modo: 'horarios_fixos' | 'carga_semanal'
+  cargaSemanalMinutos: number
+  diasSemana: PointScheduleWeek
+}) {
+  return rpc<{ sucesso: boolean; erro?: string; jornada_id?: string; grupo_id?: string; versao?: number }>('app_admin_salvar_jornada_ponto', {
+    p_token: token,
+    p_id: payload.id,
+    p_nome: payload.nome,
+    p_descricao: payload.descricao,
+    p_modo: payload.modo,
+    p_carga_semanal_minutos: payload.cargaSemanalMinutos,
+    p_dias_semana: payload.diasSemana,
+  })
+}
+
+export function deactivatePointSchedule(token: string, id: string) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_inativar_jornada_ponto', { p_token: token, p_id: id })
+}
+
+export function listEmployeePointSchedules(token: string, funcionarioId: string, inicio?: string, fim?: string) {
+  return rpc<PointScheduleAssignmentResponse>('app_admin_listar_jornada_funcionario_ponto', {
+    p_token: token,
+    p_funcionario_id: funcionarioId,
+    p_inicio: inicio || null,
+    p_fim: fim || null,
+  })
+}
+
+export function assignPointSchedule(token: string, funcionarioId: string, jornadaId: string, vigenciaInicio: string) {
+  return rpc<{ sucesso: boolean; erro?: string; atribuicao_id?: string; vigencia_fim?: string | null }>('app_admin_atribuir_jornada_ponto', {
+    p_token: token,
+    p_funcionario_id: funcionarioId,
+    p_jornada_id: jornadaId,
+    p_vigencia_inicio: vigenciaInicio,
   })
 }
 

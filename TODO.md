@@ -18,3 +18,14 @@
 - [ ] **Integração com fechamento:** exibir benefícios e descontos na prévia mensal, permitir revisão antes da confirmação e bloquear alterações diretas após o fechamento, usando ajustes auditáveis.
 - [ ] **Central sem redundância:** consolidar ações administrativas em um único workspace por domínio, sem duplicar menus ou CRUDs.
 - [ ] **Portal do funcionário:** manter acesso somente à própria jornada, justificativas, atestados, solicitações, avisos, documentos, benefício e holerites elegíveis.
+
+## Entrega do módulo Gestão de ponto
+
+- [ ] **Menu e áreas do módulo:** substituir o rótulo administrativo “Importar ponto” por “Gestão de ponto”, mantendo “Meu ponto” para funcionários, e reunir as áreas “Ponto da equipe”, “Importações” e “Jornadas” sem duplicar ações administrativas.
+- [ ] **Consulta mensal da equipe:** carregar funcionários por busca e paginação server-side, apresentar uma pessoa por página e permitir navegação anterior/próxima; a lista deve incluir pessoas sem marcações na competência consultada e respeitar o tenant/perfil validado no servidor.
+- [ ] **Detalhamento individual diário:** permitir selecionar competência mensal, mostrar todos os dias do mês e as marcações, horas trabalhadas, faltas/atrasos/inconsistências e os valores diários de hora extra 50% e 100% quando vierem da importação; diferenças entre previsto e realizado devem ser informativas e não classificadas automaticamente como hora extra legal.
+- [ ] **Competência padrão correta na importação:** ao iniciar uma nova importação, pré-selecionar o mês atual no horário local, permitir a edição pelo operador e enviar a competência no formato `MM/AAAA` aceito pelo backend.
+- [ ] **Importação e auditoria preservadas:** continuar aceitando os modelos CSV e Excel usados pelo exportador, cruzar funcionários exclusivamente por CPF, exibir prévia antes da aplicação, deixar inconsistências revisáveis, aplicar somente linhas válidas e preservar histórico, operador, arquivo, competência e arquivamento.
+- [ ] **Modelos completos de jornada:** permitir criar, consultar, editar/versionar e inativar jornadas reutilizáveis por horários fixos semanais ou por carga horária total semanal distribuída nos dias selecionados; cada dia deve poder ser descanso, integral ou meio período, com ajuste diário de carga e um ou mais períodos de trabalho.
+- [ ] **Atribuição e histórico de jornada:** permitir atribuir jornada a funcionários formais/CLT, informais, em experiência e diaristas; registrar vigência de cada atribuição e preservar a jornada anterior quando houver mudança, sem reescrever períodos fechados ou inferir estrutura a partir de horários legados em texto.
+- [ ] **Segurança e compatibilidade da migração:** criar somente estruturas e RPCs aditivas para jornada; validar sessão, perfil administrativo e `empresa_id` no backend, sem conceder acesso público direto às novas tabelas e sem alterar/apagar dados ou registros de ponto existentes.

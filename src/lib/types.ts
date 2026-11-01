@@ -518,6 +518,61 @@ export interface PointImportSummary {
   created_at: string
 }
 
+export type PointScheduleMode = 'horarios_fixos' | 'carga_semanal'
+
+export interface PointSchedulePeriod {
+  inicio: string
+  fim: string
+}
+
+export interface PointScheduleDay {
+  ativo: boolean
+  periodos: PointSchedulePeriod[]
+  minutos: number
+}
+
+export type PointScheduleWeek = Record<string, PointScheduleDay>
+
+export interface PointScheduleTemplate {
+  id: string
+  grupo_id: string
+  versao: number
+  nome: string
+  descricao: string | null
+  modo: PointScheduleMode
+  carga_semanal_minutos: number
+  dias_semana: PointScheduleWeek
+  ativo: boolean
+  created_at: string
+  funcionarios_vigentes?: number
+}
+
+export interface PointScheduleAssignment {
+  id: string
+  funcionario_id: string
+  jornada_id: string
+  jornada_nome: string
+  jornada_versao: number
+  modo: PointScheduleMode
+  carga_semanal_minutos: number
+  dias_semana: PointScheduleWeek
+  vigencia_inicio: string
+  vigencia_fim: string | null
+  created_at: string
+}
+
+export interface PointScheduleListResponse {
+  sucesso: boolean
+  erro?: string
+  jornadas: PointScheduleTemplate[]
+}
+
+export interface PointScheduleAssignmentResponse {
+  sucesso: boolean
+  erro?: string
+  atribuicoes: PointScheduleAssignment[]
+}
+
 export interface AgreementInstallment {
   id: string
   acordo_id: string
