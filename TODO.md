@@ -18,3 +18,10 @@
 - [ ] **Integração com fechamento:** exibir benefícios e descontos na prévia mensal, permitir revisão antes da confirmação e bloquear alterações diretas após o fechamento, usando ajustes auditáveis.
 - [ ] **Central sem redundância:** consolidar ações administrativas em um único workspace por domínio, sem duplicar menus ou CRUDs.
 - [ ] **Portal do funcionário:** manter acesso somente à própria jornada, justificativas, atestados, solicitações, avisos, documentos, benefício e holerites elegíveis.
+
+
+## Melhoria da tela administrativa de funcionários — anexo 2026-11-01
+- [ ] **Prévia mensal ao selecionar funcionário:** ao clicar em um resultado da busca administrativa, limpar o foco da lista e mostrar somente uma prévia do funcionário com avatar, competência selecionável, horas trabalhadas/extras, faltas, ausências e alertas de ponto; incluir link para abrir o prontuário completo.
+- [ ] **Prontuário completo refinado:** abrir os detalhes em modal, com avatar e nome no cabeçalho, abas de resumo, linha do tempo, ponto, atestados, afastamentos, justificativas, advertências, férias, documentos, holerites, benefícios e descontos; exibir a barra de rolagem das abas somente quando o cursor estiver sobre a faixa ou quando ela receber foco.
+- [ ] **Linha do tempo relevante:** não registrar dias de ponto normais; mostrar somente inconsistências, horas extras, faltas, afastamentos, atestados, justificativas e demais movimentos relevantes.
+- [ ] **Publicação de teste:** validar o build e publicar a branch de teste no GitHub Pages sem alterar a branch principal.

@@ -52,3 +52,12 @@ Movimento visual: **editorial operacional dark**, com alto contraste e acentos m
 3. **Catálogo de benefícios e descontos:** cadastrar tipos, natureza, regras de cálculo, valor padrão, autorização, recorrência e status.
 4. **Lançamentos por competência:** lançar benefícios e descontos para um funcionário ou em lote, com origem, observação, parcelas, autorização e estados de processamento.
 5. **Integração com fechamento:** mostrar os lançamentos na prévia mensal, permitir revisão antes da confirmação e bloquear alterações diretas após o fechamento.
+
+
+## Continuação — tela de funcionários e prontuário
+
+A tela administrativa mantém a busca inteligente server-side e passa a tratar a seleção como uma prévia operacional inline: o clique em uma pessoa substitui o diretório por um resumo mensal com competência selecionável, avatar, horas, extras, faltas e alertas relevantes. Um CTA explícito abre o prontuário completo em modal, sem conceder essa tela ao perfil funcionário.
+
+O modal completo reutiliza as coleções do prontuário já existentes e organiza as áreas em abas. O cabeçalho combina avatar circular, nome, cargo, vínculo e situação. As abas preservam a faixa compacta e só exibem scrollbar quando houver hover/foco, mantendo acessibilidade por teclado. A linha do tempo passa a filtrar eventos de ponto normais e preserva apenas movimentos relevantes; as abas de atestados, afastamentos, justificativas, advertências, férias, documentos, holerites, benefícios e descontos continuam prontas para receber os atalhos de lançamento das RPCs existentes.
+
+A publicação de teste usa o workflow já versionado em `.github/workflows/deploy-pages.yml`, acionado por uma branch de publicação temporária, sem merge em `main`. Não é necessária migration nova enquanto a prévia consumir as coleções já retornadas por `app_admin_prontuario`.

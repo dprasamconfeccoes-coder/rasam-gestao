@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, LoadingState, SectionCard, StatusPill, formatDa
 type Props = {
   token: string
   funcionarioId?: string | null
+  relevantOnly?: boolean
 }
 
 const eventTypes: Array<[string, string]> = [
@@ -23,7 +24,7 @@ const eventTypes: Array<[string, string]> = [
   ['documento', 'Documentos'],
 ]
 
-export function EmployeeTimeline({ token, funcionarioId = null }: Props) {
+export function EmployeeTimeline({ token, funcionarioId = null, relevantOnly = false }: Props) {
   const [tipo, setTipo] = useState('')
   const [eventos, setEventos] = useState<EmployeeTimelineEvent[]>([])
   const [offset, setOffset] = useState(0)
@@ -76,6 +77,14 @@ export function EmployeeTimeline({ token, funcionarioId = null }: Props) {
     }
   }
 
+  const visibleEvents = relevantOnly
+    ? eventos.filter((evento) => {
+        if (evento.tipo !== 'ponto') return true
+        const text = `${evento.titulo} ${evento.descricao} ${evento.status || ''}`.toLowerCase()
+        return !/(ponto normal|jornada normal|batida normal|regular|sem inconsistência)/.test(text)
+      })
+    : eventos
+
   return (
     <SectionCard title="Linha do tempo funcional" caption={`${total} evento(s) · mais recentes primeiro · histórico consultado em páginas`}>
       <div className="employee-timeline-toolbar">
@@ -85,10 +94,10 @@ export function EmployeeTimeline({ token, funcionarioId = null }: Props) {
         </select>
       </div>
       {error ? <ErrorState message={error} /> : null}
-      {loading ? <LoadingState label="Carregando histórico funcional…" /> : eventos.length ? (
+      {loading ? <LoadingState label="Carregando histórico funcional…" /> : visibleEvents.length ? (
         <>
           <ol className="employee-timeline-list">
-            {eventos.map((evento) => (
+            {visibleEvents.map((evento) => (
               <li className="employee-timeline-item" key={`${evento.tipo}-${evento.id}`}>
                 <span className="employee-timeline-marker"><Clock3 size={15} /></span>
                 <div className="employee-timeline-content">

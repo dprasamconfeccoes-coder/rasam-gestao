@@ -38,6 +38,35 @@ function remunerationLabel(employee: Pick<EmployeeRow, 'tipo_vinculo' | 'salario
   return amount == null ? 'Remuneração não informada' : `${employee.salario_periodo || 'Mês'} · ${formatMoney(amount)}`
 }
 
+function asNumber(value: unknown) {
+  const parsed = typeof value === 'number' ? value : Number(String(value ?? '').replace(',', '.'))
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function durationValue(value: unknown) {
+  const direct = asNumber(value)
+  if (direct !== null) return direct
+  const raw = String(value ?? '').trim()
+  const match = raw.match(/^(\d{1,3}):(\d{2})(?::(\d{2}))?$/)
+  if (!match) return 0
+  return Number(match[1]) + Number(match[2]) / 60 + Number(match[3] || 0) / 3600
+}
+
+function hoursValue(item: Record<string, unknown>) {
+  return durationValue(item.horas_trabalhadas ?? item.horas ?? item.total_horas ?? item.total_normais)
+}
+
+function isRelevantPoint(item: Record<string, unknown>) {
+  const status = String(item.status ?? item.situacao ?? item.inconsistencia ?? '').toLowerCase()
+  const extra = asNumber(item.horas_extras ?? item.extra_horas ?? item.extras)
+  const absence = String(item.dia_falta ?? item.falta ?? item.tipo ?? '').toLowerCase()
+  return Boolean(extra && extra > 0) || Boolean(absence && !['não', 'nao', 'n', '0', 'false', 'normal'].includes(absence)) || Boolean(status && !['normal', 'encontrado', 'regular', 'aprovado'].includes(status))
+}
+
+function currentMonth() {
+  return new Date().toISOString().slice(0, 7)
+}
+
 function readText(item: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
     const value = item[key]
@@ -151,6 +180,8 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
   const [recordLoading, setRecordLoading] = useState(false)
   const [recordError, setRecordError] = useState('')
   const [tab, setTab] = useState<TabKey>('resumo')
+  const [fullRecordOpen, setFullRecordOpen] = useState(false)
+  const [previewMonth, setPreviewMonth] = useState(currentMonth)
   const [suggestions, setSuggestions] = useState<EmployeeRow[]>([])
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const [suggestionsOpen, setSuggestionsOpen] = useState(false)
@@ -188,7 +219,7 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
 
   async function openRecord(employee: EmployeeRow) {
     const requestId = ++recordSequence.current
-    setSelected(employee); setRecord(null); setRecordError(''); setRecordLoading(true); setTab('resumo')
+    setSelected(employee); setRecord(null); setRecordError(''); setRecordLoading(true); setTab('resumo'); setFullRecordOpen(false); setPreviewMonth(currentMonth())
     try {
       const result = await adminProntuario(token, employee.id)
       if (requestId !== recordSequence.current) return
@@ -198,7 +229,7 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
     finally { if (requestId === recordSequence.current) setRecordLoading(false) }
   }
 
-  const closeRecord = () => { recordSequence.current += 1; setSelected(null); setRecord(null); setRecordError('') }
+  const closeRecord = () => { recordSequence.current += 1; setSelected(null); setRecord(null); setRecordError(''); setFullRecordOpen(false) }
   function resetSearch() {
     searchSequence.current += 1
     setLoading(false); setFilters(emptyFilters); setActiveFilters(emptyFilters); setPage(null); setError(''); setNotice('')
@@ -215,6 +246,7 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
     <PageHeading eyebrow="Pessoas · gestão de equipe" title="Funcionários" description="Localize cadastros com filtros, consulte prontuários e registre novas pessoas em etapas." action={<button className="primary-button" type="button" onClick={() => setCreateOpen(true)}><UserPlus size={16} /> Novo funcionário</button>} />
     <div className="employee-access-note"><ShieldCheck size={16} /><span>Busca e prontuário geral restritos a perfis administrativos autorizados; consultas são paginadas e verificadas no Supabase.</span></div>
     {notice ? <div className="form-success employee-directory-notice" role="status">{notice}</div> : null}
+    {!selected ? <>
     <SectionCard title="Busca inteligente" caption="Pesquise por nome, CPF ou cargo e combine com os filtros de situação, vínculo e remuneração">
       <form className="employee-directory-search" onSubmit={(event) => { event.preventDefault(); setSuggestionsOpen(false); void runSearch(filters, 0) }}>
         <label className="employee-search-wide employee-search-autocomplete">Nome, CPF ou cargo
@@ -241,15 +273,28 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
       {page.total > 20 ? <div className="employee-directory-pagination"><button className="secondary-button compact-button" type="button" disabled={pageNumber === 0} onClick={() => void runSearch(activeFilters, pageNumber - 1)}><ChevronLeft size={15} /> Anterior</button><span>{pageNumber + 1} / {totalPages}</span><button className="secondary-button compact-button" type="button" disabled={pageNumber + 1 >= totalPages} onClick={() => void runSearch(activeFilters, pageNumber + 1)}>Próxima <ChevronRight size={15} /></button></div> : null}
     </SectionCard> : null}
 
-    {selected ? <div className="employee-record-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeRecord() }}><div className="employee-record-modal"><div className="employee-record-shell">
-      <div className="employee-record-heading"><div><span className="eyebrow">Prontuário individual</span><h2>{selected.nome}</h2><p>{selected.cargo || 'Cargo não informado'} · {selected.tipo_vinculo || 'Vínculo não informado'} · CPF {selected.cpf}</p></div><button className="secondary-button" type="button" onClick={closeRecord}><X size={16} /> Fechar prontuário</button></div>
-      {recordLoading ? <LoadingState label="Montando prontuário…" /> : recordError ? <ErrorState message={recordError} /> : record ? <>
-        <div className="employee-record-tabs">{tabs.map(([key, label]) => { const count = key === 'resumo' || key === 'timeline' ? null : collection(key).length; return <button type="button" key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}{count !== null ? <small>{count}</small> : null}</button> })}</div>
-        {tab === 'resumo' ? <div className="employee-record-summary">
-          <SectionCard title="Resumo funcional" caption="Dados principais do vínculo"><div className="employee-record-metrics"><div><span>Situação</span><StatusPill value={selected.situacao} /></div><div><span>Remuneração cadastrada</span><strong>{remunerationLabel(selected)}</strong></div><div><span>Admissão</span><strong>{formatDate(selected.data_admissao)}</strong></div><div><span>Vínculo</span><strong>{selected.tipo_vinculo || 'Não informado'}</strong></div><div><span>Atestados</span><strong>{collection('atestados').length}</strong></div><div><span>Afastamentos</span><strong>{collection('afastamentos').length}</strong></div></div></SectionCard>
-          <SectionCard title="Movimentos recentes" caption="O histórico completo fica na linha do tempo"><div className="employee-record-attention"><p><BriefcaseBusiness size={17} /> {collection('advertencias').length} advertência(s) e {collection('justificativas').length} justificativa(s).</p><p><CalendarDays size={17} /> {collection('ferias').length} período(s) de férias e {collection('ponto').length} registros recentes de ponto.</p><p><FileText size={17} /> {collection('documentos').length} documento(s) e {collection('holerites').length} holerite(s).</p></div></SectionCard>
-        </div> : tab === 'timeline' ? <EmployeeTimeline token={token} funcionarioId={selected.id} /> : <SectionCard title={title} caption={`${items.length} registro(s) carregado(s) · a linha do tempo tem paginação independente`}><RecordList items={items} /></SectionCard>}
-      </> : null}
+    </> : <button className="secondary-button employee-return-search" type="button" onClick={closeRecord}><ChevronLeft size={16} /> Voltar para a busca</button>}
+
+    {selected ? <SectionCard title="Prévia do funcionário" caption="Seleção atual · altere a competência para consultar a saúde do mês" className="employee-preview-card">
+      {recordLoading ? <LoadingState label="Montando prévia mensal…" /> : recordError ? <ErrorState message={recordError} /> : record ? (() => {
+        const monthPoints = collection('ponto').filter((item) => String(item.data ?? item.data_ponto ?? item.dia ?? '').slice(0, 7) === previewMonth)
+        const worked = monthPoints.reduce((sum, item) => sum + hoursValue(item), 0)
+        const extras = monthPoints.reduce((sum, item) => sum + durationValue(item.horas_extras ?? item.extra_horas ?? item.extras), 0)
+        const absences = monthPoints.filter((item) => { const value = String(item.dia_falta ?? item.falta ?? '').toLowerCase(); return value && !['não', 'nao', 'n', '0', 'false'].includes(value) }).length
+        const relevant = monthPoints.filter(isRelevantPoint).length
+        return <div className="employee-preview">
+          <div className="employee-preview-heading"><div className="employee-preview-identity"><span className="employee-preview-avatar">{selected.avatar_url ? <img src={selected.avatar_url} alt="" /> : <UserRound size={26} />}</span><div><span className="eyebrow">Prontuário prévio</span><h2>{selected.nome}</h2><p>{selected.cargo || 'Cargo não informado'} · {selected.tipo_vinculo || 'Vínculo não informado'} · <StatusPill value={selected.situacao} /></p></div></div><div className="employee-preview-actions"><label>Competência<input type="month" value={previewMonth} onChange={(event) => setPreviewMonth(event.target.value)} /></label><button className="secondary-button" type="button" onClick={() => setFullRecordOpen(true)}><FileText size={16} /> Abrir prontuário completo</button><button className="icon-button" type="button" onClick={closeRecord} aria-label="Fechar prévia"><X size={17} /></button></div></div>
+          <div className="employee-preview-metrics"><div><span>Horas trabalhadas</span><strong>{worked.toFixed(2).replace('.', ',')} h</strong></div><div><span>Horas extras</span><strong className={extras > 0 ? 'is-attention' : ''}>{extras.toFixed(2).replace('.', ',')} h</strong></div><div><span>Faltas / ausências</span><strong className={absences > 0 ? 'is-danger' : ''}>{absences}</strong></div><div><span>Alertas do mês</span><strong className={relevant > 0 ? 'is-attention' : ''}>{relevant}</strong></div></div>
+          <div className="employee-preview-note">{relevant ? `${relevant} ocorrência(s) relevante(s) exigem atenção no mês selecionado.` : 'Nenhuma inconsistência relevante encontrada no mês selecionado.'}</div>
+        </div>
+      })() : null}
+    </SectionCard> : null}
+
+    {selected && fullRecordOpen ? <div className="employee-record-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setFullRecordOpen(false) }}><div className="employee-record-modal"><div className="employee-record-shell">
+      <div className="employee-record-heading"><div className="employee-record-identity"><span className="employee-record-avatar">{selected.avatar_url ? <img src={selected.avatar_url} alt="" /> : <UserRound size={26} />}</span><div><span className="eyebrow">Prontuário individual</span><h2>{selected.nome}</h2><p>{selected.cargo || 'Cargo não informado'} · {selected.tipo_vinculo || 'Vínculo não informado'} · CPF {maskedCpf(selected.cpf)}</p></div></div><button className="secondary-button" type="button" onClick={() => setFullRecordOpen(false)}><X size={16} /> Fechar prontuário</button></div>
+      {record ? <><div className="employee-record-tabs">{tabs.map(([key, label]) => { const count = key === 'resumo' || key === 'timeline' ? null : collection(key).length; return <button type="button" key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}{count !== null ? <small>{count}</small> : null}</button> })}</div>
+        {tab === 'resumo' ? <div className="employee-record-summary"><SectionCard title="Resumo funcional" caption="Dados principais do vínculo"><div className="employee-record-metrics"><div><span>Situação</span><StatusPill value={selected.situacao} /></div><div><span>Remuneração cadastrada</span><strong>{remunerationLabel(selected)}</strong></div><div><span>Admissão</span><strong>{formatDate(selected.data_admissao)}</strong></div><div><span>Vínculo</span><strong>{selected.tipo_vinculo || 'Não informado'}</strong></div><div><span>Atestados</span><strong>{collection('atestados').length}</strong></div><div><span>Afastamentos</span><strong>{collection('afastamentos').length}</strong></div></div></SectionCard><SectionCard title="Movimentos recentes" caption="A linha do tempo mostra apenas ocorrências relevantes"><div className="employee-record-attention"><p><BriefcaseBusiness size={17} /> {collection('advertencias').length} advertência(s) e {collection('justificativas').length} justificativa(s).</p><p><CalendarDays size={17} /> {collection('ferias').length} período(s) de férias e {collection('ponto').filter(isRelevantPoint).length} ocorrência(s) de ponto relevantes.</p><p><FileText size={17} /> {collection('documentos').length} documento(s) e {collection('holerites').length} holerite(s).</p></div></SectionCard></div> : tab === 'timeline' ? <EmployeeTimeline token={token} funcionarioId={selected.id} relevantOnly /> : <SectionCard title={title} caption={`${items.length} registro(s) carregado(s)`}><RecordList items={items} /></SectionCard>}
+      </> : <LoadingState label="Montando prontuário…" />}
     </div></div></div> : null}
     <RegistrationWizard open={createOpen} token={token} onClose={() => setCreateOpen(false)} onCreated={(_id, cpf) => { const next = { ...filters, busca: cpf }; setFilters(next); void runSearch(next, 0).then(() => setNotice('Funcionário cadastrado e disponível para consulta.')) }} />
   </div>
