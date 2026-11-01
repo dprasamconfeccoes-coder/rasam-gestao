@@ -998,4 +998,4 @@ export interface FinanceiroExecutivoCategoria { categoria: string; valor?: numbe
 export interface FinanceiroExecutivoAgingBucket { quantidade?: number|string; valor?: number|string }
 export interface FinanceiroExecutivoAlerta { nivel?: 'critico'|'atencao'|'informativo'|string; titulo?: string; detalhe?: string }
 export interface FinanceiroExecutivoDashboard { sucesso: boolean; erro?: string; periodo?: { inicio?: string; fim?: string }; kpis?: FinanceiroExecutivoKpis; evolucao?: FinanceiroExecutivoEvolucao[]; categorias?: FinanceiroExecutivoCategoria[]; aging?: { vencido?: FinanceiroExecutivoAgingBucket; hoje?: FinanceiroExecutivoAgingBucket; sete_dias?: FinanceiroExecutivoAgingBucket; trinta_dias?: FinanceiroExecutivoAgingBucket }; alertas?: Array<FinanceiroExecutivoAlerta|null> }
-export interface FinanceiroRelatorioResponse { sucesso: boolean; erro?: string; tipo?: string; inicio?: string; fim?: string; linhas?: Array<Record<string, unknown>> }
+export interface FinanceiroRelatorioResponse { sucesso: boolean; erro?: string; tipo?: string; inicio?: string; fim?: string; totais?: Record<string, unknown>; linhas?: Array<Record<string, unknown>> }

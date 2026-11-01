@@ -931,8 +931,8 @@ export function adminFinanceiroExecutivo(token: string, inicio?: string, fim?: s
   return rpc<import('./types').FinanceiroExecutivoDashboard>('app_admin_financeiro_executivo', { p_token: token, p_inicio: inicio || null, p_fim: fim || null })
 }
 
-export function adminFinanceiroRelatorio(token: string, tipo: 'fluxo'|'categorias'|'contas_pagar'|'contas_receber'|'producao'|'dre'|'inadimplencia'|'recorrencias'|'orcamento'|'producao_status'|'producao_clientes'|'produtividade'|'quadro_funcionarios'|'ponto_jornada'|'absenteismo'|'ferias_afastamentos'|'dividas_posicao'|'dividas_credores', inicio?: string, fim?: string) {
-  const operational = ['producao_status','producao_clientes','produtividade','quadro_funcionarios','ponto_jornada','absenteismo','ferias_afastamentos','dividas_posicao','dividas_credores'].includes(tipo)
+export function adminFinanceiroRelatorio(token: string, tipo: 'fluxo'|'categorias'|'contas_pagar'|'contas_receber'|'producao'|'dre'|'inadimplencia'|'recorrencias'|'orcamento'|'producao_status'|'producao_clientes'|'produtividade'|'producao_fluxo_diario'|'controle_tamanhos_lotes'|'quadro_funcionarios'|'ponto_jornada'|'absenteismo'|'ferias_afastamentos'|'dividas_posicao'|'dividas_credores', inicio?: string, fim?: string) {
+  const operational = ['producao_status','producao_clientes','produtividade','producao_fluxo_diario','controle_tamanhos_lotes','quadro_funcionarios','ponto_jornada','absenteismo','ferias_afastamentos','dividas_posicao','dividas_credores'].includes(tipo)
   return rpc<import('./types').FinanceiroRelatorioResponse>(operational ? 'app_admin_relatorio_operacional' : 'app_admin_financeiro_relatorio', { p_token: token, p_tipo: tipo, p_inicio: inicio || null, p_fim: fim || null })
 }
 
