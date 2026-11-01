@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { BriefcaseBusiness, CalendarDays, ChevronLeft, ChevronRight, FileText, Plus, RefreshCw, Search, ShieldCheck, UserPlus, UserRound, X } from 'lucide-react'
+import { AlertTriangle, BriefcaseBusiness, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, FileText, Plus, RefreshCw, Search, ShieldCheck, UserPlus, UserRound, X } from 'lucide-react'
 import { adminCadastrarFuncionario, adminProntuario, searchEmployees } from '../lib/api'
 import type { EmployeeRow, EmployeeSearchPage, ProntuarioResponse, Profile } from '../lib/types'
 import { EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
@@ -73,6 +73,37 @@ function readText(item: Record<string, unknown>, keys: string[]) {
     if (value !== null && value !== undefined && String(value).trim()) return String(value)
   }
   return '—'
+}
+
+function formatHours(value: number) {
+  return `${value.toFixed(2).replace('.', ',')} h`
+}
+
+function pointDate(item: Record<string, unknown>) {
+  return readText(item, ['data', 'data_ponto', 'dia', 'data_ocorrencia'])
+}
+
+function pointStatus(item: Record<string, unknown>) {
+  const status = readText(item, ['status_label', 'status', 'situacao', 'inconsistencia'])
+  const absence = readText(item, ['dia_falta', 'falta'])
+  if (absence !== '—' && !['não', 'nao', 'n', '0', 'false'].includes(absence.toLowerCase())) return absence
+  return status
+}
+
+function PointRecordList({ items }: { items: Array<Record<string, unknown>> }) {
+  if (!items.length) return <EmptyState title="Nenhum registro de ponto" description="Não há marcações disponíveis para este funcionário." />
+  return <div className="point-record-list">{items.map((item, index) => {
+    const worked = hoursValue(item)
+    const extras = durationValue(item.horas_extras ?? item.extra_horas ?? item.extras)
+    const status = pointStatus(item)
+    const entrance = readText(item, ['entrada', 'hora_entrada', 'inicio', 'batida_entrada'])
+    const exit = readText(item, ['saida', 'hora_saida', 'fim', 'batida_saida'])
+    return <article className="point-record-row" key={String(item.id || `${pointDate(item)}-${index}`)}>
+      <div className="point-record-date"><strong>{formatDate(pointDate(item))}</strong><small>{readText(item, ['dia_semana', 'jornada', 'escala'])}</small></div>
+      <div className="point-record-times"><span><small>Entrada</small><b>{entrance}</b></span><span><small>Saída</small><b>{exit}</b></span><span><small>Trabalhadas</small><b>{formatHours(worked)}</b></span></div>
+      <div className="point-record-status">{extras > 0 ? <span className="point-tag point-tag-warning">+{formatHours(extras)}</span> : null}<span className={`point-tag ${status !== '—' ? 'point-tag-alert' : 'point-tag-neutral'}`}>{status}</span></div>
+    </article>
+  })}</div>
 }
 
 function RecordList({ items }: { items: Array<Record<string, unknown>> }) {
@@ -282,10 +313,13 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
         const extras = monthPoints.reduce((sum, item) => sum + durationValue(item.horas_extras ?? item.extra_horas ?? item.extras), 0)
         const absences = monthPoints.filter((item) => { const value = String(item.dia_falta ?? item.falta ?? '').toLowerCase(); return value && !['não', 'nao', 'n', '0', 'false'].includes(value) }).length
         const relevant = monthPoints.filter(isRelevantPoint).length
+        const relevantItems = monthPoints.filter(isRelevantPoint).slice(0, 3)
         return <div className="employee-preview">
-          <div className="employee-preview-heading"><div className="employee-preview-identity"><span className="employee-preview-avatar">{selected.avatar_url ? <img src={selected.avatar_url} alt="" /> : <UserRound size={26} />}</span><div><span className="eyebrow">Prontuário prévio</span><h2>{selected.nome}</h2><p>{selected.cargo || 'Cargo não informado'} · {selected.tipo_vinculo || 'Vínculo não informado'} · <StatusPill value={selected.situacao} /></p></div></div><div className="employee-preview-actions"><label>Competência<input type="month" value={previewMonth} onChange={(event) => setPreviewMonth(event.target.value)} /></label><button className="secondary-button" type="button" onClick={() => setFullRecordOpen(true)}><FileText size={16} /> Abrir prontuário completo</button><button className="icon-button" type="button" onClick={closeRecord} aria-label="Fechar prévia"><X size={17} /></button></div></div>
-          <div className="employee-preview-metrics"><div><span>Horas trabalhadas</span><strong>{worked.toFixed(2).replace('.', ',')} h</strong></div><div><span>Horas extras</span><strong className={extras > 0 ? 'is-attention' : ''}>{extras.toFixed(2).replace('.', ',')} h</strong></div><div><span>Faltas / ausências</span><strong className={absences > 0 ? 'is-danger' : ''}>{absences}</strong></div><div><span>Alertas do mês</span><strong className={relevant > 0 ? 'is-attention' : ''}>{relevant}</strong></div></div>
-          <div className="employee-preview-note">{relevant ? `${relevant} ocorrência(s) relevante(s) exigem atenção no mês selecionado.` : 'Nenhuma inconsistência relevante encontrada no mês selecionado.'}</div>
+          <div className="employee-preview-heading"><div className="employee-preview-identity"><span className="employee-preview-avatar">{selected.avatar_url ? <img src={selected.avatar_url} alt="" /> : <UserRound size={26} />}</span><div><span className="eyebrow">Visão executiva · prontuário prévio</span><h2>{selected.nome}</h2><p>{selected.cargo || 'Cargo não informado'} · {selected.tipo_vinculo || 'Vínculo não informado'} · <StatusPill value={selected.situacao} /></p></div></div><div className="employee-preview-actions"><label>Competência<input type="month" value={previewMonth} onChange={(event) => setPreviewMonth(event.target.value)} /></label><button className="secondary-button" type="button" onClick={() => setFullRecordOpen(true)}><FileText size={16} /> Abrir prontuário completo</button><button className="icon-button" type="button" onClick={closeRecord} aria-label="Fechar prévia"><X size={17} /></button></div></div>
+          <div className="employee-preview-context"><div><span>Vínculo e função</span><strong>{selected.tipo_vinculo || 'Não informado'} · {selected.cargo || 'Cargo não informado'}</strong></div><div><span>Remuneração</span><strong>{remunerationLabel(selected)}</strong></div><div><span>Admissão</span><strong>{formatDate(selected.data_admissao)}</strong></div></div>
+          <div className="employee-preview-section-heading"><div><span className="eyebrow">Leitura do mês</span><h3>Indicadores de jornada</h3></div><span className={`employee-month-state ${relevant ? 'has-alert' : 'is-ok'}`}>{relevant ? <><AlertTriangle size={14} /> Requer revisão</> : <><CheckCircle2 size={14} /> Sem alertas relevantes</>}</span></div>
+          <div className="employee-preview-metrics"><div><span>Horas trabalhadas</span><strong>{formatHours(worked)}</strong><small>{monthPoints.length} registro(s) de ponto</small></div><div><span>Horas extras</span><strong className={extras > 0 ? 'is-attention' : ''}>{formatHours(extras)}</strong><small>{extras > 0 ? 'Acima da jornada registrada' : 'Nenhuma hora extra registrada'}</small></div><div><span>Faltas / ausências</span><strong className={absences > 0 ? 'is-danger' : ''}>{absences}</strong><small>{absences > 0 ? 'Verificar justificativas' : 'Nenhuma ausência informada'}</small></div><div><span>Ocorrências relevantes</span><strong className={relevant > 0 ? 'is-attention' : ''}>{relevant}</strong><small>{relevant > 0 ? 'Exigem atenção do gestor' : 'Rotina sem inconsistências'}</small></div></div>
+          <div className="employee-preview-bottom"><div className="employee-preview-note">{relevant ? `${relevant} ocorrência(s) relevante(s) exigem atenção na competência selecionada.` : 'A competência selecionada não possui inconsistências, faltas ou horas extras sinalizadas.'}</div><div className="employee-preview-alerts"><div className="employee-preview-subheading"><strong>O que merece atenção</strong><span>{relevantItems.length ? `até ${relevantItems.length} destaque(s)` : 'Tudo regular'}</span></div>{relevantItems.length ? relevantItems.map((item, index) => <div className="employee-preview-alert" key={String(item.id || index)}><span><AlertTriangle size={14} /></span><div><strong>{readText(item, ['status_label', 'status', 'tipo', 'inconsistencia', 'evento'])}</strong><small>{formatDate(pointDate(item))} · {readText(item, ['descricao', 'observacao', 'motivo'])}</small></div></div>) : <div className="employee-preview-clear"><CheckCircle2 size={16} /><span>Nenhum registro exige ação imediata neste mês.</span></div>}</div></div>
         </div>
       })() : null}
     </SectionCard> : null}
@@ -293,7 +327,7 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
     {selected && fullRecordOpen ? <div className="employee-record-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setFullRecordOpen(false) }}><div className="employee-record-modal"><div className="employee-record-shell">
       <div className="employee-record-heading"><div className="employee-record-identity"><span className="employee-record-avatar">{selected.avatar_url ? <img src={selected.avatar_url} alt="" /> : <UserRound size={26} />}</span><div><span className="eyebrow">Prontuário individual</span><h2>{selected.nome}</h2><p>{selected.cargo || 'Cargo não informado'} · {selected.tipo_vinculo || 'Vínculo não informado'} · CPF {maskedCpf(selected.cpf)}</p></div></div><button className="secondary-button" type="button" onClick={() => setFullRecordOpen(false)}><X size={16} /> Fechar prontuário</button></div>
       {record ? <><div className="employee-record-tabs">{tabs.map(([key, label]) => { const count = key === 'resumo' || key === 'timeline' ? null : collection(key).length; return <button type="button" key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}{count !== null ? <small>{count}</small> : null}</button> })}</div>
-        {tab === 'resumo' ? <div className="employee-record-summary"><SectionCard title="Resumo funcional" caption="Dados principais do vínculo"><div className="employee-record-metrics"><div><span>Situação</span><StatusPill value={selected.situacao} /></div><div><span>Remuneração cadastrada</span><strong>{remunerationLabel(selected)}</strong></div><div><span>Admissão</span><strong>{formatDate(selected.data_admissao)}</strong></div><div><span>Vínculo</span><strong>{selected.tipo_vinculo || 'Não informado'}</strong></div><div><span>Atestados</span><strong>{collection('atestados').length}</strong></div><div><span>Afastamentos</span><strong>{collection('afastamentos').length}</strong></div></div></SectionCard><SectionCard title="Movimentos recentes" caption="A linha do tempo mostra apenas ocorrências relevantes"><div className="employee-record-attention"><p><BriefcaseBusiness size={17} /> {collection('advertencias').length} advertência(s) e {collection('justificativas').length} justificativa(s).</p><p><CalendarDays size={17} /> {collection('ferias').length} período(s) de férias e {collection('ponto').filter(isRelevantPoint).length} ocorrência(s) de ponto relevantes.</p><p><FileText size={17} /> {collection('documentos').length} documento(s) e {collection('holerites').length} holerite(s).</p></div></SectionCard></div> : tab === 'timeline' ? <EmployeeTimeline token={token} funcionarioId={selected.id} relevantOnly /> : <SectionCard title={title} caption={`${items.length} registro(s) carregado(s)`}><RecordList items={items} /></SectionCard>}
+        {tab === 'resumo' ? <div className="employee-record-summary"><SectionCard title="Resumo funcional" caption="Dados principais do vínculo"><div className="employee-record-metrics"><div><span>Situação</span><StatusPill value={selected.situacao} /></div><div><span>Remuneração cadastrada</span><strong>{remunerationLabel(selected)}</strong></div><div><span>Admissão</span><strong>{formatDate(selected.data_admissao)}</strong></div><div><span>Vínculo</span><strong>{selected.tipo_vinculo || 'Não informado'}</strong></div><div><span>Atestados</span><strong>{collection('atestados').length}</strong></div><div><span>Afastamentos</span><strong>{collection('afastamentos').length}</strong></div></div></SectionCard><SectionCard title="Movimentos recentes" caption="A linha do tempo mostra apenas ocorrências relevantes"><div className="employee-record-attention"><p><BriefcaseBusiness size={17} /> {collection('advertencias').length} advertência(s) e {collection('justificativas').length} justificativa(s).</p><p><CalendarDays size={17} /> {collection('ferias').length} período(s) de férias e {collection('ponto').filter(isRelevantPoint).length} ocorrência(s) de ponto relevantes.</p><p><FileText size={17} /> {collection('documentos').length} documento(s) e {collection('holerites').length} holerite(s).</p></div></SectionCard></div> : tab === 'timeline' ? <EmployeeTimeline token={token} funcionarioId={selected.id} relevantOnly /> : <SectionCard title={title} caption={`${items.length} registro(s) carregado(s)`}>{tab === 'ponto' ? <PointRecordList items={items} /> : <RecordList items={items} />}</SectionCard>}
       </> : <LoadingState label="Montando prontuário…" />}
     </div></div></div> : null}
     <RegistrationWizard open={createOpen} token={token} onClose={() => setCreateOpen(false)} onCreated={(_id, cpf) => { const next = { ...filters, busca: cpf }; setFilters(next); void runSearch(next, 0).then(() => setNotice('Funcionário cadastrado e disponível para consulta.')) }} />

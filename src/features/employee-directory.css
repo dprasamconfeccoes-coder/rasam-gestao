@@ -150,3 +150,59 @@
 @media (max-width:620px) { .employee-preview-metrics { grid-template-columns:1fr 1fr; } .employee-preview-metrics strong { font-size:17px; } .employee-record-heading { align-items:stretch; flex-direction:column; } .employee-record-heading > button { align-self:flex-start; } }
 
 .employee-return-search { margin-bottom:14px; }
+
+/* Camada executiva da prévia: mais respiro, contraste e leitura por blocos. */
+.employee-preview-card { padding:0 !important; overflow:hidden; border-width:1px !important; box-shadow:0 16px 34px rgba(67,45,21,.09); }
+.employee-preview-card > .section-header { padding:22px 28px 0; }
+.employee-preview-card > .section-header h2 { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:#9b6915; }
+.employee-preview-card > .section-header span { max-width:460px; line-height:1.5; }
+.employee-preview { gap:0; padding:24px 28px 30px; }
+.employee-preview-heading { padding-bottom:24px; border-bottom:1px solid #eee8e1; }
+.employee-preview-identity { gap:16px; }
+.employee-preview-avatar { width:66px; height:66px; border-width:3px; box-shadow:0 5px 14px rgba(162,63,105,.12); }
+.employee-preview-heading h2 { font-size:25px; letter-spacing:-.02em; }
+.employee-preview-heading p { flex-wrap:wrap; line-height:1.5; }
+.employee-preview-actions { align-items:center; }
+.employee-preview-actions label { gap:6px; }
+.employee-preview-actions input { min-width:142px; }
+.employee-preview-context { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; margin:24px 0 28px; padding:16px 0; border-top:1px solid #f0ebe5; border-bottom:1px solid #f0ebe5; }
+.employee-preview-context > div { display:grid; gap:6px; padding:0 18px; border-left:1px solid #eee8e1; }
+.employee-preview-context > div:first-child { padding-left:0; border-left:0; }
+.employee-preview-context span, .employee-preview-metrics span { color:#8a8178; font-size:10px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+.employee-preview-context strong { color:#29252b; font-size:12px; line-height:1.4; }
+.employee-preview-section-heading { display:flex; align-items:end; justify-content:space-between; gap:16px; margin-bottom:12px; }
+.employee-preview-section-heading h3 { margin:4px 0 0; color:#29252b; font-size:16px; }
+.employee-month-state { display:inline-flex; align-items:center; gap:6px; padding:7px 10px; border-radius:999px; font-size:10px; font-weight:800; }
+.employee-month-state.is-ok { background:#edf7ef; color:#3d7a4e; }
+.employee-month-state.has-alert { background:#fff4dd; color:#9b6915; }
+.employee-preview-metrics { grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+.employee-preview-metrics > div { min-height:108px; gap:7px; padding:17px; border-color:#ebe3da; box-shadow:0 4px 12px rgba(61,45,27,.035); }
+.employee-preview-metrics strong { font-size:23px; letter-spacing:-.02em; }
+.employee-preview-metrics small { color:#9a9188; font-size:10px; line-height:1.4; }
+.employee-preview-bottom { display:grid; grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr); gap:20px; margin-top:22px; padding-top:20px; border-top:1px solid #eee8e1; }
+.employee-preview-note { align-self:start; padding:15px 16px; border:1px solid #f0dfb9; line-height:1.55; }
+.employee-preview-alerts { display:grid; gap:9px; }
+.employee-preview-subheading { display:flex; justify-content:space-between; align-items:center; margin-bottom:2px; color:#29252b; font-size:12px; }
+.employee-preview-subheading span { color:#9a9188; font-size:10px; }
+.employee-preview-alert, .employee-preview-clear { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid #eee8e1; border-radius:10px; background:#fff; }
+.employee-preview-alert > span { display:grid; place-items:center; width:26px; height:26px; border-radius:8px; background:#fff4dd; color:#b07a17; }
+.employee-preview-alert div { display:grid; gap:3px; min-width:0; }
+.employee-preview-alert strong { color:#3c3530; font-size:11px; }
+.employee-preview-alert small { overflow:hidden; color:#8a8178; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+.employee-preview-clear { color:#3d7a4e; font-size:11px; }
+
+/* Ponto em formato de tabela compacta, sem o aspecto de lista genérica. */
+.point-record-list { display:grid; gap:9px; padding:20px; background:#fcfaf7; }
+.point-record-row { display:grid; grid-template-columns:130px minmax(0,1fr) auto; align-items:center; gap:20px; padding:15px 16px; border:1px solid #ebe3da; border-radius:12px; background:#fff; box-shadow:0 3px 10px rgba(61,45,27,.035); }
+.point-record-date, .point-record-times span { display:grid; gap:5px; }
+.point-record-date strong { color:#29252b; font-size:12px; }
+.point-record-date small, .point-record-times small { color:#978e85; font-size:10px; }
+.point-record-times { display:flex; flex-wrap:wrap; gap:24px; }
+.point-record-times b { color:#29252b; font-size:12px; }
+.point-record-status { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+.point-tag { display:inline-flex; align-items:center; min-height:24px; padding:0 8px; border-radius:999px; font-size:10px; font-weight:800; white-space:nowrap; }
+.point-tag-warning { background:#fff4dd; color:#9b6915; }
+.point-tag-alert { background:#fff0f0; color:#a34a4a; }
+.point-tag-neutral { background:#f1f0ed; color:#81786e; }
+@media (max-width:800px) { .employee-preview { padding:20px; } .employee-preview-card > .section-header { padding-left:20px; padding-right:20px; } .employee-preview-context { grid-template-columns:1fr; gap:12px; } .employee-preview-context > div, .employee-preview-context > div:first-child { padding:0; border-left:0; } .employee-preview-bottom { grid-template-columns:1fr; } .point-record-row { grid-template-columns:1fr; gap:12px; } .point-record-status { justify-content:flex-start; } }
+@media (max-width:620px) { .employee-preview { padding:16px; } .employee-preview-heading { gap:18px; } .employee-preview-identity { align-items:flex-start; } .employee-preview-actions { align-items:stretch; } .employee-preview-actions label, .employee-preview-actions input { width:100%; } .employee-preview-actions .secondary-button { flex:1; justify-content:center; } .employee-preview-section-heading { align-items:flex-start; flex-direction:column; } .employee-preview-metrics { grid-template-columns:1fr 1fr; } .employee-preview-metrics > div { min-height:98px; padding:13px; } .point-record-list { padding:12px; } .point-record-times { gap:14px; } }

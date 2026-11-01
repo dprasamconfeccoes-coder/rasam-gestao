@@ -61,3 +61,9 @@ A tela administrativa mantém a busca inteligente server-side e passa a tratar a
 O modal completo reutiliza as coleções do prontuário já existentes e organiza as áreas em abas. O cabeçalho combina avatar circular, nome, cargo, vínculo e situação. As abas preservam a faixa compacta e só exibem scrollbar quando houver hover/foco, mantendo acessibilidade por teclado. A linha do tempo passa a filtrar eventos de ponto normais e preserva apenas movimentos relevantes; as abas de atestados, afastamentos, justificativas, advertências, férias, documentos, holerites, benefícios e descontos continuam prontas para receber os atalhos de lançamento das RPCs existentes.
 
 A publicação de teste usa o workflow já versionado em `.github/workflows/deploy-pages.yml`, acionado por uma branch de publicação temporária, sem merge em `main`. Não é necessária migration nova enquanto a prévia consumir as coleções já retornadas por `app_admin_prontuario`.
+
+## Refinamento visual — prévia executiva e ponto
+
+A prévia deve funcionar como uma tela de decisão para o gestor, e não como um recorte do prontuário: identidade e contexto do vínculo ficam separados dos indicadores da competência; cada indicador mostra valor e interpretação curta; alertas relevantes aparecem em uma lista objetiva; e a ação de abrir o prontuário permanece secundária, porém evidente. A superfície clara usa bordas suaves, sombras discretas, tipografia hierárquica e espaçamento consistente para reduzir a sensação de conteúdo colado.
+
+O prontuário mantém a mesma linguagem visual e passa a renderizar ponto em uma lista operacional própria, com data, entrada, saída, horas trabalhadas, extras e situação em colunas legíveis. Os dados exibidos são exclusivamente os retornados pelo prontuário, preservando a distinção entre remuneração mensal e diária e sem criar valores de compensação.
