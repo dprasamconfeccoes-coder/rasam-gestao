@@ -483,6 +483,8 @@ export interface MedicalLeaveRow {
 export interface PointImportRow {
   id: string
   cpf: string
+  cpf_arquivo?: string | null
+  import_validation_errors?: string[] | null
   nome_csv: string
   data: string
   entrada_1: string | null

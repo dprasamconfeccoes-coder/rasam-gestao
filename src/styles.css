@@ -997,3 +997,28 @@ input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="c
   .point-employee-search button { width: 100%; }
 }
 .point-summary-grid.is-loading { display:none; }
+
+/* Refinos da Gestão de ponto: contexto compacto e histórico legível. */
+.point-employee-context { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0 0 18px; padding: 12px 15px; border: 1px solid rgba(215,168,74,.24); border-radius: 13px; background: linear-gradient(100deg, rgba(215,168,74,.09), rgba(217,88,141,.045) 58%, rgba(255,255,255,.025)); }
+.point-employee-context-main { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.point-employee-context-copy { display: grid; gap: 3px; min-width: 0; }
+.point-employee-context-copy > span { color: var(--gold); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.point-employee-context-copy > strong { overflow: hidden; color: var(--text); font-size: 14px; letter-spacing: -.02em; text-overflow: ellipsis; white-space: nowrap; }
+.point-employee-context-copy > small { color: var(--muted); font-size: 10px; }
+.point-employee-context-controls { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.point-employee-context-controls > span { min-width: 55px; color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; text-align: center; }
+.point-employee-context.is-loading { justify-content: flex-start; color: var(--muted); font-size: 11px; }
+.import-history-help { margin: 12px 20px 4px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.025); }
+.import-history-help summary { display: flex; align-items: center; gap: 7px; color: var(--gold); font-size: 11px; font-weight: 750; cursor: pointer; list-style: none; }
+.import-history-help summary::-webkit-details-marker { display: none; }
+.import-history-help summary:focus-visible { border-radius: 5px; outline: 2px solid var(--gold); outline-offset: 3px; }
+.import-history-help-body { display: grid; gap: 7px; padding-top: 10px; }
+.import-history-help-body p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.import-history-help-body strong { color: var(--text); }
+.import-history-main small { line-height: 1.4; }
+@media (max-width: 760px) {
+  .point-employee-context { align-items: flex-start; flex-direction: column; }
+  .point-employee-context-controls { align-self: flex-end; }
+  .import-history-row .status-pill { margin-left: 51px; }
+  .import-history-help { margin-right: 14px; margin-left: 14px; }
+}

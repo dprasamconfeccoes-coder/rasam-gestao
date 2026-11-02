@@ -26,6 +26,7 @@ import {
   FileText,
   Fingerprint,
   Gauge,
+  Info,
   HardHat,
   HeartPulse,
   LayoutDashboard,
@@ -123,6 +124,7 @@ import { EmployeeManagementDashboard } from './features/EmployeeManagementDashbo
 import { EmployeeOwnDossier } from './features/EmployeeOwnDossier'
 import { PayrollBenefitsDiscounts } from './features/PayrollBenefitsDiscounts'
 import { formatDuration, periodMinutes } from './lib/point-schedules'
+import { pointRowsFromFile } from './lib/point-import-parser'
 import {
   EmptyState,
   ErrorState,
@@ -177,7 +179,9 @@ function profileLabel(profile: Profile) {
 
 function maskCpf(cpf: string) {
   const digits = cpf.replace(/\D/g, '')
-  return digits.length === 11 ? `***.***.***-${digits.slice(-2)}` : cpf
+  if (!digits) return 'CPF não informado'
+  if (digits.length === 11) return `***.***.***-${digits.slice(-2)}`
+  return digits.length > 2 ? `${'*'.repeat(digits.length - 2)}${digits.slice(-2)}` : '*'.repeat(digits.length)
 }
 
 function normalizeCpf(value: string) {
@@ -815,7 +819,7 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
     return { inicio: toIso(firstDay), fim: toIso(new Date(firstDay.getFullYear(), firstDay.getMonth() + 1, 0)) }
   }, [period, customStart, customEnd, monthReference])
   const targetEmployeeId = isAdministrative ? employeeId : user.funcionario_id
-  const pointRequestKey = [targetEmployeeId || '', period, range.inicio || '', range.fim || '', customStart, customEnd, refreshSignal, refreshKey].join('|')
+  const pointRequestKey = [targetEmployeeId || '', period, range.inicio || '', range.fim || '', customStart, customEnd, refreshSignal, refreshKey, isAdministrative ? employeeSearch : '', isAdministrative ? employeeOffset : '', isAdministrative ? employeeSearchKey : ''].join('|')
 
   useEffect(() => {
     if (!isAdministrative) return
@@ -875,9 +879,23 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
     return result
   }, [rows, range.inicio, range.fim, isAdministrative, employeeId, user.funcionario_id, loadedPointKey, pointRequestKey])
   const selectedEmployeeIndex = employees.length ? employeeOffset : -1
+  const invalidateEmployeeSelection = () => {
+    setEmployeePage(null)
+    setEmployeeId('')
+    setRows([])
+    setScheduleAssignments([])
+    setLoadedPointKey('')
+    setLoading(true)
+    setError('')
+    setEmployeeError('')
+  }
   const moveEmployee = (direction: -1 | 1) => {
     const nextIndex = employeeOffset + direction
-    if (nextIndex >= 0 && nextIndex < employeeCount) setEmployeeOffset(nextIndex)
+    if (nextIndex >= 0 && nextIndex < employeeCount) {
+      invalidateEmployeeSelection()
+      setEmployeeLoading(true)
+      setEmployeeOffset(nextIndex)
+    }
   }
   const scheduleForDate = (date: string) => {
     const dateKey = date.slice(0, 10)
@@ -1038,39 +1056,27 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
     return <div className="point-review-actions"><span className="point-unjustified-label">Injustificado</span><button className="icon-button" type="button" onClick={() => requestReviewInconsistency(row, 'aprovada')} disabled={decisionBusy === row.data} aria-label="Aprovar inconsistência sem justificativa" title="Aprovar como fato real"><Check size={15} /></button></div>
   }
   const periodLabel = period === 'day' ? 'Hoje' : period === 'week' ? 'Esta semana' : period === 'month' ? 'Mês selecionado' : period === 'previous_month' ? 'Mês anterior' : 'Período personalizado'
-  const title = isAdministrative ? `Ponto · ${selectedEmployee?.nome || 'Funcionário'}` : 'Meu ponto'
-  const description = isAdministrative ? 'Consulte a ficha mensal de cada pessoa, os horários importados e a comparação informativa com a jornada configurada.' : 'Sua ficha individual de jornada, com todos os dias do período selecionado.'
   return <>
-    <PageHeading eyebrow={isAdministrative ? 'Gestão de ponto · equipe' : 'Minha área · jornada'} title={title} description={description} />
-    {isAdministrative ? <>
-      <div className="point-employee-nav"><button className="icon-button" type="button" onClick={() => moveEmployee(-1)} disabled={selectedEmployeeIndex <= 0 || employeeLoading} aria-label="Funcionário anterior"><ChevronLeft size={18} /></button><div><span>Ficha individual</span><strong>{selectedEmployee?.nome || (employeeLoading ? 'Carregando funcionário…' : 'Selecione um funcionário')}</strong><small>{employeeCount ? `${employeeOffset + 1} de ${employeeCount} funcionários${employeeSearch ? ' encontrados' : ''}` : employeeLoading ? 'Consultando equipe…' : 'Nenhum funcionário encontrado'}</small></div><button className="icon-button" type="button" onClick={() => moveEmployee(1)} disabled={selectedEmployeeIndex < 0 || selectedEmployeeIndex >= employeeCount - 1 || employeeLoading} aria-label="Próximo funcionário"><ChevronRight size={18} /></button></div>
-      {selectedEmployee ? <section className="point-employee-heading" aria-label="Resumo do funcionário e período do ponto">
-        <UserAvatar name={selectedEmployee.nome} url={selectedEmployee.avatar_url} className="point-employee-avatar" />
-        <div className="point-employee-identity">
-          <span className="eyebrow">Ficha mensal de ponto</span>
-          <strong>{selectedEmployee.nome}</strong>
-          <small>{selectedEmployee.cargo || 'Cargo não informado'} · CPF {maskCpf(selectedEmployee.cpf)}</small>
-        </div>
-        <div className="point-employee-detail"><span>Admissão</span><strong>{formatDate(selectedEmployee.data_admissao)}</strong></div>
-        <div className="point-employee-detail"><span>Situação</span><StatusPill value={selectedEmployee.situacao || (selectedEmployee.ativo ? 'Trabalhando' : 'Inativo')} /></div>
-        <div className="point-employee-detail point-employee-period"><span>{periodLabel}</span><strong>{range.inicio ? `${formatDate(range.inicio)}${range.fim && range.fim !== range.inicio ? ` até ${formatDate(range.fim)}` : ''}` : 'Selecione as datas'}</strong></div>
-      </section> : null}
-    </> : null}
+    {!isAdministrative && <PageHeading eyebrow="Minha área · jornada" title="Meu ponto" description="Sua ficha individual de jornada, com todos os dias do período selecionado." />}
     <div className="point-filter-panel">
-      <div className="point-filter-heading"><div><strong>Filtros da ficha de ponto</strong><span>{isAdministrative ? 'Cada funcionário é consultado em uma ficha individual.' : 'Consulte sua jornada dia a dia.'}</span></div>{isAdministrative ? <span className="point-filter-scope"><UsersRound size={15} /> Visão administrativa</span> : null}</div>
+      <div className="point-filter-heading"><div><strong>{isAdministrative ? 'Filtros da equipe' : 'Filtros da ficha de ponto'}</strong>{!isAdministrative && <span>Consulte sua jornada dia a dia.</span>}</div>{isAdministrative ? <span className="point-filter-scope"><UsersRound size={15} /> Visão administrativa</span> : null}</div>
       <div className="point-filter-fields">
-        {isAdministrative ? <form className="point-employee-search" onSubmit={(event) => { event.preventDefault(); setEmployeeOffset(0); setEmployeeSearch(employeeSearchInput.trim()); setEmployeeSearchKey((value) => value + 1) }}><label>Buscar funcionário por nome ou CPF<input type="search" value={employeeSearchInput} onChange={(event) => setEmployeeSearchInput(event.target.value)} placeholder="Digite um nome ou CPF" autoComplete="off" /></label><button className="secondary-button" type="submit" disabled={employeeLoading}><Search size={15} /> Buscar</button></form> : null}
+        {isAdministrative ? <form className="point-employee-search" onSubmit={(event) => { event.preventDefault(); invalidateEmployeeSelection(); setEmployeeLoading(true); setEmployeeOffset(0); setEmployeeSearch(employeeSearchInput.trim()); setEmployeeSearchKey((value) => value + 1) }}><label>Buscar funcionário por nome ou CPF<input type="search" value={employeeSearchInput} onChange={(event) => setEmployeeSearchInput(event.target.value)} placeholder="Digite um nome ou CPF" autoComplete="off" /></label><button className="secondary-button" type="submit" disabled={employeeLoading}><Search size={15} /> Buscar</button></form> : null}
         <label>Período<select value={period} onChange={(event) => setPeriod(event.target.value as typeof period)}><option value="day">Ponto do dia</option><option value="week">Ponto da semana</option><option value="month">Mês de referência</option><option value="previous_month">Mês anterior</option><option value="custom">Período personalizado</option></select></label>
         {(period === 'month' || period === 'previous_month') ? <label>Mês de referência<input type="month" value={monthReference} onChange={(event) => setMonthReference(event.target.value)} /></label> : null}
         {period === 'custom' ? <><label>Data inicial<input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} /></label><label>Data final<input type="date" value={customEnd} min={customStart || undefined} onChange={(event) => setCustomEnd(event.target.value)} /></label></> : <div className="point-filter-current"><CalendarDays size={17} /><span>{periodLabel}<small>{range.inicio ? `${formatDate(range.inicio)}${range.fim && range.fim !== range.inicio ? ` até ${formatDate(range.fim)}` : ''}` : 'Selecione as datas'}</small></span></div>}
       </div>
       {employeeError ? <div className="point-employee-search-error" role="alert">{employeeError}</div> : null}
     </div>
+    {isAdministrative && selectedEmployee ? <section className="point-employee-context" aria-label="Funcionário selecionado">
+      <div className="point-employee-context-main"><UserAvatar name={selectedEmployee.nome} url={selectedEmployee.avatar_url} className="point-employee-avatar" /><div className="point-employee-context-copy"><span>Funcionário {employeeOffset + 1} de {employeeCount}{employeeSearch ? ' encontrados' : ''}</span><strong>{selectedEmployee.nome}</strong>{selectedEmployee.cargo ? <small>{selectedEmployee.cargo}</small> : null}</div></div>
+      <div className="point-employee-context-controls"><button className="icon-button" type="button" onClick={() => moveEmployee(-1)} disabled={selectedEmployeeIndex <= 0 || employeeLoading} aria-label="Funcionário anterior"><ChevronLeft size={18} /></button><span aria-live="polite">{employeeOffset + 1} / {employeeCount}</span><button className="icon-button" type="button" onClick={() => moveEmployee(1)} disabled={selectedEmployeeIndex < 0 || selectedEmployeeIndex >= employeeCount - 1 || employeeLoading} aria-label="Próximo funcionário"><ChevronRight size={18} /></button></div>
+    </section> : isAdministrative && employeeLoading ? <div className="point-employee-context is-loading" role="status"><RefreshCw className="spin" size={16} /> Carregando primeiro funcionário…</div> : null}
     <div className={`point-summary-grid${loading || error || loadedPointKey !== pointRequestKey ? ' is-loading' : ''}`}>
       <section className="point-chart-card"><div className="point-chart-heading"><div><span className="eyebrow">Resumo de horas</span><strong>{pointSummary.totalExtras.toFixed(1)} h extras</strong></div><CalendarDays size={18} /></div><div className="point-bar-row"><span>Extra 50%</span><div className="point-bar-track"><i style={{ width: `${pointSummary.totalExtras ? Math.max(4, pointSummary.extra50 / pointSummary.totalExtras * 100) : 0}%` }} /></div><b>{pointSummary.extra50.toFixed(1)} h</b></div><div className="point-bar-row"><span>Extra 100%</span><div className="point-bar-track is-pink"><i style={{ width: `${pointSummary.totalExtras ? Math.max(4, pointSummary.extra100 / pointSummary.totalExtras * 100) : 0}%` }} /></div><b>{pointSummary.extra100.toFixed(1)} h</b></div></section>
       <section className="point-chart-card"><div className="point-chart-heading"><div><span className="eyebrow">Resumo de ocorrências</span><strong>{pointSummary.faltas} faltas identificadas</strong><small className="point-chart-detail">{pointSummary.atrasos} {pointSummary.atrasos === 1 ? 'dia com atraso' : 'dias com atraso'} · {formatDelayMinutes(pointSummary.totalAtrasoMinutos)} acumulados</small></div><AlertCircle size={18} /></div><div className="point-bar-row"><span>Faltas</span><div className="point-bar-track is-danger"><i style={{ width: `${pointSummary.faltas ? 100 : 0}%` }} /></div><b>{pointSummary.faltas}</b></div><div className="point-bar-row"><span>Atrasos</span><div className="point-bar-track is-gold"><i style={{ width: `${pointSummary.atrasos ? Math.min(100, pointSummary.atrasos / Math.max(pointSummary.faltas, pointSummary.atrasos) * 100) : 0}%` }} /></div><b>{pointSummary.atrasos} dias</b></div></section>
     </div>
-    <SectionCard title={isAdministrative ? `Ficha de ${selectedEmployee?.nome || 'funcionário'}` : 'Minha ficha de ponto'} caption={`${periodLabel} · ${range.inicio ? `${formatDate(range.inicio)} a ${formatDate(range.fim || range.inicio)}` : 'aguardando período'} · ${pointSummary.diasComMarcacao} com marcação · ${pointSummary.diasSemMarcacao} sem marcação`}>
+    <SectionCard title={isAdministrative ? 'Registros diários' : 'Minha ficha de ponto'} caption={`${periodLabel} · ${range.inicio ? `${formatDate(range.inicio)} a ${formatDate(range.fim || range.inicio)}` : 'aguardando período'} · ${pointSummary.diasComMarcacao} com marcação · ${pointSummary.diasSemMarcacao} sem marcação`}>
       {loading ? <LoadingState /> : error ? <ErrorState message={error} /> : !displayRows.length ? <EmptyState title={isAdministrative && !employeeId ? 'Selecione um funcionário' : 'Nenhum dia para exibir'} description={isAdministrative && !employeeId ? 'Escolha um funcionário para abrir a ficha individual de ponto.' : 'Ajuste o período para consultar a jornada.'} /> : <div className="table-wrap">
         <p className="table-scroll-hint">Os dias são exibidos do primeiro ao último dia do período. Extras 50%/100% vêm do arquivo importado; a diferença da jornada configurada é apenas informativa e não calcula adicional, desconto ou banco de horas.</p>
         <table className={isAdministrative ? 'point-daily-table is-administrative' : 'point-daily-table'}>
@@ -1245,63 +1251,6 @@ function NoticesView({ token, onUnreadChange, canMarkRead }: { token: string; on
   </div>
 }
 
-function parseDelimited(text: string) {
-  const rows: string[][] = []
-  let row: string[] = []; let cell = ''; let quoted = false
-  const source = text.replace(/^\uFEFF/, '')
-  for (let i = 0; i < source.length; i += 1) {
-    const char = source[i]
-    if (quoted) {
-      if (char === '"' && source[i + 1] === '"') { cell += '"'; i += 1 }
-      else if (char === '"') quoted = false
-      else cell += char
-    } else if (char === '"') quoted = true
-    else if (char === ';') { row.push(cell.trim()); cell = '' }
-    else if (char === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = '' }
-    else if (char !== '\r') cell += char
-  }
-  if (cell || row.length) { row.push(cell.trim()); rows.push(row) }
-  return rows.filter((item) => item.some(Boolean))
-}
-
-function normalizeHeader(value: string) {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()
-}
-
-function pointRowsFromMatrix(matrix: string[][]) {
-  if (matrix.length < 2) return []
-  const headers = matrix[0].map(normalizeHeader)
-  const find = (...names: string[]) => {
-    const normalized = names.map(normalizeHeader)
-    const exact = headers.findIndex((header) => normalized.includes(header))
-    return exact >= 0 ? exact : headers.findIndex((header) => normalized.some((name) => header.startsWith(name)))
-  }
-  const get = (cells: string[], ...names: string[]) => { const index = find(...names); return index >= 0 ? String(cells[index] || '').trim() : '' }
-  return matrix.slice(1).map((cells) => {
-    const rawDate = get(cells, 'Dia').split(' ')[0]
-    const parts = rawDate.split('/')
-    const data = parts.length === 3 ? `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}` : ''
-    return {
-      cpf: get(cells, 'CPF do funcionário', 'CPF'), nome: get(cells, 'Nome do funcionário', 'Nome'), data,
-      previsto: get(cells, 'Previsto'), entrada_1: get(cells, 'Entrada 1'), saida_1: get(cells, 'Saída 1', 'Saida 1'),
-      entrada_2: get(cells, 'Entrada 2'), saida_2: get(cells, 'Saída 2', 'Saida 2'), total_normais: get(cells, 'Total Normais'),
-      total_noturno: get(cells, 'Total Noturno'), dia_falta: get(cells, 'Dia Falta'), horas_atraso: get(cells, 'Horas Atraso'),
-      abono: get(cells, 'Abono'), extra_50: get(cells, 'Extra   50%D', 'Extra 50%D'), extra_100: get(cells, 'Extra   100%D', 'Extra 100%D'),
-      desconta_dsr: get(cells, 'Desconta DSR'), justificativas: get(cells, 'Justificativas'),
-    }
-  }).filter((row) => row.cpf || row.nome)
-}
-
-async function pointRowsFromFile(file: File) {
-  if (/\.xlsx?$/i.test(file.name)) {
-    const XLSX = await import('xlsx')
-    const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false })
-    const sheet = workbook.Sheets[workbook.SheetNames[0]]
-    return pointRowsFromMatrix(XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '' }))
-  }
-  return pointRowsFromMatrix(parseDelimited(await file.text()))
-}
-
 function printReport(title: string, columns: string[], rows: string[][], targetWindow?: Window | null) {
   const escape = (value: string) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] || char))
   const html = `<html><head><title>${escape(title)}</title><style>body{font:12px Arial;color:#151821;padding:24px}h1{font-size:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccd0d8;padding:6px;text-align:left}th{background:#f0f2f5}</style></head><body><h1>${escape(title)}</h1><p>RF Gestão · gerado em ${new Date().toLocaleString('pt-BR')}</p><table><thead><tr>${columns.map((x) => `<th>${escape(x)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((x) => `<td>${escape(x || '—')}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=()=>window.print()</script></body></html>`
@@ -1357,9 +1306,10 @@ function PointImportsView({ token }: { token: string }) {
     previewRequestRef.current += 1
     setLoading(true); setError(''); setMessage(''); setRows([]); setPendingId(null)
     try {
-      const linhas = await pointRowsFromFile(file)
-      if (!linhas.length) throw new Error('Não foi possível reconhecer linhas no arquivo. Use o exportador original, em CSV ou Excel.')
-      const result = await importPoint(token, { tipo, competencia, arquivoNome: file.name, linhas })
+      const parsedFile = await pointRowsFromFile(file)
+      if (!parsedFile.headerFound) throw new Error('Não reconheci o modelo do arquivo. Confirme que uma das planilhas contenha as colunas Dia/Data e CPF do funcionário do exportador de ponto.')
+      if (!parsedFile.rows.length) throw new Error('O cabeçalho foi reconhecido, mas não há linhas de ponto para analisar.')
+      const result = await importPoint(token, { tipo, competencia, arquivoNome: file.name, linhas: parsedFile.rows })
       if (!result.sucesso || !result.importacao_id) throw new Error(result.erro || 'Falha ao analisar a importação')
       setFile(null)
       await reload()
@@ -1401,7 +1351,7 @@ function PointImportsView({ token }: { token: string }) {
       if (!listed.sucesso) throw new Error(listed.erro || 'Não foi possível carregar os registros da importação selecionada.')
       const reportRows = listed.registros || []
       if (!reportRows.length) throw new Error('A importação aplicada não contém linhas para relatar.')
-      printReport(`Ponto ${tipo} · ${competencia}`, ['Data','Funcionário','CPF','Entrada','Saída','Horas normais','Extra 50%','Extra 100%','Atraso/Falta'], reportRows.map((row) => [formatDate(row.data), row.nome_csv, maskCpf(row.cpf), row.entrada_1 || '', row.saida_1 || '', row.total_normais || '', row.extra_50 || '', row.extra_100 || '', row.horas_atraso || row.dia_falta || '']), reportWindow)
+      printReport(`Ponto ${tipo} · ${competencia}`, ['Data','Funcionário','CPF','Entrada','Saída','Horas normais','Extra 50%','Extra 100%','Atraso/Falta'], reportRows.map((row) => [formatDate(row.data), row.nome_csv, maskCpf(row.cpf_arquivo || row.cpf), row.entrada_1 || '', row.saida_1 || '', row.total_normais || '', row.extra_50 || '', row.extra_100 || '', row.horas_atraso || row.dia_falta || '']), reportWindow)
     } catch (cause) {
       reportWindow.close()
       setError(cause instanceof Error ? cause.message : 'Falha ao gerar o relatório de ponto.')
@@ -1425,11 +1375,37 @@ function PointImportsView({ token }: { token: string }) {
           <button className="primary-button" type="submit" disabled={loading || actionLoading || reportLoading}>{loading ? <><RefreshCw className="spin" size={16} /> Analisando arquivo…</> : actionLoading || reportLoading ? <><RefreshCw className="spin" size={16} /> Aguarde a operação atual…</> : <><Upload size={16} /> Analisar e cruzar CPFs</>}</button>
         </form>
       </SectionCard>
-      <SectionCard title="Critérios de validação" caption="Regras explícitas da carga"><div className="import-rules"><div><Check size={16} /><span><strong>CPF encontrado</strong><small>Registro fica elegível para aplicação.</small></span></div><div><AlertCircle size={16} /><span><strong>CPF não encontrado</strong><small>Fica marcado como inconsistência, sem bloquear os demais.</small></span></div><div><ShieldCheck size={16} /><span><strong>Auditoria</strong><small>Usuário, arquivo, competência e resultado ficam no histórico.</small></span></div></div></SectionCard>
+      <SectionCard title="Critérios de validação" caption="Regras explícitas da carga">
+        <div className="import-rules">
+          <div><Check size={16} /><span><strong>Vínculo por CPF</strong><small>O nome exportado pelo relógio pode ser diferente; isso não bloqueia a correspondência.</small></span></div>
+          <div><AlertCircle size={16} /><span><strong>CPF não localizado</strong><small>A linha fica destacada com a causa disponível e não bloqueia as demais.</small></span></div>
+          <div><ShieldCheck size={16} /><span><strong>Auditoria</strong><small>Operador, arquivo, competência e resultado ficam no histórico.</small></span></div>
+        </div>
+      </SectionCard>
     </div>
     {pending && <SectionCard title="Revisão antes da aplicação" caption={`Importação ${pending.tipo === 'mensal' ? 'mensal' : 'diária'} · ${pending.arquivo_nome}`} className="import-review-card"><div className="import-summary"><div className="import-stat"><span>Linhas lidas</span><strong>{pending.total_linhas}</strong></div><div className="import-stat valid"><span>CPFs encontrados</span><strong>{pending.linhas_encontradas}</strong></div><div className="import-stat invalid"><span>Inconsistências</span><strong>{pending.linhas_nao_encontradas}</strong></div><div className="import-stat"><span>Importado por</span><strong>{pending.imported_by_name || 'Você'}</strong></div></div><div className="import-review-actions"><div><strong>{pending.linhas_nao_encontradas ? 'Atenção: há linhas que precisam de correção.' : 'Tudo conferido: não há inconsistências.'}</strong><small>Aplicar registra somente os CPFs encontrados e mantém as demais linhas no histórico.</small></div><div className="button-row"><button className="primary-button" onClick={() => void applyPending()} disabled={loading || actionLoading || reportLoading || pending.status !== 'pendente'}>{actionLoading || reportLoading ? <RefreshCw className="spin" size={16} /> : <Check size={16} />} {pending.status === 'aplicada' ? 'Registros aplicados' : 'Aplicar registros válidos'}</button><button className="secondary-button" onClick={() => void ignorePending()} disabled={loading || actionLoading || reportLoading}>{pending.status === 'aplicada' ? 'Arquivar alerta' : pending.status === 'ignorada' ? 'Importação ignorada' : 'Ignorar e arquivar'}</button></div></div></SectionCard>}
-    <SectionCard title="Histórico e rastreabilidade" caption="Importações, operador, competência e resultado ficam preservados"><div className="import-history">{imports.length === 0 ? <EmptyState title="Nenhuma importação ainda" description="A primeira análise aparecerá aqui com o operador e os resultados." /> : imports.map((item) => <button className={`import-history-row ${pendingId === item.id ? 'is-selected' : ''}`} key={item.id} onClick={() => void loadPreview(item.id, item.tipo)} disabled={loading || actionLoading || reportLoading}><span className="document-icon"><FileSpreadsheet size={18} /></span><span className="import-history-main"><strong>{item.tipo === 'mensal' ? 'Mensal' : 'Diário'} · {item.competencia || 'sem competência'}</strong><small>{item.arquivo_nome} · {item.imported_by_name || 'Usuário'} · {formatDate(item.created_at)}</small></span><span className="import-history-count"><b>{item.linhas_encontradas}/{item.total_linhas}</b><small>CPFs válidos</small></span><StatusPill value={item.status === 'aplicada' ? 'Aplicada' : item.status === 'ignorada' ? 'Ignorada' : item.linhas_nao_encontradas ? `${item.linhas_nao_encontradas} inconsistências` : 'Pendente'} /></button>)}</div></SectionCard>
-    {rows.length > 0 && <SectionCard title="Linhas da importação" caption={`${rows.length} registros · vermelho indica inconsistência de CPF ou data`} className="import-preview-card"><div className="table-wrap"><table><thead><tr><th>Data</th><th>Funcionário no arquivo</th><th>CPF</th><th>Entrada</th><th>Saída</th><th>Resultado</th></tr></thead><tbody>{rows.slice(0, 100).map((row) => <tr className={row.encontrado ? '' : 'row-inconsistent'} key={row.id}><td>{formatDate(row.data)}</td><td><strong>{row.nome_csv}</strong>{!row.encontrado && <small className="table-note">{row.inconsistencia || 'Inconsistência'}</small>}</td><td className="mono">{maskCpf(row.cpf)}</td><td>{row.entrada_1 || '—'}</td><td>{row.saida_1 || '—'}</td><td><StatusPill value={row.encontrado ? 'Encontrado' : 'Inconsistente'} /></td></tr>)}</tbody></table></div>{rows.length > 100 && <div className="table-footnote">Exibindo as primeiras 100 linhas desta prévia.</div>}</SectionCard>}
+    <SectionCard title="Histórico de importações" caption="Consulte resultado, competência, operador e situação de cada arquivo">
+      <details className="import-history-help">
+        <summary><Info size={15} /><span>Como interpretar este histórico</span></summary>
+        <div className="import-history-help-body">
+          <p><strong>Vinculado:</strong> o funcionário foi localizado pelo CPF. O nome informado no relógio pode ter outra grafia e não impede a associação.</p>
+          <p><strong>Sem correspondência:</strong> a linha não foi vinculada; abra o item para ver o motivo disponível e corrija o CPF/cadastro antes de uma nova carga.</p>
+          <p><strong>Pendente:</strong> prévia aguardando decisão. <strong>Aplicada:</strong> linhas vinculadas gravadas. <strong>Ignorada:</strong> arquivada sem aplicar registros.</p>
+        </div>
+      </details>
+      <div className="import-history">
+        {imports.length === 0 ? <EmptyState title="Nenhuma importação ainda" description="A primeira análise aparecerá aqui com operador, competência e resultado por CPF." /> : imports.map((item) => <button className={`import-history-row ${pendingId === item.id ? 'is-selected' : ''}`} key={item.id} onClick={() => void loadPreview(item.id, item.tipo)} disabled={loading || actionLoading || reportLoading}>
+          <span className="document-icon"><FileSpreadsheet size={18} /></span>
+          <span className="import-history-main"><strong>{item.tipo === 'mensal' ? 'Mensal' : 'Diário'} · {item.competencia || 'sem competência'}</strong><small>{item.arquivo_nome} · {item.imported_by_name || 'Usuário'} · {formatDate(item.created_at)}</small><small>{item.linhas_encontradas} vinculadas por CPF · {item.linhas_nao_encontradas} sem correspondência</small></span>
+          <span className="import-history-count"><b>{item.linhas_encontradas}/{item.total_linhas}</b><small>linhas vinculadas</small></span>
+          <StatusPill value={item.status === 'aplicada' ? 'Aplicada' : item.status === 'ignorada' ? 'Ignorada' : item.linhas_nao_encontradas ? 'Pendente · revisar' : 'Pendente · pronta'} />
+        </button>)}
+      </div>
+    </SectionCard>
+    {rows.length > 0 && <SectionCard title="Linhas da importação" caption={`${rows.length} registros · a chave de associação é o CPF; nomes diferentes no relógio não bloqueiam correspondência`} className="import-preview-card">
+      <div className="table-wrap"><table><thead><tr><th>Data</th><th>Nome exportado pelo relógio</th><th>CPF</th><th>Entrada</th><th>Saída</th><th>Resultado por CPF</th></tr></thead><tbody>{rows.slice(0, 100).map((row) => <tr className={row.encontrado ? '' : 'row-inconsistent'} key={row.id}><td>{formatDate(row.data)}</td><td><strong>{row.nome_csv}</strong>{!row.encontrado && <small className="table-note">{row.import_validation_errors?.[0] || row.inconsistencia || 'CPF não localizado no cadastro da empresa.'}</small>}</td><td className="mono">{maskCpf(row.cpf_arquivo || row.cpf)}</td><td>{row.entrada_1 || '—'}</td><td>{row.saida_1 || '—'}</td><td><StatusPill value={row.encontrado ? 'Vinculado por CPF' : 'Não localizado'} /></td></tr>)}</tbody></table></div>
+      {rows.length > 100 && <div className="table-footnote">Exibindo as primeiras 100 linhas desta prévia.</div>}
+    </SectionCard>}
   </div>
 }
 
