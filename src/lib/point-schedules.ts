@@ -32,6 +32,41 @@ export function formatDuration(total: number): string {
   return `${hours}h${String(minutes).padStart(2, '0')}`
 }
 
+export function durationToMinutes(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'number') return Number.isFinite(value) && value >= 0 ? Math.round(value * 60) : null
+
+  const text = value.trim()
+  if (!text) return null
+
+  const clock = /^(\d+):([0-5]\d)(?::([0-5]\d(?:[.,]\d+)?))?$/.exec(text)
+  if (clock) {
+    const seconds = Number((clock[3] || '0').replace(',', '.'))
+    if (seconds >= 60) return null
+    return Math.round(Number(clock[1]) * 60 + Number(clock[2]) + seconds / 60)
+  }
+
+  const decimal = (raw: string) => Number(raw.replace(',', '.'))
+  const hoursAndMinutes = /^(\d+(?:[.,]\d+)?)\s*(?:h|hr|hrs|hora|horas|hour|hours)\s*(?:(\d+)\s*(?:m|min|mins|minuto|minutos))?$/i.exec(text)
+  if (hoursAndMinutes) {
+    const minutes = hoursAndMinutes[2] ? Number(hoursAndMinutes[2]) : 0
+    if (minutes >= 60) return null
+    return Math.round(decimal(hoursAndMinutes[1]) * 60 + minutes)
+  }
+
+  const minutesOnly = /^(\d+(?:[.,]\d+)?)\s*(?:m|min|mins|minuto|minutos)$/i.exec(text)
+  if (minutesOnly) return Math.round(decimal(minutesOnly[1]))
+
+  const decimalHours = /^(\d+(?:[.,]\d+)?|[.,]\d+)$/.exec(text)
+  if (decimalHours) return Math.round(decimal(decimalHours[1]) * 60)
+  return null
+}
+
+export function hasDurationValue(value: string | number | null | undefined): boolean {
+  const text = String(value ?? '').trim().toLowerCase()
+  return Boolean(text) && !['—', '–', '-', 'n/a'].includes(text)
+}
+
 export function periodMinutes(period: WorkPeriod): number {
   const start = timeToMinutes(period.inicio)
   const end = timeToMinutes(period.fim)

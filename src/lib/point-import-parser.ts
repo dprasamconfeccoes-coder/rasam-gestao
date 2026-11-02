@@ -130,6 +130,30 @@ const headerAliases = {
   name: ['nome do funcionario', 'nome funcionario', 'funcionario', 'colaborador', 'nome'],
 }
 
+const durationHeaderAliases = {
+  previsto: ['previsto'],
+  totalNormais: ['total normais', 'total normal', 'horas normais'],
+  totalNoturno: ['total noturno', 'horas noturnas'],
+  horasAtraso: ['horas atraso', 'atraso'],
+  extra50: ['extra 50%d', 'extra 50% d', 'extra 50%', 'hora extra 50%'],
+  extra100: ['extra 100%d', 'extra 100% d', 'extra 100%', 'hora extra 100%'],
+}
+
+function isExcelDurationFormat(format: unknown): boolean {
+  const source = String(format || '').replace(/"[^"]*"/g, '')
+  const hasElapsedUnit = /\[(?:h+|m+|s+)\]/i.test(source)
+  const withoutBrackets = source.replace(/\[[^\]]+\]/g, '')
+  if (/[dy]/i.test(withoutBrackets)) return false
+  return hasElapsedUnit || /[hms]+\s*:\s*[hms]+/i.test(withoutBrackets)
+}
+
+function excelDurationText(serial: number): string {
+  const totalMinutes = Math.round(serial * 24 * 60)
+  const sign = totalMinutes < 0 ? '-' : ''
+  const absolute = Math.abs(totalMinutes)
+  return `${sign}${Math.floor(absolute / 60)}:${String(absolute % 60).padStart(2, '0')}`
+}
+
 function findHeaderIndex(headers: string[], names: string[]): number {
   const exact = headers.findIndex((header) => names.includes(header))
   return exact >= 0 ? exact : headers.findIndex((header) => names.some((name) => header.startsWith(`${name} `) || header.startsWith(`${name}:`)))
@@ -153,18 +177,18 @@ export function pointRowsFromMatrix(matrix: unknown[][], options: MatrixOptions 
     date: find(...headerAliases.date),
     cpf: find(...headerAliases.cpf),
     name: find(...headerAliases.name),
-    previsto: find('previsto'),
+    previsto: find(...durationHeaderAliases.previsto),
     entrada1: find('entrada 1', 'entrada'),
     saida1: find('saida 1', 'saida', 'saída 1', 'saída'),
     entrada2: find('entrada 2'),
     saida2: find('saida 2', 'saída 2'),
-    totalNormais: find('total normais', 'total normal', 'horas normais'),
-    totalNoturno: find('total noturno', 'horas noturnas'),
+    totalNormais: find(...durationHeaderAliases.totalNormais),
+    totalNoturno: find(...durationHeaderAliases.totalNoturno),
     diaFalta: find('dia falta', 'falta'),
-    horasAtraso: find('horas atraso', 'atraso'),
+    horasAtraso: find(...durationHeaderAliases.horasAtraso),
     abono: find('abono'),
-    extra50: find('extra 50%d', 'extra 50% d', 'extra 50%', 'hora extra 50%'),
-    extra100: find('extra 100%d', 'extra 100% d', 'extra 100%', 'hora extra 100%'),
+    extra50: find(...durationHeaderAliases.extra50),
+    extra100: find(...durationHeaderAliases.extra100),
     descontaDsr: find('desconta dsr', 'dsr'),
     justificativas: find('justificativas', 'justificativa'),
   }
@@ -251,7 +275,7 @@ export function parsePointDelimited(text: string): PointFileParseResult {
 export async function pointRowsFromFile(file: File): Promise<PointFileParseResult> {
   if (/\.xlsx?$/i.test(file.name)) {
     const XLSX = await import('xlsx')
-    const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false })
+    const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false, cellNF: true })
     const excelDate1904 = Boolean(workbook.Workbook?.WBProps?.date1904)
     let emptySheetWithHeader: PointFileParseResult | null = null
 
@@ -266,6 +290,23 @@ export async function pointRowsFromFile(file: File): Promise<PointFileParseResul
       })
       const headerMatch = findHeaderMatch(matrix)
       if (!headerMatch) continue
+
+      const durationColumns = Object.values(durationHeaderAliases)
+        .map((aliases) => findHeaderIndex(headerMatch.headers, aliases.map(normalizeHeader)))
+        .filter((column) => column >= 0)
+      const durationRef = sheet['!ref']
+      if (durationRef && durationColumns.length) {
+        const durationRange = XLSX.utils.decode_range(durationRef)
+        for (let rowIndex = headerMatch.index + 1; rowIndex < matrix.length; rowIndex += 1) {
+          for (const columnIndex of durationColumns) {
+            const address = XLSX.utils.encode_cell({ r: durationRange.s.r + rowIndex, c: durationRange.s.c + columnIndex })
+            const cell = sheet[address]
+            if (cell?.t === 'n' && typeof cell.v === 'number' && Number.isFinite(cell.v) && isExcelDurationFormat(cell.z)) {
+              matrix[rowIndex][columnIndex] = excelDurationText(cell.v)
+            }
+          }
+        }
+      }
 
       const numericCpfRows = new Set<number>()
       const cpfColumn = findHeaderIndex(headerMatch.headers, headerAliases.cpf)

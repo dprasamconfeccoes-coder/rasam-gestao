@@ -664,6 +664,8 @@ td strong { color: #2b2328; }
 .hr-dashboard-intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
 .hr-dashboard-intro h2 { margin: 6px 0 3px; color: var(--text); font-size: 25px; letter-spacing: -.04em; }
 .hr-dashboard-intro p { margin: 0; color: var(--muted); font-size: 12px; }
+.hr-duration-warning { display: flex; align-items: flex-start; gap: 8px; margin: -7px 0 14px; padding: 10px 12px; border: 1px solid rgba(168,59,69,.2); border-radius: 10px; color: #84313b; background: rgba(168,59,69,.07); font-size: 12px; line-height: 1.5; }
+.hr-duration-warning svg { flex: 0 0 auto; margin-top: 1px; }
 .hr-dashboard-period { display: grid; gap: 3px; min-width: 155px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
 .hr-dashboard-period span, .hr-dashboard-period small { color: var(--muted); font-size: 10px; }
 .hr-dashboard-period strong { color: var(--text); font-size: 12px; text-transform: capitalize; }

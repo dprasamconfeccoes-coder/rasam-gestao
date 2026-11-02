@@ -123,7 +123,7 @@ import { PayslipImportDashboard } from './features/PayslipImportDashboard'
 import { EmployeeManagementDashboard } from './features/EmployeeManagementDashboard'
 import { EmployeeOwnDossier } from './features/EmployeeOwnDossier'
 import { PayrollBenefitsDiscounts } from './features/PayrollBenefitsDiscounts'
-import { formatDuration, periodMinutes } from './lib/point-schedules'
+import { durationToMinutes, formatDuration, hasDurationValue, periodMinutes } from './lib/point-schedules'
 import { pointRowsFromFile } from './lib/point-import-parser'
 import {
   EmptyState,
@@ -186,6 +186,12 @@ function maskCpf(cpf: string) {
 
 function normalizeCpf(value: string) {
   return value.replace(/\D/g, '').slice(0, 11)
+}
+
+function formatPointDuration(value: string | null | undefined) {
+  if (!hasDurationValue(value)) return '—'
+  const minutes = durationToMinutes(value)
+  return minutes === null ? 'Formato inválido' : formatDuration(minutes)
 }
 
 function initials(name: string) {
@@ -917,6 +923,8 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
     const numeric = Number(normalized.replace(',', '.'))
     return !Number.isFinite(numeric) || numeric !== 0
   }
+  const rowHasInvalidDuration = (row: PointRow) => [row.horas_trabalhadas, row.horas_atraso, row.extra_50, row.extra_100]
+    .some((value) => hasDurationValue(value) && durationToMinutes(value) === null)
   const rowKind = (row: PointRow) => {
     const marked = Boolean(row.entrada || row.saida || row.horas_trabalhadas)
     const note = `${row.justificativas || ''} ${row.inconsistencia_justificativa || ''}`.toLowerCase()
@@ -925,14 +933,15 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
     const schedule = scheduleForDate(row.data)
     if (note.includes('férias') || note.includes('ferias')) return 'ferias'
     if (isPositiveFlag(row.dia_falta) || status.includes('falta')) return 'falta'
-    if (hoursToNumber(row.horas_atraso) > 0) return 'atraso'
+    if ((durationToMinutes(row.horas_atraso) ?? 0) > 0) return 'atraso'
+    if (rowHasInvalidDuration(row)) return 'inconsistencia'
     if (!marked && schedule?.isWorkday) return 'sem-marcacao'
     if (!marked && schedule && !schedule.isWorkday) return 'folga'
     if (!marked && (note.includes('folga') || /folga|descanso|repouso/.test(status) || /folga|descanso|repouso/.test(previsto))) return 'folga'
     if (!marked && status.includes('sem marcação')) return 'sem-marcacao'
     if (!marked && previsto.trim()) return 'sem-marcacao'
     if (!marked) return 'sem-escala'
-    if (hoursToNumber(row.extra_50) > 0 || hoursToNumber(row.extra_100) > 0) return 'extra'
+    if ((durationToMinutes(row.extra_50) ?? 0) > 0 || (durationToMinutes(row.extra_100) ?? 0) > 0) return 'extra'
     return 'normal'
   }
   const renderPointStatus = (row: PointRow) => {
@@ -943,15 +952,9 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
     if (kind === 'ferias') return <StatusPill value="Férias" />
     if (kind === 'falta') return <StatusPill value={row.justificativa_status === 'aceita' || row.inconsistencia_status === 'justificada' ? 'Falta justificada' : row.justificativa_status === 'recusada' || row.inconsistencia_status === 'recusada' ? 'Falta · justificativa recusada' : 'Falta injustificada'} />
     if (kind === 'atraso') return <StatusPill value={row.justificativa_status === 'aceita' || row.inconsistencia_status === 'justificada' ? 'Atraso justificado' : row.justificativa_status === 'recusada' || row.inconsistencia_status === 'recusada' ? 'Atraso · justificativa recusada' : 'Atraso' } />
+    if (kind === 'inconsistencia') return <StatusPill value="Revisar duração" />
     if (kind === 'extra') return <StatusPill value="Hora extra" />
     return <StatusPill value={row.status || 'normal'} />
-  }
-  const hoursToNumber = (value: string | null | undefined) => {
-    const raw = String(value || '').trim().replace(',', '.')
-    if (!raw) return 0
-    if (raw.includes(':')) { const [hours, minutes] = raw.split(':').map(Number); return (hours || 0) + (minutes || 0) / 60 }
-    const parsed = Number(raw.replace(/[^0-9.-]/g, ''))
-    return Number.isFinite(parsed) ? parsed : 0
   }
   const shortTime = (value: string | null | undefined) => value ? String(value).slice(0, 5) : '—'
   const formatDelayMinutes = (minutes: number) => {
@@ -961,16 +964,18 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
     return hours > 0 ? `${hours}h ${String(remainder).padStart(2, '0')}min` : `${remainder} min`
   }
   const pointSummary = useMemo(() => {
-    const extra50 = displayRows.reduce((sum, row) => sum + hoursToNumber(row.extra_50), 0)
-    const extra100 = displayRows.reduce((sum, row) => sum + hoursToNumber(row.extra_100), 0)
+    const extra50Minutes = displayRows.reduce((sum, row) => sum + (durationToMinutes(row.extra_50) ?? 0), 0)
+    const extra100Minutes = displayRows.reduce((sum, row) => sum + (durationToMinutes(row.extra_100) ?? 0), 0)
     const faltas = displayRows.filter((row) => isPositiveFlag(row.dia_falta) || String(row.status || '').toLowerCase().includes('falta')).length
-    const atrasos = displayRows.filter((row) => hoursToNumber(row.horas_atraso) > 0).length
-    const totalAtrasoMinutos = displayRows.reduce((sum, row) => sum + hoursToNumber(row.horas_atraso) * 60, 0)
+    const atrasos = displayRows.filter((row) => (durationToMinutes(row.horas_atraso) ?? 0) > 0).length
+    const totalAtrasoMinutos = displayRows.reduce((sum, row) => sum + (durationToMinutes(row.horas_atraso) ?? 0), 0)
+    const invalidExtraValues = displayRows.reduce((count, row) => count + [row.extra_50, row.extra_100]
+      .filter((value) => hasDurationValue(value) && durationToMinutes(value) === null).length, 0)
     const diasComMarcacao = displayRows.filter((row) => row.entrada || row.saida || row.horas_trabalhadas).length
     const diasSemMarcacao = displayRows.filter((row) => rowKind(row) === 'sem-marcacao').length
-    return { extra50, extra100, faltas, atrasos, totalAtrasoMinutos, diasComMarcacao, diasSemMarcacao, totalExtras: extra50 + extra100 }
+    return { extra50Minutes, extra100Minutes, faltas, atrasos, totalAtrasoMinutos, invalidExtraValues, diasComMarcacao, diasSemMarcacao, totalExtrasMinutes: extra50Minutes + extra100Minutes }
   }, [displayRows])
-  const hasInconsistency = (row: PointRow) => Boolean(row.inconsistencia_tipo || isPositiveFlag(row.dia_falta) || hoursToNumber(row.horas_atraso) > 0)
+  const hasInconsistency = (row: PointRow) => Boolean(row.inconsistencia_tipo || isPositiveFlag(row.dia_falta) || (durationToMinutes(row.horas_atraso) ?? 0) > 0)
   async function persistReviewInconsistency(row: PointRow, status: 'aprovada' | 'justificada') {
     const funcionarioId = row.funcionario_id || (isAdministrative ? employeeId : user.funcionario_id)
     if (!funcionarioId) return
@@ -1044,8 +1049,8 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
     </div>
   }
   const renderAdministrativeIssueStatus = (row: PointRow) => {
-    const label = row.justificativa_status === 'pendente' ? 'Justificativa pendente' : row.justificativa_status === 'aceita' || row.inconsistencia_status === 'justificada' ? 'Justificada' : row.justificativa_status === 'recusada' || row.inconsistencia_status === 'recusada' ? 'Justificativa recusada' : row.inconsistencia_status === 'aprovada' ? 'Aprovada' : 'Injustificado'
-    const detail = hoursToNumber(row.horas_atraso) > 0 ? `Atraso: ${row.horas_atraso}` : isPositiveFlag(row.dia_falta) ? `Falta: ${row.dia_falta}` : row.inconsistencia || 'Revisar ocorrência importada'
+    const label = rowHasInvalidDuration(row) && !row.inconsistencia_tipo && !row.justificativa_status && !row.inconsistencia_status ? 'Formato inválido' : row.justificativa_status === 'pendente' ? 'Justificativa pendente' : row.justificativa_status === 'aceita' || row.inconsistencia_status === 'justificada' ? 'Justificada' : row.justificativa_status === 'recusada' || row.inconsistencia_status === 'recusada' ? 'Justificativa recusada' : row.inconsistencia_status === 'aprovada' ? 'Aprovada' : 'Injustificado'
+    const detail = (durationToMinutes(row.horas_atraso) ?? 0) > 0 ? `Atraso: ${formatPointDuration(row.horas_atraso)}` : isPositiveFlag(row.dia_falta) ? `Falta: ${row.dia_falta}` : row.inconsistencia || (rowHasInvalidDuration(row) ? 'Há uma duração em formato inválido no arquivo importado.' : 'Revisar ocorrência importada')
     return <div className="point-issue-cell"><StatusPill value={label} /><small>{detail}</small></div>
   }
   const openReviewModal = (row: PointRow) => { rememberPointDialogFocus(); setReviewModalRow(row); setJustificationText(row.justificativa_resposta || '') }
@@ -1073,7 +1078,7 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
       <div className="point-employee-context-controls"><button className="icon-button" type="button" onClick={() => moveEmployee(-1)} disabled={selectedEmployeeIndex <= 0 || employeeLoading} aria-label="Funcionário anterior"><ChevronLeft size={18} /></button><span aria-live="polite">{employeeOffset + 1} / {employeeCount}</span><button className="icon-button" type="button" onClick={() => moveEmployee(1)} disabled={selectedEmployeeIndex < 0 || selectedEmployeeIndex >= employeeCount - 1 || employeeLoading} aria-label="Próximo funcionário"><ChevronRight size={18} /></button></div>
     </section> : isAdministrative && employeeLoading ? <div className="point-employee-context is-loading" role="status"><RefreshCw className="spin" size={16} /> Carregando primeiro funcionário…</div> : null}
     <div className={`point-summary-grid${loading || error || loadedPointKey !== pointRequestKey ? ' is-loading' : ''}`}>
-      <section className="point-chart-card"><div className="point-chart-heading"><div><span className="eyebrow">Resumo de horas</span><strong>{pointSummary.totalExtras.toFixed(1)} h extras</strong></div><CalendarDays size={18} /></div><div className="point-bar-row"><span>Extra 50%</span><div className="point-bar-track"><i style={{ width: `${pointSummary.totalExtras ? Math.max(4, pointSummary.extra50 / pointSummary.totalExtras * 100) : 0}%` }} /></div><b>{pointSummary.extra50.toFixed(1)} h</b></div><div className="point-bar-row"><span>Extra 100%</span><div className="point-bar-track is-pink"><i style={{ width: `${pointSummary.totalExtras ? Math.max(4, pointSummary.extra100 / pointSummary.totalExtras * 100) : 0}%` }} /></div><b>{pointSummary.extra100.toFixed(1)} h</b></div></section>
+      <section className="point-chart-card"><div className="point-chart-heading"><div><span className="eyebrow">Resumo de horas</span><strong>{formatDuration(pointSummary.totalExtrasMinutes)} extras</strong></div><CalendarDays size={18} /></div>{pointSummary.invalidExtraValues ? <small className="point-chart-detail">{pointSummary.invalidExtraValues} valor(es) de extra com formato inválido foram excluídos da soma.</small> : null}<div className="point-bar-row"><span>Extra 50%</span><div className="point-bar-track"><i style={{ width: `${pointSummary.totalExtrasMinutes ? Math.max(4, pointSummary.extra50Minutes / pointSummary.totalExtrasMinutes * 100) : 0}%` }} /></div><b>{formatDuration(pointSummary.extra50Minutes)}</b></div><div className="point-bar-row"><span>Extra 100%</span><div className="point-bar-track is-pink"><i style={{ width: `${pointSummary.totalExtrasMinutes ? Math.max(4, pointSummary.extra100Minutes / pointSummary.totalExtrasMinutes * 100) : 0}%` }} /></div><b>{formatDuration(pointSummary.extra100Minutes)}</b></div></section>
       <section className="point-chart-card"><div className="point-chart-heading"><div><span className="eyebrow">Resumo de ocorrências</span><strong>{pointSummary.faltas} faltas identificadas</strong><small className="point-chart-detail">{pointSummary.atrasos} {pointSummary.atrasos === 1 ? 'dia com atraso' : 'dias com atraso'} · {formatDelayMinutes(pointSummary.totalAtrasoMinutos)} acumulados</small></div><AlertCircle size={18} /></div><div className="point-bar-row"><span>Faltas</span><div className="point-bar-track is-danger"><i style={{ width: `${pointSummary.faltas ? 100 : 0}%` }} /></div><b>{pointSummary.faltas}</b></div><div className="point-bar-row"><span>Atrasos</span><div className="point-bar-track is-gold"><i style={{ width: `${pointSummary.atrasos ? Math.min(100, pointSummary.atrasos / Math.max(pointSummary.faltas, pointSummary.atrasos) * 100) : 0}%` }} /></div><b>{pointSummary.atrasos} dias</b></div></section>
     </div>
     <SectionCard title={isAdministrative ? 'Registros diários' : 'Minha ficha de ponto'} caption={`${periodLabel} · ${range.inicio ? `${formatDate(range.inicio)} a ${formatDate(range.fim || range.inicio)}` : 'aguardando período'} · ${pointSummary.diasComMarcacao} com marcação · ${pointSummary.diasSemMarcacao} sem marcação`}>
@@ -1085,8 +1090,9 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
             const kind = rowKind(row)
             const schedule = isAdministrative ? scheduleForDate(row.data) : null
             const marked = Boolean(row.entrada || row.saida || row.horas_trabalhadas)
-            const difference = schedule?.isWorkday && marked ? Math.round(hoursToNumber(row.horas_trabalhadas) * 60) - schedule.expectedMinutes : null
-            return <tr key={row.id} className={`point-row-${kind}`}><td><strong>{formatDate(row.data)}</strong></td><td>{shortTime(row.entrada)}</td><td>{shortTime(row.saida_almoco)}</td><td>{shortTime(row.volta_almoco)}</td><td>{shortTime(row.saida)}</td><td>{row.horas_trabalhadas ? String(row.horas_trabalhadas).slice(0, 5) : '—'}</td><td>{renderPointStatus(row)}</td><td>{row.dia_falta || '—'}</td><td>{row.horas_atraso || '—'}</td><td>{row.extra_50 || '—'}</td><td>{row.extra_100 || '—'}</td><td>{row.desconta_dsr || '—'}</td>{isAdministrative ? <><td>{schedule ? schedule.isWorkday ? formatDuration(schedule.expectedMinutes) : 'Descanso' : '—'}</td><td className={difference === null ? '' : difference > 0 ? 'point-schedule-positive' : difference < 0 ? 'point-schedule-negative' : ''}>{difference === null ? '—' : `${difference > 0 ? '+' : difference < 0 ? '−' : ''}${formatDuration(Math.abs(difference))}`}</td><td>{hasInconsistency(row) ? renderAdministrativeIssueStatus(row) : '—'}</td><td>{renderAdministrativeReview(row)}</td></> : <td>{renderEmployeeJustification(row)}</td>}</tr>
+            const workedMinutes = durationToMinutes(row.horas_trabalhadas)
+            const difference = schedule?.isWorkday && marked && workedMinutes !== null ? workedMinutes - schedule.expectedMinutes : null
+            return <tr key={row.id} className={`point-row-${kind}`}><td><strong>{formatDate(row.data)}</strong></td><td>{shortTime(row.entrada)}</td><td>{shortTime(row.saida_almoco)}</td><td>{shortTime(row.volta_almoco)}</td><td>{shortTime(row.saida)}</td><td>{formatPointDuration(row.horas_trabalhadas)}</td><td>{renderPointStatus(row)}</td><td>{row.dia_falta || '—'}</td><td>{formatPointDuration(row.horas_atraso)}</td><td>{formatPointDuration(row.extra_50)}</td><td>{formatPointDuration(row.extra_100)}</td><td>{row.desconta_dsr || '—'}</td>{isAdministrative ? <><td>{schedule ? schedule.isWorkday ? formatDuration(schedule.expectedMinutes) : 'Descanso' : '—'}</td><td className={difference === null ? '' : difference > 0 ? 'point-schedule-positive' : difference < 0 ? 'point-schedule-negative' : ''}>{difference === null ? '—' : `${difference > 0 ? '+' : difference < 0 ? '−' : ''}${formatDuration(Math.abs(difference))}`}</td><td>{hasInconsistency(row) || rowHasInvalidDuration(row) ? renderAdministrativeIssueStatus(row) : '—'}</td><td>{renderAdministrativeReview(row)}</td></> : <td>{renderEmployeeJustification(row)}</td>}</tr>
           })}</tbody>
         </table>
       </div>}
@@ -1095,7 +1101,7 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
       <div ref={pointReviewDialogRef} className="point-review-dialog" role="dialog" aria-modal={activePointDialog === 'review'} aria-hidden={activePointDialog === 'confirm'} inert={activePointDialog === 'confirm'} aria-labelledby="point-review-title" tabIndex={-1}>
         <div className="point-review-dialog-head"><div><span className="eyebrow">Análise de justificativa</span><h3 id="point-review-title">{formatDate(reviewModalRow.data)}</h3></div><button className="icon-button" type="button" onClick={() => setReviewModalRow(null)} aria-label="Fechar análise"><X size={17} /></button></div>
         <div className="point-review-dialog-body">
-          <div className="point-review-summary"><div><span>Ocorrência</span><strong>{hoursToNumber(reviewModalRow.horas_atraso) > 0 ? `Atraso de ${reviewModalRow.horas_atraso}` : isPositiveFlag(reviewModalRow.dia_falta) ? `Falta: ${reviewModalRow.dia_falta}` : 'Inconsistência de ponto'}</strong></div><div><span>Tipo</span><strong>{reviewModalRow.justificativa_motivo ? 'Justificativa do funcionário' : 'Análise administrativa'}</strong></div></div>
+          <div className="point-review-summary"><div><span>Ocorrência</span><strong>{(durationToMinutes(reviewModalRow.horas_atraso) ?? 0) > 0 ? `Atraso de ${formatPointDuration(reviewModalRow.horas_atraso)}` : isPositiveFlag(reviewModalRow.dia_falta) ? `Falta: ${reviewModalRow.dia_falta}` : 'Inconsistência de ponto'}</strong></div><div><span>Tipo</span><strong>{reviewModalRow.justificativa_motivo ? 'Justificativa do funcionário' : 'Análise administrativa'}</strong></div></div>
           <div className="point-review-message"><span>Motivo informado</span><p>{reviewModalRow.justificativa_motivo || 'O funcionário não enviou uma justificativa textual.'}</p></div>
           {reviewModalRow.justificativa_arquivo_url ? <a className="point-review-attachment" href={reviewModalRow.justificativa_arquivo_url} target="_blank" rel="noreferrer"><FileText size={15} /> {reviewModalRow.justificativa_arquivo_nome || 'Abrir anexo'}</a> : <small className="point-review-no-attachment">Nenhum anexo enviado.</small>}
           <label className="point-review-response"><span>Resposta ao funcionário</span><textarea value={justificationText} onChange={(event) => setJustificationText(event.target.value)} placeholder="Escreva uma resposta. Para recusar, informe o motivo." rows={3} readOnly={reviewModalRow.justificativa_status !== 'pendente'} /></label>
@@ -1351,7 +1357,7 @@ function PointImportsView({ token }: { token: string }) {
       if (!listed.sucesso) throw new Error(listed.erro || 'Não foi possível carregar os registros da importação selecionada.')
       const reportRows = listed.registros || []
       if (!reportRows.length) throw new Error('A importação aplicada não contém linhas para relatar.')
-      printReport(`Ponto ${tipo} · ${competencia}`, ['Data','Funcionário','CPF','Entrada','Saída','Horas normais','Extra 50%','Extra 100%','Atraso/Falta'], reportRows.map((row) => [formatDate(row.data), row.nome_csv, maskCpf(row.cpf_arquivo || row.cpf), row.entrada_1 || '', row.saida_1 || '', row.total_normais || '', row.extra_50 || '', row.extra_100 || '', row.horas_atraso || row.dia_falta || '']), reportWindow)
+      printReport(`Ponto ${tipo} · ${competencia}`, ['Data','Funcionário','CPF','Entrada','Saída','Horas normais','Extra 50%','Extra 100%','Atraso/Falta'], reportRows.map((row) => [formatDate(row.data), row.nome_csv, maskCpf(row.cpf_arquivo || row.cpf), row.entrada_1 || '', row.saida_1 || '', formatPointDuration(row.total_normais), formatPointDuration(row.extra_50), formatPointDuration(row.extra_100), formatPointDuration(row.horas_atraso) !== '—' ? formatPointDuration(row.horas_atraso) : row.dia_falta || '']), reportWindow)
     } catch (cause) {
       reportWindow.close()
       setError(cause instanceof Error ? cause.message : 'Falha ao gerar o relatório de ponto.')

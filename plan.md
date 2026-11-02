@@ -48,6 +48,9 @@ Movimento visual: **editorial operacional dark**, com alto contraste e acentos m
 - Ao iniciar busca ou trocar a página, limpar a ficha anterior no mesmo evento e incluir busca/página na chave dos dados para nunca renderizar registros de outra seleção durante o carregamento.
 - Consultar mês por funcionário, exibir todos os dias do período, marcações, horas trabalhadas, ocorrências e dados de jornada quando existentes. Mostrar horas extras 50% e 100% conforme os valores recebidos no arquivo de origem.
 - Comparar jornada prevista e realizada de forma informativa, sem converter diferença em extra legal, falta ou desconto automático. A classificação de hora extra permanece baseada nos campos explicitamente importados até o usuário definir regras adicionais.
+- **Conversão de duração:** manter a duração em minutos inteiros internamente; reconhecer `HH:mm`/`HH:mm:ss` e valores numéricos que representem horas decimais (`0.2` ou `0,2` = 12 minutos), rejeitando formatos inválidos em vez de remover caracteres silenciosamente.
+- Formatar cartões, acumulados, linhas diárias, atrasos, diferenças informativas e relatório imprimível como horas/minutos (por exemplo, `0h12`), sem arredondar totais a décimos de hora. Horários de entrada/saída continuam horários do dia e não passam pelo conversor de duração.
+- Reutilizar a mesma regra de minutos nos resumos do módulo e manter intactos os registros do Supabase; esta correção de exibição não requer migration.
 
 ### Importação preservada e aprimorada
 

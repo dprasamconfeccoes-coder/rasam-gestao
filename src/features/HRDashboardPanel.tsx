@@ -1,27 +1,17 @@
 import { Activity, ArrowRight, BriefcaseBusiness, CalendarDays, Check, Clock3, FileCheck2, HeartPulse, ShieldAlert, TrendingUp, UserPlus, UserRound, UsersRound } from 'lucide-react'
 import type { AdminJustificationRow, AdminLeaveRow, AdminMedicalLeaveRow, AdminPointRow, AdminRequestRow, AdminVacationRow, EmployeeRow } from '../lib/types'
 import { EmptyState, SectionCard, formatDate, formatMoney } from '../components/ui'
+import { durationToMinutes, formatDuration, hasDurationValue } from '../lib/point-schedules'
 
 type OpenTab = (tab: string) => void
 type AlertTone = 'danger' | 'gold' | 'pink' | 'blue'
 type AlertPriority = 'Urgente' | 'Atenção' | 'Informativo'
 type AlertItem = { id: string; title: string; detail: string; tone: AlertTone; priority: AlertPriority; tab: string; action: string }
 
-function parseMinutes(value?: string | null) {
-  if (!value) return 0
-  const text = String(value).trim().replace(',', '.')
-  if (text.includes(':')) {
-    const [hours, minutes] = text.split(':').map(Number)
-    return (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0)
-  }
-  const number = Number(text)
-  return Number.isFinite(number) ? Math.round(number * 60) : 0
-}
+const parseMinutes = (value?: string | null) => durationToMinutes(value) ?? 0
 
 function formatMinutes(value: number) {
-  const hours = Math.floor(Math.max(0, value) / 60)
-  const minutes = Math.max(0, value) % 60
-  return `${String(hours).padStart(2, '0')}h${String(minutes).padStart(2, '0')}`
+  return formatDuration(value)
 }
 
 function isCurrentMonth(value?: string | null) {
@@ -71,11 +61,13 @@ export function HRDashboardPanel({ point, justifications, leaves, requests, vaca
   const pendingJustifications = justifications.filter((row) => row.status === 'pendente')
   const pendingLeaves = leaves.filter((row) => ['aguardando', 'pendente', 'em_analise'].includes(row.status))
   const openRequests = requests.filter((row) => !['atendida', 'concluida', 'recusada', 'cancelada'].includes(row.status))
-  const inconsistencies = point.filter((row) => Boolean(row.inconsistencia_tipo || row.dia_falta || row.horas_atraso))
+  const inconsistencies = point.filter((row) => Boolean(row.inconsistencia_tipo || row.dia_falta || (durationToMinutes(row.horas_atraso) ?? 0) > 0))
   const unjustified = inconsistencies.filter((row) => !row.justificativa_id && row.inconsistencia_status !== 'aprovada')
-  const delayRows = point.filter((row) => Boolean(row.horas_atraso))
+  const delayRows = point.filter((row) => parseMinutes(row.horas_atraso) > 0)
   const delayMinutes = delayRows.reduce((total, row) => total + parseMinutes(row.horas_atraso), 0)
   const extraMinutes = point.reduce((total, row) => total + parseMinutes(row.extra_50) + parseMinutes(row.extra_100), 0)
+  const invalidDurationValues = point.reduce((count, row) => count + [row.horas_atraso, row.extra_50, row.extra_100]
+    .filter((value) => hasDurationValue(value) && durationToMinutes(value) === null).length, 0)
   const activeEmployees = employees.filter((row) => row.ativo !== false)
   const inactiveEmployees = employees.filter((row) => row.ativo === false)
   const workingNow = activeEmployees.filter((row) => row.situacao === 'Trabalhando').length
@@ -121,7 +113,7 @@ export function HRDashboardPanel({ point, justifications, leaves, requests, vaca
     const dismissals = employees.filter((row) => row.data_demissao?.slice(0, 7) === key).length
     const monthPoint = point.filter((row) => row.data.slice(0, 7) === key)
     const absences = monthPoint.filter((row) => Boolean(row.dia_falta || row.inconsistencia_tipo === 'falta')).length
-    const delays = monthPoint.filter((row) => Boolean(row.horas_atraso)).length
+    const delays = monthPoint.filter((row) => parseMinutes(row.horas_atraso) > 0).length
     const delayMinutesInMonth = monthPoint.reduce((total, row) => total + parseMinutes(row.horas_atraso), 0)
     const extraMinutesInMonth = monthPoint.reduce((total, row) => total + parseMinutes(row.extra_50) + parseMinutes(row.extra_100), 0)
     return { key, label: monthLabel(date), admissions, dismissals, absences, delays, delayMinutes: delayMinutesInMonth, extraMinutes: extraMinutesInMonth }
@@ -152,6 +144,7 @@ export function HRDashboardPanel({ point, justifications, leaves, requests, vaca
 
   return <div className="hr-dashboard">
     <div className="hr-dashboard-intro"><div><span className="eyebrow">Pessoas · decisão operacional</span><h2>Painel executivo do RH</h2><p>Indicadores atuais da equipe e pendências que exigem atenção no período.</p></div><div className="hr-dashboard-period"><span>Referência</span><strong>{periodLabel}</strong><small>Atualizado com os registros disponíveis</small></div><button className="secondary-button" type="button" onClick={() => onOpenTab('prontuario')}><UserRound size={16} /> Abrir prontuários</button></div>
+    {invalidDurationValues ? <div className="hr-duration-warning" role="status"><ShieldAlert size={15} /><span>Há {invalidDurationValues} valor(es) de atraso/extra com duração inválida. Não entraram nos totais nem nas estimativas; revise os registros na Gestão de ponto.</span></div> : null}
     <div className="hr-metric-grid hr-executive-grid">{cards.map((card) => <button key={card.label} className={`hr-metric-card is-${card.tone}`} type="button" onClick={() => onOpenTab(card.tab)}><span>{card.icon} {card.label}</span><strong>{card.value}</strong><small>{card.detail}</small></button>)}</div>
     <div className="hr-dashboard-columns">
       <SectionCard title="Central de alertas prioritários" caption={`${alerts.length} alertas selecionados por urgência`}>
