@@ -1,6 +1,7 @@
 import type {
   AgreementInstallment,
   DashboardResponse,
+  DashboardPeriodOverviewResponse,
   FactoryProductionSummary,
   ManagedDebt,
   SessionUser,
@@ -129,6 +130,90 @@ export function buildOverviewReportRows(data: DashboardResponse, enrichment: Ove
   if (enrichment.agreements) rows.push(...agreementRows(enrichment.agreements, enrichment))
   if (enrichment.debts) rows.push(...debtRows(enrichment.debts, enrichment))
   return rows
+}
+
+export function buildPeriodOverviewRows(data: DashboardPeriodOverviewResponse): OverviewReportRow[] {
+  const finance = data.financeiro || { receitas_realizadas: 0, despesas_realizadas: 0, recebiveis_com_vencimento: 0, pagamentos_com_vencimento: 0 }
+  const orders = data.ordens || { quantidade: 0, pecas: 0, valor: 0 }
+  const production = data.producao || { ordens_com_evento: 0, produzidas: 0, costuradas: 0, entregues: 0 }
+  const point = data.ponto || { total: 0, por_status: [] }
+  const inconsistencies = data.inconsistencias_ponto || { total: 0, pendentes: 0 }
+  const absences = data.ausencias || { ferias_sobrepostas: 0, ferias_iniciadas: 0, afastamentos_sobrepostos: 0, afastamentos_iniciados: 0 }
+  const absencesByStatus = point.por_status.find((item) => item.status.toLowerCase() === 'falta')?.quantidade || 0
+
+  return [
+    row('Financeiro', 'Receitas realizadas', money(finance.receitas_realizadas), 'moeda', 'informativo', 'Baixas por data de pagamento dentro do período', 'financeiro'),
+    row('Financeiro', 'Despesas realizadas', money(finance.despesas_realizadas), 'moeda', 'informativo', 'Baixas por data de pagamento dentro do período', 'financeiro'),
+    row('Financeiro', 'Resultado realizado', money(finance.receitas_realizadas - finance.despesas_realizadas), 'moeda', 'informativo', 'Receitas realizadas menos despesas realizadas', 'financeiro'),
+    row('Financeiro', 'Recebíveis com vencimento', money(finance.recebiveis_com_vencimento), 'moeda', 'informativo', 'Títulos ainda abertos com vencimento no período', 'financeiro'),
+    row('Financeiro', 'Pagamentos com vencimento', money(finance.pagamentos_com_vencimento), 'moeda', 'informativo', 'Obrigações ainda abertas com vencimento no período', 'financeiro'),
+    row('Produção', 'Ordens cadastradas', number(orders.quantidade), 'quantidade', 'informativo', 'Data de entrada no período; inclui ordens que hoje estejam canceladas', 'ordens'),
+    row('Produção', 'Peças cadastradas', number(orders.pecas), 'quantidade', 'informativo', 'Quantidade solicitada nas ordens com entrada no período', 'ordens'),
+    row('Produção', 'Valor das ordens cadastradas', money(orders.valor), 'moeda', 'informativo', 'Valor contratado das ordens com entrada no período; não é receita recebida', 'ordens'),
+    row('Produção', 'Produção líquida', number(production.produzidas), 'quantidade', 'informativo', `${number(production.ordens_com_evento)} ordem(ns) com evento fabril; soma líquida dos ajustes`, 'producao'),
+    row('Produção', 'Costura líquida', number(production.costuradas), 'quantidade', 'informativo', 'Soma líquida dos eventos fabris no período', 'producao'),
+    row('Produção', 'Entrega líquida', number(production.entregues), 'quantidade', 'informativo', 'Soma líquida dos eventos fabris no período', 'producao'),
+    row('Pessoas', 'Registros de ponto', number(point.total), 'quantidade', 'informativo', 'Marcações com data dentro do período', 'ponto'),
+    row('Pessoas', 'Faltas registradas', number(absencesByStatus), 'quantidade', absencesByStatus ? 'atencao' : 'positivo', 'Registros de ponto classificados como falta', 'ponto'),
+    row('Pessoas', 'Inconsistências de ponto', number(inconsistencies.total), 'quantidade', inconsistencies.pendentes ? 'atencao' : 'informativo', `${number(inconsistencies.pendentes)} pendente(s) · data da ocorrência no período`, 'ponto'),
+    row('Pessoas', 'Férias sobrepostas', number(absences.ferias_sobrepostas), 'quantidade', 'informativo', `${number(absences.ferias_iniciadas)} com início no período`, 'rh'),
+    row('Pessoas', 'Afastamentos sobrepostos', number(absences.afastamentos_sobrepostos), 'quantidade', 'informativo', `${number(absences.afastamentos_iniciados)} com início no período`, 'rh'),
+  ]
+}
+
+function csvSafe(value: unknown) {
+  const text = String(value ?? '')
+  const safe = /^[\t\r ]*[=+\-@]/.test(text) ? `'${text}` : text
+  return `"${safe.replaceAll('"', '""')}"`
+}
+
+function overviewPeriodFilename(user: SessionUser, periodLabel: string, extension: string) {
+  return `relatorio-periodo-${safeFileName(user.nome)}-${safeFileName(periodLabel)}.${extension}`
+}
+
+export function downloadPeriodOverviewCsv(rows: OverviewReportRow[], user: SessionUser, periodLabel: string) {
+  const generatedAt = new Date().toLocaleString('pt-BR')
+  const csvRows = [
+    ['Grupo', 'Indicador', 'Valor', 'Unidade', 'Status', 'Contexto', 'Módulo', 'Período', 'Gerado em'],
+    ...rows.map((item) => [item.grupo, item.indicador, item.valor, item.unidade, item.status, item.contexto, item.modulo, periodLabel, generatedAt]),
+  ]
+  const csv = csvRows.map((line) => line.map(csvSafe).join(';')).join('\n')
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = overviewPeriodFilename(user, periodLabel, 'csv')
+  anchor.click()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+export async function exportPeriodOverviewPdf(rows: OverviewReportRow[], user: SessionUser, periodLabel: string) {
+  const [{ jsPDF }, { default: autoTable }, logo] = await Promise.all([import('jspdf'), import('jspdf-autotable'), loadLogo()])
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true })
+  const margin = 15
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const generatedAt = new Date().toLocaleString('pt-BR')
+  const grouped = rows.reduce<Record<string, OverviewReportRow[]>>((acc, item) => { (acc[item.grupo] ||= []).push(item); return acc }, {})
+  const colors: Record<string, [number, number, number]> = { Pessoas: [162, 63, 105], Produção: [55, 112, 83], Financeiro: [190, 151, 74] }
+  const header = () => {
+    doc.setFillColor(250, 249, 250); doc.rect(0, 0, pageWidth, 31, 'F'); doc.setDrawColor(...brand.line); doc.setLineWidth(.25); doc.line(margin, 31, pageWidth - margin, 31)
+    if (logo) doc.addImage(logo, 'PNG', margin, 6, 21, 15.4, undefined, 'FAST')
+    else { doc.setFillColor(...brand.plum); doc.roundedRect(margin, 7, 20, 14, 1.4, 1.4, 'F'); doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text('RF', margin + 6, 16) }
+    doc.setTextColor(...brand.ink); doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('RF Gestão', margin + 26, 11)
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...brand.muted); doc.text('Visão geral · movimento no período', margin + 26, 16)
+    doc.setTextColor(...brand.ink); doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text(periodLabel, margin, 41)
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...brand.muted); doc.text(`Responsável: ${user.nome} · Gerado em ${generatedAt}`, margin, 47)
+  }
+  header()
+  let y = 55
+  for (const [group, items] of Object.entries(grouped)) {
+    if (y > 260) { doc.addPage(); header(); y = 55 }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(55, 45, 50); doc.text(group, margin, y)
+    autoTable(doc, { head: [['Indicador', 'Valor', 'Contexto']], body: items.map((item) => [item.indicador, item.valor, item.contexto]), startY: y + 3, theme: 'grid', styles: { font: 'helvetica', fontSize: 7.4, cellPadding: 2.4, textColor: [55, 45, 50], lineColor: [225, 218, 214], lineWidth: .15 }, headStyles: { fillColor: colors[group] || [91, 79, 85], textColor: [255, 255, 255], fontStyle: 'bold' }, alternateRowStyles: { fillColor: [251, 249, 246] }, margin: { left: margin, right: margin } })
+    y = ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY || y + 20) + 7
+  }
+  doc.setFontSize(7); doc.setTextColor(130, 119, 125); doc.text('Indicadores calculados para o intervalo selecionado. Posições atuais não são apresentadas como histórico.', margin, doc.internal.pageSize.getHeight() - 9)
+  doc.save(overviewPeriodFilename(user, periodLabel, 'pdf'))
 }
 
 export function downloadDashboardCsv(data: DashboardResponse, user: SessionUser, enrichment: OverviewReportEnrichment = {}) {

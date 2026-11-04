@@ -40,7 +40,7 @@ function entryDate(value: unknown) {
   return Number.isNaN(date.valueOf()) ? String(value) : date.toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' })
 }
 
-export function PayrollBenefitsDiscounts({ token }: { token: string }) {
+export function PayrollBenefitsDiscounts({ token, onNavigateToReports }: { token: string; onNavigateToReports?: () => void }) {
   const [view, setView] = useState<'lancamentos' | 'catalogo' | 'assiduidade' | 'relatorios'>('lancamentos')
   const [employees, setEmployees] = useState<EmployeeRow[]>([])
   const [benefits, setBenefits] = useState<Array<Record<string, unknown>>>([])
@@ -243,7 +243,7 @@ export function PayrollBenefitsDiscounts({ token }: { token: string }) {
       <button type="button" className={view === 'lancamentos' ? 'active' : ''} onClick={() => setView('lancamentos')}>Lançamentos</button>
       <button type="button" className={view === 'catalogo' ? 'active' : ''} onClick={() => setView('catalogo')}>Catálogo</button>
       <button type="button" className={view === 'assiduidade' ? 'active' : ''} onClick={() => setView('assiduidade')}>Simular Vale Cesta</button>
-      <button type="button" className={view === 'relatorios' ? 'active' : ''} onClick={() => setView('relatorios')}>Relatórios</button>
+      <button type="button" className={view === 'relatorios' ? 'active' : ''} onClick={() => onNavigateToReports ? onNavigateToReports() : setView('relatorios')}>Relatórios centralizados</button>
     </div>
     {view === 'lancamentos' ? (
       <div className="payroll-management-layout">

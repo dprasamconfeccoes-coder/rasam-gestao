@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { config } from './config'
 import type {
   DashboardResponse,
+  DashboardPeriodOverviewResponse,
   FactoryProductionResponse,
   AgreementInstallment,
   CreateAgreementPayload,
@@ -91,6 +92,14 @@ export function logout(token: string) {
 
 export function dashboard(token: string) {
   return rpc<DashboardResponse>('app_dashboard_v2', { p_token: token })
+}
+
+export function dashboardPeriod(token: string, inicio: string, fim: string) {
+  return rpc<DashboardPeriodOverviewResponse>('app_admin_dashboard_periodo', {
+    p_token: token,
+    p_inicio: inicio,
+    p_fim: fim,
+  })
 }
 
 export function listEmployees(token: string) {

@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  AlertTriangle,
   BarChart3,
   BriefcaseBusiness,
   CalendarDays,
   Download,
   FileBarChart,
+  FileSpreadsheet,
   FileText,
   Landmark,
   PieChart,
   Printer,
   RefreshCw,
+  Search,
   ShieldAlert,
   Table2,
   WalletCards,
@@ -18,6 +19,8 @@ import {
 import { adminFinanceiroRelatorio, adminRegistrarRelatorio } from '../lib/api'
 import type { FinanceiroRelatorioResponse } from '../lib/types'
 import { EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, formatDate, formatMoney } from '../components/ui'
+import { downloadReportCsv, downloadReportXlsx, printReport, type ReportExportColumn, type ReportCell } from '../lib/report-export'
+import { PayrollClosingReports, specialReportOptions, type SpecialReportType } from './PayrollClosingReports'
 import './finance-reports.css'
 
 type ReportType =
@@ -111,11 +114,6 @@ function displayValue(key: string, row: Record<string, unknown>) {
   return raw === null || raw === undefined || raw === '' ? '—' : String(raw)
 }
 
-function escapeHtml(value: string) {
-  const entities: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
-  return value.replace(/[&<>"']/g, (character) => entities[character])
-}
-
 function iconFor(icon: ReportDefinition['icon']) {
   if (icon === 'chart') return <BarChart3 size={17} />
   if (icon === 'table') return <Table2 size={17} />
@@ -125,15 +123,21 @@ function iconFor(icon: ReportDefinition['icon']) {
   return <FileText size={17} />
 }
 
-export function FinanceReportsDashboard({ token }: { token: string }) {
+export function FinanceReportsDashboard({ token, isAdmin = false }: { token: string; isAdmin?: boolean }) {
   const today = new Date()
   const [start, setStart] = useState(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`)
   const [end, setEnd] = useState(localDate(today))
   const [type, setType] = useState<ReportType>('fluxo')
   const [data, setData] = useState<FinanceiroRelatorioResponse | null>(null)
   const [loading, setLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const [showCatalog, setShowCatalog] = useState(true)
+  const [specialReport, setSpecialReport] = useState<SpecialReportType | null>(null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [lastGenerated, setLastGenerated] = useState('')
   const requestId = useRef(0)
 
   async function load(nextType: ReportType = type, openDetail = true) {
@@ -146,13 +150,15 @@ export function FinanceReportsDashboard({ token }: { token: string }) {
     }
     setLoading(true)
     setError('')
-    setData(null)
     try {
       const result = await adminFinanceiroRelatorio(token, nextType, start, end)
       if (currentRequest !== requestId.current) return
       if (!result.sucesso) throw new Error(result.erro || 'Não foi possível gerar o relatório.')
       setData(result)
       setType(nextType)
+      setSpecialReport(null)
+      setLastGenerated(new Date().toISOString())
+      setSearch(''); setStatusFilter(''); setCategoryFilter('')
       setShowCatalog(!openDetail)
       void adminRegistrarRelatorio(token, nextType, start, end)
     } catch (cause) {
@@ -168,6 +174,8 @@ export function FinanceReportsDashboard({ token }: { token: string }) {
     requestId.current += 1
     setLoading(false)
     setData(null)
+    setLastGenerated('')
+    setSearch(''); setStatusFilter(''); setCategoryFilter('')
     setError('')
     setStart(value)
   }
@@ -176,6 +184,8 @@ export function FinanceReportsDashboard({ token }: { token: string }) {
     requestId.current += 1
     setLoading(false)
     setData(null)
+    setLastGenerated('')
+    setSearch(''); setStatusFilter(''); setCategoryFilter('')
     setError('')
     setEnd(value)
   }
@@ -196,15 +206,24 @@ export function FinanceReportsDashboard({ token }: { token: string }) {
   const isFinancialReport = option.area === 'Financeiro'
   const isNewFactoryReport = isFactoryFlow || isSizeControl
   const totalRows = rows.length
+  const statusOptions = Array.from(new Set(rows.map((row) => String(row.status || '')).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  const categoryOptions = Array.from(new Set(rows.map((row) => String(row.categoria || '')).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  const filteredRows = rows.filter((row) => {
+    const query = search.trim().toLocaleLowerCase('pt-BR')
+    const matchesSearch = !query || fields.some(([key]) => String(row[key] ?? '').toLocaleLowerCase('pt-BR').includes(query))
+    const matchesStatus = !statusFilter || String(row.status || '') === statusFilter
+    const matchesCategory = !categoryFilter || String(row.categoria || '') === categoryFilter
+    return matchesSearch && matchesStatus && matchesCategory
+  })
 
   const summary = useMemo(() => {
-    const sum = (keys: string[]) => rows.reduce((total, row) => total + keys.reduce((subtotal, key) => subtotal + num(row[key]), 0), 0)
-    const daysWithMovement = rows.filter((row) => num(row.produzidas) !== 0 || num(row.costuradas) !== 0 || num(row.entregues) !== 0).length
-    const dreValue = (group: string) => num(rows.find((row) => row.grupo === group)?.valor)
+    const sum = (keys: string[]) => filteredRows.reduce((total, row) => total + keys.reduce((subtotal, key) => subtotal + num(row[key]), 0), 0)
+    const daysWithMovement = filteredRows.filter((row) => num(row.produzidas) !== 0 || num(row.costuradas) !== 0 || num(row.entregues) !== 0).length
+    const dreValue = (group: string) => num(filteredRows.find((row) => row.grupo === group)?.valor)
     return {
       receitas: sum(['receitas_recebidas', 'receitas_previstas']),
       despesas: sum(['despesas_pagas', 'despesas_previstas', 'valor']),
-      abertos: rows.filter((row) => ['pendente', 'vencido'].includes(String(row.status))).length,
+      abertos: filteredRows.filter((row) => ['pendente', 'vencido'].includes(String(row.status))).length,
       dreReceitasRealizadas: dreValue('Receitas realizadas'),
       dreReceitasPrevistas: dreValue('Receitas previstas'),
       dreDespesasPagas: dreValue('Despesas pagas'),
@@ -219,29 +238,31 @@ export function FinanceReportsDashboard({ token }: { token: string }) {
       entregues: sum(['entregues']),
       daysWithMovement,
     }
-  }, [rows, data?.totais, isSizeControl])
+  }, [filteredRows, data?.totais, isSizeControl])
 
   function exportCsv() {
-    const header = fields.map(([, label]) => label).join(';')
-    const body = rows.map((row) => fields.map(([key]) => `"${displayValue(key, row).replaceAll('"', '""')}"`).join(';')).join('\n')
-    const blob = new Blob([`${header}\n${body}`], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = `relatorio-${type}.csv`
-    anchor.click()
-    URL.revokeObjectURL(url)
+    const exportColumns: ReportExportColumn[] = fields.map(([key, label]) => ({ key, label }))
+    const exportRows = filteredRows.map((row) => Object.fromEntries(fields.map(([key]) => [key, displayValue(key, row)])) as Record<string, ReportCell>)
+    downloadReportCsv(`${option.label} ${start} a ${end}`, exportColumns, exportRows, [['Período', `${formatDate(start)} a ${formatDate(end)}`], ['Linhas exportadas', `${filteredRows.length} de ${rows.length}`], ['Gerado em', new Date().toLocaleString('pt-BR')]])
+  }
+
+  async function exportXlsx() {
+    setExporting(true)
+    setError('')
+    try {
+      const exportColumns: ReportExportColumn[] = fields.map(([key, label]) => ({ key, label }))
+      const exportRows = filteredRows.map((row) => Object.fromEntries(fields.map(([key]) => [key, (row[key] ?? null) as ReportCell])) as Record<string, ReportCell>)
+      await downloadReportXlsx(`${option.label} ${start} a ${end}`, exportColumns, exportRows, [['Período', `${formatDate(start)} a ${formatDate(end)}`], ['Linhas exportadas', `${filteredRows.length} de ${rows.length}`], ['Gerado em', new Date().toLocaleString('pt-BR')]])
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível exportar o arquivo Excel.')
+    } finally { setExporting(false) }
   }
 
   function print() {
-    const title = `${option.label} · ${formatDate(start)} a ${formatDate(end)}`
-    const safeTitle = escapeHtml(title)
-    const html = `<html><head><title>${safeTitle}</title><style>body{font:12px Arial;padding:28px;color:#252b28}h1{font-size:21px}p{color:#66736b}table{border-collapse:collapse;width:100%;margin-top:20px}th,td{border:1px solid #d9ded9;padding:7px;text-align:left}th{background:#eef3ed}</style></head><body><h1>${safeTitle}</h1><p>RF Gestão · relatório gerencial · ${new Date().toLocaleString('pt-BR')}</p><table><thead><tr>${fields.map(([, label]) => `<th>${escapeHtml(label)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${fields.map(([key]) => `<td>${escapeHtml(displayValue(key, row))}</td>`).join('')}</tr>`).join('')}</tbody></table><script>window.onload=()=>window.print()</script></body></html>`
-    const windowRef = window.open('', '_blank')
-    if (windowRef) {
-      windowRef.document.write(html)
-      windowRef.document.close()
-    }
+    const exportColumns: ReportExportColumn[] = fields.map(([key, label]) => ({ key, label }))
+    const exportRows = filteredRows.map((row) => Object.fromEntries(fields.map(([key]) => [key, displayValue(key, row)])) as Record<string, ReportCell>)
+    try { printReport(`${option.label} · ${formatDate(start)} a ${formatDate(end)}`, exportColumns, exportRows, [['Gerado em', new Date().toLocaleString('pt-BR')], ['Linhas exportadas', `${filteredRows.length} de ${rows.length}`]]) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível abrir a impressão.') }
   }
 
   const header = (
@@ -251,24 +272,25 @@ export function FinanceReportsDashboard({ token }: { token: string }) {
       description="Catálogo gerencial de financeiro, produção, pessoas e compromissos da empresa."
       action={(
         <div className="finance-report-actions">
-          <button className="secondary-button" onClick={() => setShowCatalog(!showCatalog)}>
+          <button className="secondary-button" onClick={() => { setShowCatalog(!showCatalog); if (!showCatalog) setSpecialReport(null) }}>
             <FileBarChart size={15} /> {showCatalog ? 'Abrir relatório' : 'Catálogo'}
           </button>
-          {!showCatalog && <>
-            <button className="secondary-button" onClick={exportCsv} disabled={!rows.length}><Download size={15} /> CSV</button>
-            <button className="secondary-button" onClick={print} disabled={!rows.length}><Printer size={15} /> Imprimir / PDF</button>
+          {!showCatalog && !specialReport && <>
+            <button className="secondary-button" onClick={exportCsv} disabled={!filteredRows.length}><Download size={15} /> CSV</button>
+            <button className="secondary-button" onClick={() => void exportXlsx()} disabled={!filteredRows.length || exporting}><FileSpreadsheet size={15} /> {exporting ? 'Exportando…' : 'Excel'}</button>
+            <button className="secondary-button" onClick={print} disabled={!filteredRows.length}><Printer size={15} /> Imprimir / PDF</button>
           </>}
         </div>
       )}
     />
   )
 
-  if (error && !data) return <div className="finance-reports-page">{header}<ErrorState message={error} /></div>
+  if (error && !data) return <div className="finance-reports-page">{header}<ErrorState message={error} /><button className="secondary-button" type="button" onClick={() => void load(type, !showCatalog)}><RefreshCw size={15} /> Tentar novamente</button></div>
 
   return (
     <div className="finance-reports-page">
       {header}
-      {error && <div className="report-inline-error" role="alert">{error}</div>}
+      {error && <div className="report-inline-error" role="alert">{error}{data ? ' Os dados da última consulta permanecem visíveis.' : ''}</div>}
       {showCatalog ? <>
         <section className="reports-overview">
           <div className="reports-overview-copy">
@@ -277,16 +299,16 @@ export function FinanceReportsDashboard({ token }: { token: string }) {
             <p>Escolha uma área, abra um relatório e exporte uma visão pronta para gestão. Os dados são filtrados pelo período informado.</p>
           </div>
           <div className="reports-overview-metrics">
-            <article><WalletCards size={17} /><strong>{formatMoney(summary.receitas)}</strong><small>Movimentação de receitas</small></article>
-            <article><PieChart size={17} /><strong>{formatMoney(summary.despesas)}</strong><small>Movimentação de despesas</small></article>
-            <article><FileText size={17} /><strong>{financeOptions.length}</strong><small>Relatórios financeiros</small></article>
-            <article><AlertTriangle size={17} /><strong>{summary.abertos}</strong><small>Itens pendentes na prévia</small></article>
+            <article><FileText size={17} /><strong>{data ? totalRows.toLocaleString('pt-BR') : '—'}</strong><small>Linhas no último relatório</small></article>
+            <article><CalendarDays size={17} /><strong>{data ? `${formatDate(start)} – ${formatDate(end)}` : '—'}</strong><small>Período consultado</small></article>
+            <article><WalletCards size={17} /><strong>{financeOptions.length}</strong><small>Relatórios financeiros</small></article>
+            <article><PieChart size={17} /><strong>{isAdmin ? specialReportOptions.length : 'Admin'}</strong><small>Relatórios de folha e fechamento</small></article>
           </div>
         </section>
         <div className="reports-catalog-toolbar">
           <label>Período inicial<input type="date" value={start} onChange={(event) => updatePeriodStart(event.target.value)} /></label>
           <label>Período final<input type="date" value={end} onChange={(event) => updatePeriodEnd(event.target.value)} /></label>
-          <button className="primary-button" onClick={() => void load(type)} disabled={loading}><RefreshCw size={15} /> Atualizar catálogo</button>
+          <button className="primary-button" onClick={() => void load(type, false)} disabled={loading}><RefreshCw size={15} /> Atualizar catálogo</button>
         </div>
         {['Financeiro', 'Produção', 'Pessoas', 'Dívidas'].map((area) => (
           <section className="report-catalog-section" key={area}>
@@ -304,6 +326,12 @@ export function FinanceReportsDashboard({ token }: { token: string }) {
             </div>
           </section>
         ))}
+        {isAdmin && <section className="report-catalog-section">
+          <div className="report-catalog-heading"><div><span className="eyebrow">Catálogo</span><h2>Folha e fechamento</h2></div><small>Relatórios mensais e ferramentas de RH existentes, centralizados aqui e disponíveis somente para administradores.</small></div>
+          <div className="report-catalog-grid">{specialReportOptions.map((item) => <button className="report-catalog-card" key={item.key} onClick={() => { setSpecialReport(item.key); setShowCatalog(false); setError('') }}><span>{iconFor(item.icon)}</span><div><strong>{item.label}</strong><small>{item.description}</small></div><b>Consultar</b></button>)}</div>
+        </section>}
+      </> : specialReport ? <>
+        <PayrollClosingReports token={token} isAdmin={isAdmin} initialReport={specialReport} onBack={() => { setSpecialReport(null); setShowCatalog(true) }} />
       </> : <>
         <div className="finance-report-toolbar">
           <button className="secondary-button" onClick={() => setShowCatalog(true)}>← Voltar ao catálogo</button>
@@ -338,8 +366,10 @@ export function FinanceReportsDashboard({ token }: { token: string }) {
           <article><span>Despesas / compromissos</span><strong>{formatMoney(summary.despesas)}</strong><small>Consolidação da prévia</small></article>
           <article><span>Gerado em</span><strong>{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</strong><small>Dados do tenant autorizado</small></article>
         </div>}
-        <SectionCard title={option.label} caption={`${formatDate(start)} a ${formatDate(end)} · ${totalRows} registro(s)`}>
-          {loading ? <LoadingState label="Gerando relatório…" /> : rows.length ? <div className="finance-report-table"><table><thead><tr>{fields.map(([, label]) => <th key={label}>{label}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={String(row.id || row.numero || row.data || row.categoria || index)}>{fields.map(([key]) => <td key={key}>{displayValue(key, row)}</td>)}</tr>)}</tbody></table></div> : <EmptyState title="Nenhum dado no período" description={isNewFactoryReport ? 'Ajuste o intervalo de datas ou verifique se há ordens e eventos fabris registrados nesse período.' : 'Ajuste o intervalo ou verifique se há movimentações registradas nesse período.'} />}
+        <SectionCard title={option.label} caption={`${formatDate(start)} a ${formatDate(end)} · ${filteredRows.length} de ${totalRows} registro(s)${lastGenerated ? ` · última consulta ${new Date(lastGenerated).toLocaleString('pt-BR')}` : ''}`}>
+          <div className="report-filterbar"><label><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar nas linhas exibidas…" /></label>{statusOptions.length > 1 && <label className="report-select-filter">Status<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="">Todos</option>{statusOptions.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>}{categoryOptions.length > 1 && <label className="report-select-filter">Categoria<select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}><option value="">Todas</option>{categoryOptions.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>}<button type="button" className="secondary-button" onClick={() => { setSearch(''); setStatusFilter(''); setCategoryFilter('') }} disabled={!search && !statusFilter && !categoryFilter}>Limpar filtros</button><small>Busca e filtros locais aplicam-se às {totalRows} linhas retornadas pelo servidor.</small></div>
+          {loading && data && <div className="report-refresh-note"><RefreshCw size={14} className="spin" /> Atualizando; os últimos resultados permanecem visíveis.</div>}
+          {loading && !data ? <LoadingState label="Gerando relatório…" /> : filteredRows.length ? <div className="finance-report-table"><table><thead><tr>{fields.map(([, label]) => <th key={label}>{label}</th>)}</tr></thead><tbody>{filteredRows.map((row, index) => <tr key={String(row.id || row.numero || row.data || row.categoria || index)}>{fields.map(([key]) => <td key={key}>{displayValue(key, row)}</td>)}</tr>)}</tbody></table></div> : rows.length ? <EmptyState title="Nenhum resultado para os filtros" description="Limpe a busca/status/categoria ou ajuste os filtros." /> : <EmptyState title="Nenhum dado no período" description={isNewFactoryReport ? 'Ajuste o intervalo de datas ou verifique se há ordens e eventos fabris registrados nesse período.' : 'Ajuste o intervalo ou verifique se há movimentações registradas nesse período.'} />}
         </SectionCard>
         {isSizeControl && totalRows >= 2000 && <p className="report-limit-note" role="note">A consulta atingiu o limite de 2.000 linhas. Reduza o período para conferir os demais lotes.</p>}
       </>}

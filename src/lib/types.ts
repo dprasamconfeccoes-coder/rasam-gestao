@@ -118,6 +118,28 @@ export interface DashboardResponse {
   }
 }
 
+export interface DashboardPeriodOverviewResponse {
+  sucesso: boolean
+  erro?: string
+  periodo?: { inicio: string; fim: string }
+  financeiro?: {
+    receitas_realizadas: number
+    despesas_realizadas: number
+    recebiveis_com_vencimento: number
+    pagamentos_com_vencimento: number
+  }
+  ordens?: { quantidade: number; pecas: number; valor: number }
+  producao?: { ordens_com_evento: number; produzidas: number; costuradas: number; entregues: number }
+  ponto?: { total: number; por_status: Array<{ status: string; quantidade: number }> }
+  inconsistencias_ponto?: { total: number; pendentes: number }
+  ausencias?: {
+    ferias_sobrepostas: number
+    ferias_iniciadas: number
+    afastamentos_sobrepostos: number
+    afastamentos_iniciados: number
+  }
+}
+
 export interface EmployeeRow {
   id: string
   nome: string

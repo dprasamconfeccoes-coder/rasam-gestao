@@ -11,6 +11,7 @@ export type DashboardLiveEvent = {
 }
 
 type LiveCallback = (event: DashboardLiveEvent) => void
+export type DashboardRealtimeStatus = 'connecting' | 'subscribed' | 'error' | 'closed'
 
 const tableMap: Record<string, { title: string; detail: string; destination: ModuleKey; priority: DashboardLiveEvent['priority'] }> = {
   financeiro_lancamentos: { title: 'Movimentação financeira', detail: 'Um lançamento financeiro foi atualizado.', destination: 'financeiro', priority: 'atencao' },
@@ -22,8 +23,9 @@ const tableMap: Record<string, { title: string; detail: string; destination: Mod
   registros_ponto: { title: 'Atualização de ponto', detail: 'Um registro de ponto foi alterado.', destination: 'ponto', priority: 'informacao' },
 }
 
-export function subscribeDashboardRealtime(onEvent: LiveCallback) {
+export function subscribeDashboardRealtime(onEvent: LiveCallback, onStatus: (status: DashboardRealtimeStatus) => void = () => undefined) {
   const channel = supabase.channel(`rasam-dashboard-${Math.random().toString(36).slice(2)}`)
+  onStatus('connecting')
   Object.entries(tableMap).forEach(([table, meta]) => {
     channel.on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {
       const row = (payload.new || payload.old || {}) as { id?: string }
@@ -34,8 +36,16 @@ export function subscribeDashboardRealtime(onEvent: LiveCallback) {
       })
     })
   })
-  channel.subscribe()
-  return () => { void supabase.removeChannel(channel) }
+  channel.subscribe((status) => {
+    if (status === 'SUBSCRIBED') onStatus('subscribed')
+    else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') onStatus('error')
+    else if (status === 'CLOSED') onStatus('closed')
+    else onStatus('connecting')
+  })
+  return () => {
+    onStatus('closed')
+    void supabase.removeChannel(channel)
+  }
 }
 
 export function getNotificationPermission(): NotificationPermission | 'unsupported' {
