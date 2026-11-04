@@ -384,7 +384,6 @@ export interface PayslipRow {
   mes: number
   ano: number
   arquivo_nome: string | null
-  arquivo_url: string
   disponivel: boolean
   created_at?: string
 }
@@ -508,7 +507,7 @@ export interface PointImportRow {
   cpf_arquivo?: string | null
   import_validation_errors?: string[] | null
   nome_csv: string
-  data: string
+  data: string | null
   entrada_1: string | null
   saida_1: string | null
   entrada_2: string | null
@@ -534,6 +533,7 @@ export interface PointImportSummary {
   total_linhas: number
   linhas_encontradas: number
   linhas_nao_encontradas: number
+  linhas_com_inconsistencia: number
   cpfs_nao_encontrados: string[]
   imported_by_name: string | null
   status: 'pendente' | 'aplicada' | 'ignorada'
@@ -882,10 +882,16 @@ export interface AdminRequestsPage {
   limite: number
 }
 
-export interface AdminPayslipRow extends PayslipRow {
+export interface AdminPayslipRow {
+  id: string
   funcionario_id: string
   nome: string
-  cpf: string
+  mes: number
+  ano: number
+  arquivo_nome: string | null
+  disponivel: boolean
+  tem_arquivo_privado: boolean
+  created_at: string
 }
 
 export interface AdminDebtRow {

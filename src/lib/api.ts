@@ -494,7 +494,7 @@ export function updateWorkOrderProgress(token: string, orderId: string, tamanhos
 }
 
 export function importPoint(token: string, payload: { tipo: 'diario' | 'mensal'; competencia: string; arquivoNome: string; linhas: Record<string, unknown>[] }) {
-  return rpc<{ sucesso: boolean; erro?: string; importacao_id?: string; status?: string; total_linhas?: number; linhas_encontradas?: number; linhas_nao_encontradas?: number; cpfs_nao_encontrados?: string[] }>('app_importar_ponto', {
+  return rpc<{ sucesso: boolean; erro?: string; importacao_id?: string; status?: string; total_linhas?: number; linhas_encontradas?: number; linhas_nao_encontradas?: number; linhas_com_inconsistencia?: number; cpfs_nao_encontrados?: string[] }>('app_importar_ponto', {
     p_token: token,
     p_tipo: payload.tipo,
     p_competencia: payload.competencia,
@@ -507,8 +507,8 @@ export function listPointImports(token: string) {
   return rpc<{ sucesso: boolean; erro?: string; importacoes: PointImportSummary[] }>('app_listar_importacoes', { p_token: token })
 }
 
-export function applyPointImport(token: string, importacaoId: string) {
-  return rpc<{ sucesso: boolean; erro?: string; status?: string; linhas_aplicadas?: number; linhas_inconsistentes?: number }>('app_aplicar_importacao_ponto', { p_token: token, p_importacao_id: importacaoId })
+export function applyPointImport(token: string, importacaoId: string, confirmarSubstituicao = false) {
+  return rpc<{ sucesso: boolean; erro?: string; status?: string; linhas_aplicadas?: number; linhas_com_inconsistencia?: number; confirmacao_substituicao_requerida?: boolean; registros_existentes?: number }>('app_aplicar_importacao_ponto', { p_token: token, p_importacao_id: importacaoId, p_confirmar_substituicao: confirmarSubstituicao })
 }
 
 export function ignorePointImport(token: string, importacaoId: string) {
@@ -783,10 +783,6 @@ export async function getPayslipDocumentUrl(token: string, holeriteId: string, d
   const data = (await response.json()) as { sucesso: boolean; erro?: string; url?: string; expires_in?: number }
   if (!response.ok || !data.sucesso || !data.url) throw new Error(data.erro || 'Não foi possível abrir o holerite')
   return data
-}
-
-export function registerPayslip(token: string, funcionarioId: string, mes: number, ano: number, arquivoNome: string, arquivoUrl: string) {
-  return rpc<{ sucesso: boolean; erro?: string }>('app_admin_registrar_holerite', { p_token: token, p_funcionario_id: funcionarioId, p_mes: mes, p_ano: ano, p_arquivo_nome: arquivoNome, p_arquivo_url: arquivoUrl })
 }
 
 export function adminRights(token: string) {

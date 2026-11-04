@@ -25,7 +25,7 @@ A coluna `funcionarios.cadastro_tipo` diferencia os dois cenários (`completo` o
 
 ## Supabase
 
-As migrações versionadas estão em `supabase/migrations/`. O checkout termina em `0095_point_import_validation_details.sql`; o projeto Supabase conectado já registra a migration `0096_financial_integration_core`, cuja fonte ainda não foi sincronizada para este repositório. Não aplique migrations subsequentes em outro ambiente antes de recuperar e versionar essa fonte. A carga real da ficha não é armazenada neste repositório.
+As migrações locais estão em `supabase/migrations/`. A fonte da `0096_financial_integration_core` foi recuperada do histórico Supabase e versionada neste repositório; as mudanças `0102` e `0103` desta rodada foram aplicadas ao projeto principal. Como o servidor usa versões timestamp e o histórico completo ainda possui divergências semânticas, não execute `supabase db push` nem `migration repair` até concluir a reconciliação. A carga real da ficha não é armazenada neste repositório.
 
 As permissões administrativas são validadas pelas RPCs do Supabase. A **Central operacional** permite visualizar o ponto da equipe, exportar relatórios, tratar justificativas e atestados, responder solicitações de RH, publicar avisos e holerites, atualizar baixas de dívidas e conduzir ordens e lotes de produção.
 

@@ -72,13 +72,15 @@ export function PayslipImportDashboard({ token }: { token: string }) {
   async function openDocument(row: AdminPayslipRow, download = false) {
     setOpeningId(row.id)
     setError('')
+    if (!row.tem_arquivo_privado || !row.disponivel) {
+      setOpeningId('')
+      setError(row.disponivel
+        ? 'Este registro é legado e não tem cópia no Storage privado. Reenvie o PDF antes de disponibilizá-lo.'
+        : 'Este holerite não está disponível para abertura.')
+      return
+    }
     const popup = window.open('about:blank', '_blank')
     try {
-      if (row.arquivo_url?.startsWith('http')) {
-        if (popup) popup.location.href = row.arquivo_url
-        else window.open(row.arquivo_url, '_blank', 'noopener,noreferrer')
-        return
-      }
       const signed = await getPayslipDocumentUrl(token, row.id, download)
       if (!signed.url) throw new Error('URL do documento não encontrada')
       if (popup) popup.location.href = signed.url
@@ -113,7 +115,7 @@ export function PayslipImportDashboard({ token }: { token: string }) {
       <SectionCard title="Como funciona" caption="Fluxo seguro para o departamento pessoal"><div className="payslip-process"><div><span>01</span><p><strong>Escolha a pessoa</strong><small>O sistema mostra somente funcionários ativos e elegíveis a holerite.</small></p></div><div><span>02</span><p><strong>Informe a competência</strong><small>Use o mês de referência do documento recebido do escritório.</small></p></div><div><span>03</span><p><strong>Envie o PDF</strong><small>O arquivo é armazenado em área privada e aparece no portal do funcionário.</small></p></div></div></SectionCard>
     </div>
     <SectionCard title="Holerites importados" caption={`${rows.length} registro(s) no ambiente`}>
-      {loading ? <LoadingState label="Consultando holerites…" /> : rows.length === 0 ? <EmptyState title="Nenhum holerite importado" description="Os documentos enviados aparecerão aqui para conferência." /> : <div className="document-list payslip-history">{rows.map((row) => <div className="document-row" key={row.id}><span className="document-icon"><Receipt size={18} /></span><div><strong>{row.nome} · {monthLabel(row.mes, row.ano)}</strong><small>{row.arquivo_nome || 'Holerite'} · importado {formatDate(row.created_at)}</small></div><button className="icon-button" type="button" onClick={() => void openDocument(row)} disabled={openingId === row.id} aria-label={`Abrir holerite de ${row.nome}`} title="Abrir PDF">{openingId === row.id ? <RefreshCw size={16} className="spin" /> : <Download size={16} />}</button></div>)}</div>}
+      {loading ? <LoadingState label="Consultando holerites…" /> : rows.length === 0 ? <EmptyState title="Nenhum holerite importado" description="Os documentos enviados aparecerão aqui para conferência." /> : <div className="document-list payslip-history">{rows.map((row) => <div className="document-row" key={row.id}><span className="document-icon"><Receipt size={18} /></span><div><strong>{row.nome} · {monthLabel(row.mes, row.ano)}</strong><small>{row.arquivo_nome || 'Holerite'} · importado {formatDate(row.created_at)}</small></div>{row.tem_arquivo_privado && row.disponivel ? <button className="icon-button" type="button" onClick={() => void openDocument(row)} disabled={openingId === row.id} aria-label={`Abrir holerite de ${row.nome}`} title="Abrir PDF privado">{openingId === row.id ? <RefreshCw size={16} className="spin" /> : <Download size={16} />}</button> : <small className="table-note">{row.disponivel ? 'Legado · reenviar PDF' : 'Indisponível'}</small>}</div>)}</div>}
     </SectionCard>
   </>
 }
