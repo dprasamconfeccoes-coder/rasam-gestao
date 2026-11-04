@@ -47,6 +47,7 @@
 .own-history-item:last-child { border-bottom: 0; }
 .own-history-copy { display: grid; gap: 5px; min-width: 0; }
 .own-history-copy strong { color: #29252b; font-size: 12px; }
+.own-history-amount { flex: none; color: #29252b; font-size: 12px; }
 .own-history-copy span, .own-history-copy small { color: #746d66; font-size: 10px; line-height: 1.45; overflow-wrap: anywhere; }
 @media (max-width: 800px) {
   .own-dossier-summary { grid-template-columns: 1fr; }

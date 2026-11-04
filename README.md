@@ -14,7 +14,7 @@ O frontend usa as RPCs `app_*` do projeto Supabase configurado no ambiente. O cl
 
 ## Acesso inicial
 
-O login usa CPF. Para as contas importadas da ficha de empregado, a senha inicial é a data de nascimento no formato `DDMMAAAA`. O primeiro acesso exige troca para uma senha com pelo menos oito caracteres.
+A autenticação e o primeiro acesso são validados pelo servidor. Credenciais temporárias devem ser trocadas no primeiro acesso.
 
 ## Tipos de cadastro de funcionário
 
@@ -25,11 +25,11 @@ A coluna `funcionarios.cadastro_tipo` diferencia os dois cenários (`completo` o
 
 ## Supabase
 
-As migrações versionadas estão em `supabase/migrations/0001_unified_rasam_gestao.sql`, `0002_private_documents_scope.sql`, `0003_employee_registration_types.sql` e `0004_operational_imports_and_documents.sql`. A carga real da ficha foi executada diretamente no projeto Supabase e não é armazenada neste repositório.
+As migrações versionadas estão em `supabase/migrations/`. O checkout termina em `0095_point_import_validation_details.sql`; o projeto Supabase conectado já registra a migration `0096_financial_integration_core`, cuja fonte ainda não foi sincronizada para este repositório. Não aplique migrations subsequentes em outro ambiente antes de recuperar e versionar essa fonte. A carga real da ficha não é armazenada neste repositório.
 
-O CPF administrativo `07056527930` está cadastrado como **Renan Ricardo**, com perfil `admin`, cargo operacional de gerente/departamento pessoal/administrador e acesso total validado pelas RPCs do Supabase. A **Central operacional** permite visualizar o ponto de todos, exportar relatórios, aceitar ou recusar justificativas e atestados, responder solicitações de RH, publicar avisos, publicar holerites, atualizar baixas de dívidas e conduzir o andamento de ordens e lotes de produção.
+As permissões administrativas são validadas pelas RPCs do Supabase. A **Central operacional** permite visualizar o ponto da equipe, exportar relatórios, tratar justificativas e atestados, responder solicitações de RH, publicar avisos e holerites, atualizar baixas de dívidas e conduzir ordens e lotes de produção.
 
-O primeiro acesso é verificado também ao restaurar uma sessão existente; recarregar a página não libera o portal antes da troca da senha temporária. O portal do funcionário não recebe módulos financeiros, dívidas ou administração.
+O primeiro acesso é verificado também ao restaurar uma sessão existente; recarregar a página não libera o portal antes da troca da senha temporária. O portal do funcionário não recebe o módulo financeiro, dívidas ou administração; o prontuário exibe apenas os lançamentos de benefícios/descontos vinculados ao próprio funcionário.
 
 ## Operação com dados reais
 

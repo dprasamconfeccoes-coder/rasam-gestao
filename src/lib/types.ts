@@ -1020,6 +1020,8 @@ export interface OwnProntuarioResponse {
   justificativas: Array<Record<string, unknown>>
   ferias: Array<Record<string, unknown>>
   afastamentos: Array<Record<string, unknown>>
+  beneficios?: Array<Record<string, unknown>>
+  descontos?: Array<Record<string, unknown>>
 }
 
 export interface EmployeeTimelineEvent {
@@ -1042,7 +1044,7 @@ export interface EmployeeTimelineResponse {
 }
 
 export interface FechamentoSummary { funcionarios?: number; faltas_injustificadas?: number; faltas_justificadas?: number; horas_extras_50?: number; horas_extras_100?: number; extras_50_valor?: number; extras_100_valor?: number; dsr_desconto?: number }
-export interface FechamentoResult { sucesso: boolean; erro?: string; fechamento_id?: string; competencia?: string; status?: string; mensagem?: string; resumo?: FechamentoSummary }
+export interface FechamentoResult { sucesso: boolean; erro?: string; fechamento_id?: string; competencia?: string; status?: string; mensagem?: string; resumo?: FechamentoSummary; source_fingerprint?: string }
 export interface FechamentoPreview extends FechamentoResult { confirmado_at?: string | null; regras?: Record<string, unknown>; linhas?: Array<Record<string, unknown>> }
 export interface FechamentoReport { sucesso: boolean; erro?: string; competencia?: string; tipo?: string; linhas?: Array<Record<string, unknown>> }
 export interface FinanceiroLancamento { id?: string; tipo?: 'pagar'|'receber'|string; categoria?: string; descricao?: string; valor?: number|string; vencimento?: string; status?: string; pago_em?: string|null; observacoes?: string|null; created_at?: string }

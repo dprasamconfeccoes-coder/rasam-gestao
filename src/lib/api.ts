@@ -114,17 +114,17 @@ export function listPayrollEntries(token: string, filters: { tipo?: 'todos' | 'b
     p_token: token, p_tipo: filters.tipo || 'todos', p_funcionario_id: filters.funcionarioId || null, p_competencia: filters.competencia || null,
   })
 }
-export function createPayrollBenefit(token: string, payload: { funcionarioId: string; beneficioNome: string; competencia: string; valor: number | null; status: string; motivo: string; observacoes: string }) {
-  return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_lancar_beneficio', { p_token: token, p_funcionario_id: payload.funcionarioId, p_beneficio_nome: payload.beneficioNome, p_competencia: payload.competencia, p_valor: payload.valor, p_status: payload.status, p_motivo: payload.motivo, p_observacoes: payload.observacoes })
+export function createPayrollBenefit(token: string, payload: { funcionarioId: string; beneficioNome: string; competencia: string; valor: number | null; status: string; motivo: string; observacoes: string; fornecedor?: string; vencimento?: string | null }) {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string; financeiro_gerado?: boolean; financeiro_lancamento_id?: string | null }>('app_admin_lancar_beneficio_financeiro', { p_token: token, p_funcionario_id: payload.funcionarioId, p_beneficio_nome: payload.beneficioNome, p_competencia: payload.competencia, p_valor: payload.valor, p_status: payload.status, p_motivo: payload.motivo, p_observacoes: payload.observacoes, p_fornecedor: payload.fornecedor || '', p_vencimento: payload.vencimento || null })
 }
-export function createPayrollDiscount(token: string, payload: { funcionarioId: string; tipo: string; fornecedor?: string; descricao: string; competencia: string; valor: number; status: string; observacoes: string }) {
-  return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_lancar_desconto', { p_token: token, p_funcionario_id: payload.funcionarioId, p_tipo: payload.tipo, p_fornecedor: payload.fornecedor || '', p_descricao: payload.descricao, p_competencia: payload.competencia, p_valor: payload.valor, p_status: payload.status, p_observacoes: payload.observacoes })
+export function createPayrollDiscount(token: string, payload: { funcionarioId: string; tipo: string; fornecedor?: string; vencimento?: string | null; descricao: string; competencia: string; valor: number; status: string; observacoes: string }) {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string; financeiro_gerado?: boolean; financeiro_lancamento_id?: string | null }>('app_admin_lancar_desconto_financeiro', { p_token: token, p_funcionario_id: payload.funcionarioId, p_tipo: payload.tipo, p_fornecedor: payload.fornecedor || '', p_descricao: payload.descricao, p_competencia: payload.competencia, p_valor: payload.valor, p_status: payload.status, p_observacoes: payload.observacoes, p_vencimento: payload.vencimento || null })
 }
 export function searchBenefitCatalog(token: string, busca = '') {
-  return rpc<{ sucesso: boolean; erro?: string; beneficios: Array<{ id: string; nome: string; descricao?: string | null; valor_atual?: number | null; valor_minimo?: number | null; vigencia_inicio?: string | null }> }>('app_admin_buscar_beneficios_catalogo', { p_token: token, p_busca: busca })
+  return rpc<{ sucesso: boolean; erro?: string; beneficios: Array<{ id: string; nome: string; descricao?: string | null; fornecedor?: string | null; valor_atual?: number | null; valor_minimo?: number | null; vigencia_inicio?: string | null }> }>('app_admin_buscar_beneficios_catalogo', { p_token: token, p_busca: busca })
 }
 export function createBenefitCatalogItem(token: string, nome: string, descricao = '') {
-  return rpc<{ sucesso: boolean; erro?: string; beneficio?: { id: string; nome: string; descricao?: string | null; valor_atual?: number | null } }>('app_admin_cadastrar_beneficio_catalogo', { p_token: token, p_nome: nome, p_descricao: descricao })
+  return rpc<{ sucesso: boolean; erro?: string; beneficio?: { id: string; nome: string; descricao?: string | null; fornecedor?: string | null; valor_atual?: number | null } }>('app_admin_cadastrar_beneficio_catalogo', { p_token: token, p_nome: nome, p_descricao: descricao })
 }
 export function searchDiscountCatalog(token: string, busca = '') {
   return rpc<{ sucesso: boolean; erro?: string; descontos: Array<{ id: string; nome: string; descricao?: string | null; fornecedor?: string | null; valor_padrao?: number | null; forma_cobranca?: string | null }> }>('app_admin_buscar_descontos_catalogo', { p_token: token, p_busca: busca })
@@ -963,8 +963,8 @@ export function adminVisualizarFechamento(token: string, competencia: string) {
   return rpc<import('./types').FechamentoPreview>('app_admin_visualizar_fechamento', { p_token: token, p_competencia: competencia })
 }
 
-export function adminConfirmarFechamento(token: string, competencia: string, confirmacao: string) {
-  return rpc<import('./types').FechamentoResult>('app_admin_confirmar_fechamento', { p_token: token, p_competencia: competencia, p_confirmacao: confirmacao })
+export function adminConfirmarFechamento(token: string, competencia: string, confirmacao: string, sourceFingerprint: string) {
+  return rpc<import('./types').FechamentoResult>('app_admin_confirmar_fechamento', { p_token: token, p_competencia: competencia, p_confirmacao: confirmacao, p_source_fingerprint: sourceFingerprint })
 }
 
 export function adminRelatorioFechamento(token: string, competencia: string, tipo: 'escritorio' | 'vale', incluirInformaisVale = false) {

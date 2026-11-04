@@ -6,7 +6,7 @@ import { EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, StatusP
 import { EmployeeTimeline } from './EmployeeTimeline'
 import './employee-own-dossier.css'
 
-type OwnTab = 'resumo' | 'advertencias' | 'atestados' | 'afastamentos' | 'justificativas' | 'ferias' | 'documentos' | 'timeline'
+type OwnTab = 'resumo' | 'advertencias' | 'atestados' | 'afastamentos' | 'justificativas' | 'ferias' | 'beneficios' | 'descontos' | 'documentos' | 'timeline'
 const tabs: Array<[OwnTab, string, keyof OwnProntuarioResponse | null]> = [
   ['resumo', 'Resumo', null],
   ['timeline', 'Linha do tempo', null],
@@ -15,6 +15,8 @@ const tabs: Array<[OwnTab, string, keyof OwnProntuarioResponse | null]> = [
   ['afastamentos', 'Afastamentos', 'afastamentos'],
   ['justificativas', 'Justificativas', 'justificativas'],
   ['ferias', 'Férias', 'ferias'],
+  ['beneficios', 'Benefícios', 'beneficios'],
+  ['descontos', 'Descontos', 'descontos'],
   ['documentos', 'Documentos', 'documentos'],
 ]
 
@@ -30,14 +32,28 @@ function dateValue(record: Record<string, unknown>, keys: string[]) {
   return formatDate(value(record, keys))
 }
 
+function competenceValue(raw: unknown) {
+  const match = String(raw || '').match(/^(\d{4})-(\d{2})/)
+  if (!match) return formatDate(String(raw || ''))
+  return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(new Date(Number(match[1]), Number(match[2]) - 1, 1))
+}
+
+function payrollStatusLabel(raw: unknown) {
+  const status = String(raw || '')
+  const labels: Record<string, string> = { lancado: 'Lançado', liberado: 'Liberado', ajustado: 'Ajustado', cancelado: 'Cancelado', suspenso: 'Suspenso', perdido: 'Perdido' }
+  return labels[status.toLowerCase()] || status
+}
+
 function OwnHistory({ items, tab }: { items: Array<Record<string, unknown>>; tab: OwnTab }) {
   if (!items.length) return <EmptyState title="Nenhum registro nesta seção" description="Quando houver novos lançamentos, eles aparecerão aqui no seu prontuário." />
+  const payrollTab = tab === 'beneficios' || tab === 'descontos'
   return (
     <div className="own-history-list">
       {items.map((item, index) => {
-        const title = value(item, ['titulo', 'tipo', 'evento', 'categoria', 'arquivo_nome'])
-        const description = value(item, ['descricao', 'observacao', 'motivo', 'medida', 'status_label'])
-        const date = dateValue(item, ['data_ocorrencia', 'data_atendimento', 'data_registro', 'inicio', 'created_at', 'validade'])
+        const title = value(item, tab === 'beneficios' ? ['beneficio_nome'] : ['titulo', 'tipo', 'evento', 'categoria', 'arquivo_nome'])
+        const description = payrollTab ? (tab === 'descontos' ? value(item, ['descricao']) : '—') : value(item, ['descricao', 'observacao', 'motivo', 'medida', 'status_label'])
+        const date = payrollTab ? `Competência ${competenceValue(item.competencia)}` : dateValue(item, ['data_ocorrencia', 'data_atendimento', 'data_registro', 'inicio', 'created_at', 'validade'])
+        const amount = payrollTab && item.valor !== null && item.valor !== undefined ? formatMoney(Number(item.valor)) : null
         return (
           <article className="own-history-item" key={String(item.id || `${tab}-${index}`)}>
             <div className="own-history-copy">
@@ -45,7 +61,8 @@ function OwnHistory({ items, tab }: { items: Array<Record<string, unknown>>; tab
               <span>{date}{description !== '—' ? ` · ${description}` : ''}</span>
               {item.fim ? <small>Até {formatDate(String(item.fim))}</small> : null}
             </div>
-            {item.status || item.status_label ? <StatusPill value={String(item.status_label || item.status)} /> : null}
+            {amount ? <strong className="own-history-amount">{amount}</strong> : null}
+            {item.status || item.status_label ? <StatusPill value={payrollTab ? payrollStatusLabel(item.status || item.status_label) : String(item.status_label || item.status)} /> : null}
           </article>
         )
       })}
@@ -122,6 +139,8 @@ export function EmployeeOwnDossier({ token }: { token: string }) {
                   <button type="button" onClick={() => setTab('atestados')}><HeartPulse size={17} /><span><strong>{data?.atestados.length || 0}</strong> atestado(s)</span></button>
                   <button type="button" onClick={() => setTab('ferias')}><CalendarDays size={17} /><span><strong>{data?.ferias.length || 0}</strong> período(s) de férias</span></button>
                   <button type="button" onClick={() => setTab('advertencias')}><FileText size={17} /><span><strong>{data?.advertencias.length || 0}</strong> advertência(s)</span></button>
+                  <button type="button" onClick={() => setTab('beneficios')}><BadgeCheck size={17} /><span><strong>{data?.beneficios?.length || 0}</strong> benefício(s)</span></button>
+                  <button type="button" onClick={() => setTab('descontos')}><FileText size={17} /><span><strong>{data?.descontos?.length || 0}</strong> desconto(s)</span></button>
                 </div>
               </SectionCard>
             </div>
