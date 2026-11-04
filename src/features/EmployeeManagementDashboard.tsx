@@ -2,16 +2,28 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { BriefcaseBusiness, CalendarDays, ChevronLeft, ChevronRight, FileText, Plus, RefreshCw, Search, ShieldCheck, UserPlus, UserRound, X } from 'lucide-react'
 import { adminCadastrarFuncionario, adminProntuario, searchEmployees } from '../lib/api'
 import type { EmployeeRow, EmployeeSearchPage, ProntuarioResponse, Profile } from '../lib/types'
+import { fieldGroups, type FieldDefinition } from './EmployeeFichaPanel'
 import { EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
 import { EmployeeTimeline } from './EmployeeTimeline'
 import './employee-directory.css'
 
 type FilterState = { busca: string; situacao: string; tipoVinculo: string; cargo: string; salarioMin: string; salarioMax: string }
-type FormState = { nome: string; cpf: string; dataNascimento: string; tipoVinculo: string; cargo: string; telefone: string; endereco: string; valorMensal: string; valorDiaria: string; liberarAcesso: boolean }
+type FormState = { fields: Record<string, string>; tipoVinculo: string; liberarAcesso: boolean }
 type TabKey = 'resumo' | 'atestados' | 'afastamentos' | 'justificativas' | 'advertencias' | 'ferias' | 'documentos' | 'ponto' | 'holerites' | 'beneficios' | 'descontos' | 'timeline'
 
 const emptyFilters: FilterState = { busca: '', situacao: '', tipoVinculo: '', cargo: '', salarioMin: '', salarioMax: '' }
-const initialForm: FormState = { nome: '', cpf: '', dataNascimento: '', tipoVinculo: 'formal', cargo: '', telefone: '', endereco: '', valorMensal: '', valorDiaria: '', liberarAcesso: false }
+const fichaFields = fieldGroups.flatMap((group) => group.fields)
+const registrationFieldGroups = fieldGroups.map((group) => ({
+  ...group,
+  fields: group.fields.filter((field) => !['nome', 'cpf', 'data_nascimento', 'data_saida', 'tipo_desligamento'].includes(field.key)),
+})).filter((group) => group.fields.length > 0)
+
+function createInitialForm(): FormState {
+  const fields = Object.fromEntries(fichaFields.map((field): [string, string] => [field.key, ''])) as Record<string, string>
+  fields.valor_diaria = ''
+  return { fields, tipoVinculo: '', liberarAcesso: false }
+}
+
 const tabs: Array<[TabKey, string]> = [
   ['resumo', 'Resumo'], ['timeline', 'Linha do tempo'], ['ponto', 'Ponto'], ['atestados', 'Atestados'], ['afastamentos', 'Afastamentos'],
   ['justificativas', 'Justificativas'], ['advertencias', 'Advertências'], ['ferias', 'Férias'], ['documentos', 'Documentos'],
@@ -49,45 +61,97 @@ function RecordList({ items }: { items: Array<Record<string, unknown>> }) {
   })}</div>
 }
 
-function RegistrationWizard({ open, token, onClose, onCreated }: { open: boolean; token: string; onClose: () => void; onCreated: (id: string, cpf: string) => void }) {
-  const [form, setForm] = useState<FormState>(initialForm)
+export function EmployeeRegistrationWizard({ open, token, onClose, onCreated }: { open: boolean; token: string; onClose: () => void; onCreated: (id: string, cpf: string) => void }) {
+  const [form, setForm] = useState<FormState>(createInitialForm)
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (open) { setForm(initialForm); setStep(0); setError('') }
+    if (open) { setForm(createInitialForm()); setStep(0); setError('') }
   }, [open])
 
   if (!open) return null
 
+  const isClt = form.tipoVinculo === 'formal'
+  const isDiarista = form.tipoVinculo === 'diarista'
+  const typeLabel = isClt ? 'CLT / vínculo formal' : isDiarista ? 'Diarista' : form.tipoVinculo === 'experiencia' ? 'Experiência' : 'Informal'
+  const stepLabels = isClt
+    ? ['Tipo e identificação', 'Ficha CLT', 'Revisão']
+    : isDiarista
+      ? ['Tipo e identificação', 'Revisão']
+      : ['Tipo e identificação', 'Vínculo e contato', 'Revisão']
+  const finalStep = stepLabels.length - 1
+
+  function setField(key: string, value: string) {
+    setForm((current) => ({ ...current, fields: { ...current.fields, [key]: value } }))
+  }
+
   function validateStep() {
     setError('')
     if (step === 0) {
-      if (form.nome.trim().length < 2) return setError('Informe o nome completo.')
-      if (form.cpf.replace(/\D/g, '').length !== 11) return setError('Informe um CPF com 11 dígitos.')
-      if (!form.dataNascimento) return setError('Informe a data de nascimento.')
+      if (!form.tipoVinculo) return setError('Selecione o tipo de vínculo.')
+      if ((form.fields.nome || '').trim().length < 2) return setError('Informe o nome completo.')
+      if ((form.fields.cpf || '').replace(/\D/g, '').length !== 11) return setError('Informe um CPF com 11 dígitos.')
+      if (isClt && !form.fields.data_nascimento) return setError('Informe a data de nascimento para o cadastro CLT.')
+      if (isDiarista && (form.fields.valor_diaria || '').trim()) {
+        const dailyRate = parseMoney(form.fields.valor_diaria || '')
+        if (!(dailyRate && dailyRate > 0)) return setError('Informe um valor de diária maior que zero ou deixe o campo em branco.')
+      }
     }
-    const monthly = parseMoney(form.valorMensal)
-    const daily = parseMoney(form.valorDiaria)
-    if (step === 1 && form.tipoVinculo === 'formal' && !(monthly && monthly > 0) && !(daily && daily > 0)) {
-      return setError('Para vínculo formal, informe o valor mensal ou a diária.')
+    if (step === 1 && isClt) {
+      const salary = parseMoney(form.fields.salario || '')
+      if (!form.fields.data_admissao) return setError('Informe a data de admissão para o cadastro CLT.')
+      if (!(salary && salary > 0)) return setError('Informe o salário mensal para o cadastro CLT.')
     }
-    setStep((current) => Math.min(2, current + 1))
+    setStep((current) => Math.min(finalStep, current + 1))
+  }
+
+  function renderFichaField(field: FieldDefinition) {
+    return <label className={`employee-ficha-field${field.kind === 'textarea' ? ' is-wide' : ''}`} key={field.key}>
+      <span>{field.label}{field.required ? ' *' : ''}</span>
+      {field.kind === 'textarea' ? <textarea rows={3} maxLength={field.maxLength} value={form.fields[field.key] || ''} onChange={(event) => setField(field.key, event.target.value)} /> : <input
+        type={field.kind === 'date' ? 'date' : 'text'}
+        inputMode={field.kind === 'number' ? 'decimal' : field.key === 'cpf' ? 'numeric' : undefined}
+        maxLength={field.kind === 'text' || field.kind === undefined ? field.maxLength : undefined}
+        value={form.fields[field.key] || ''}
+        onChange={(event) => setField(field.key, field.kind === 'number' ? event.target.value.replace(/[^0-9,.]/g, '') : event.target.value)}
+      />}
+    </label>
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault()
-    if (step < 2) { validateStep(); return }
-    setSaving(true)
+    if (step < finalStep) { validateStep(); return }
     setError('')
-    const cpf = form.cpf.replace(/\D/g, '')
+    const cpf = (form.fields.cpf || '').replace(/\D/g, '')
+    if (form.liberarAcesso && !form.fields.data_nascimento) return setError('Informe a data de nascimento para criar o acesso ao portal.')
+    setSaving(true)
     try {
-      const result = await adminCadastrarFuncionario(token, {
-        nome: form.nome.trim(), cpf, dataNascimento: form.dataNascimento, tipoVinculo: form.tipoVinculo,
-        cargo: form.cargo.trim(), telefone: form.telefone.trim(), endereco: form.endereco.trim(),
-        valorMensal: parseMoney(form.valorMensal), valorDiaria: parseMoney(form.valorDiaria), liberarAcesso: form.liberarAcesso,
-      })
+      const ficha = Object.fromEntries(fichaFields.map((field) => {
+        const value = (form.fields[field.key] || '').trim()
+        return [field.key, field.kind === 'number' ? parseMoney(value) : value || null]
+      })) as Record<string, string | number | null>
+      const basicFields: Record<string, string | number | boolean | null> = isDiarista
+        ? {
+            nome: (form.fields.nome || '').trim(),
+            cpf,
+            data_nascimento: form.fields.data_nascimento || null,
+            valor_diaria: parseMoney(form.fields.valor_diaria || ''),
+          }
+        : isClt
+          ? { ...ficha }
+          : {
+              nome: (form.fields.nome || '').trim(),
+              cpf,
+              data_nascimento: form.fields.data_nascimento || null,
+              cargo: (form.fields.cargo || '').trim() || null,
+              endereco: (form.fields.endereco || '').trim() || null,
+              telefone_celular: (form.fields.telefone_celular || '').trim() || null,
+              salario: parseMoney(form.fields.salario || ''),
+            }
+      const payload = { ...basicFields, tipo_vinculo: form.tipoVinculo, liberar_acesso: form.liberarAcesso }
+      const result = await adminCadastrarFuncionario(token, payload)
       if (!result.sucesso) throw new Error(result.erro || 'Não foi possível cadastrar o funcionário.')
       onCreated(result.funcionario_id || '', cpf)
       onClose()
@@ -98,31 +162,34 @@ function RegistrationWizard({ open, token, onClose, onCreated }: { open: boolean
     }
   }
 
-  const stepLabels = ['Identificação', 'Vínculo e remuneração', 'Contato e revisão']
   return <div className="employee-create-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose() }}>
-    <section className="employee-create-modal employee-wizard" role="dialog" aria-modal="true" aria-labelledby="employee-wizard-title">
-      <div className="employee-create-heading"><div><span className="eyebrow">Novo cadastro · departamento pessoal</span><h2 id="employee-wizard-title">Cadastrar funcionário</h2><p>Preencha os dados em etapas; você pode revisar tudo antes de concluir.</p></div><button className="icon-button" type="button" onClick={onClose} disabled={saving} aria-label="Fechar cadastro"><X size={18} /></button></div>
-      <div className="employee-wizard-progress" aria-label={`Etapa ${step + 1} de 3`}>{stepLabels.map((label, index) => <div className={index <= step ? 'is-current' : ''} key={label}><span>{index + 1}</span><small>{label}</small></div>)}</div>
+    <section className={`employee-create-modal employee-wizard${isClt ? ' is-clt' : ''}`} role="dialog" aria-modal="true" aria-labelledby="employee-wizard-title">
+      <div className="employee-create-heading"><div><span className="eyebrow">Novo cadastro · departamento pessoal</span><h2 id="employee-wizard-title">Cadastrar funcionário</h2><p>Escolha o vínculo: a ficha integral é exibida para CLT; diarista exige apenas nome e CPF, com diária opcional.</p></div><button className="icon-button" type="button" onClick={onClose} disabled={saving} aria-label="Fechar cadastro"><X size={18} /></button></div>
+      <div className="employee-wizard-progress" aria-label={`Etapa ${step + 1} de ${stepLabels.length}`}>{stepLabels.map((label, index) => <div className={index <= step ? 'is-current' : ''} key={label}><span>{index + 1}</span><small>{label}</small></div>)}</div>
       <form className="employee-create-form" onSubmit={(event) => void submit(event)}>
-        {step === 0 ? <div className="employee-form-section"><strong>Identificação</strong><div className="employee-form-grid">
-          <label>Nome completo *<input required autoFocus autoComplete="name" value={form.nome} onChange={(event) => setForm({ ...form, nome: event.target.value })} placeholder="Nome e sobrenome" /></label>
-          <label>CPF *<input required inputMode="numeric" maxLength={14} autoComplete="off" value={form.cpf} onChange={(event) => setForm({ ...form, cpf: event.target.value })} placeholder="000.000.000-00" /></label>
-          <label>Data de nascimento *<input required type="date" value={form.dataNascimento} onChange={(event) => setForm({ ...form, dataNascimento: event.target.value })} /></label>
-        </div><small className="employee-form-help">O CPF será validado novamente pelo servidor antes de salvar.</small></div> : null}
-        {step === 1 ? <div className="employee-form-section"><strong>Vínculo e remuneração</strong><div className="employee-form-grid">
-          <label>Tipo de vínculo *<select required value={form.tipoVinculo} onChange={(event) => setForm({ ...form, tipoVinculo: event.target.value })}><option value="formal">Formal / CLT</option><option value="informal">Informal</option><option value="experiencia">Experiência</option></select></label>
-          <label>Cargo<input value={form.cargo} onChange={(event) => setForm({ ...form, cargo: event.target.value })} placeholder="Ex.: Costureira" /></label>
-          <label>Valor mensal<input inputMode="decimal" value={form.valorMensal} onChange={(event) => setForm({ ...form, valorMensal: event.target.value.replace(/[^0-9,.]/g, '') })} placeholder="R$ 0,00" /></label>
-          <label>Valor da diária<input inputMode="decimal" value={form.valorDiaria} onChange={(event) => setForm({ ...form, valorDiaria: event.target.value.replace(/[^0-9,.]/g, '') })} placeholder="R$ 0,00" /></label>
-        </div><small className="employee-form-help">Para vínculo formal, informe remuneração mensal ou diária; o sistema mantém os dois valores separados.</small></div> : null}
-        {step === 2 ? <><div className="employee-form-section"><strong>Contato e acesso</strong><div className="employee-form-grid">
-          <label>Telefone<input autoComplete="tel" value={form.telefone} onChange={(event) => setForm({ ...form, telefone: event.target.value })} placeholder="(00) 00000-0000" /></label>
-          <label className="employee-form-wide">Endereço<input autoComplete="street-address" value={form.endereco} onChange={(event) => setForm({ ...form, endereco: event.target.value })} placeholder="Rua, número, bairro e cidade" /></label>
-        </div><label className="check-line employee-access-toggle"><input type="checkbox" checked={form.liberarAcesso} onChange={(event) => setForm({ ...form, liberarAcesso: event.target.checked })} /> Criar acesso ao portal agora</label><small className="employee-form-help">Por segurança, o acesso é opcional e começa desativado. Se ativado, o fluxo atual usa a data de nascimento como senha inicial e exige troca no primeiro acesso; recomendamos entregar essa credencial por canal privado.</small></div>
-          <SectionCard title="Revisão do cadastro" caption="Confira os dados antes de concluir"><div className="employee-wizard-review"><p><strong>Nome:</strong> {form.nome || '—'}</p><p><strong>CPF:</strong> {maskedCpf(form.cpf)}</p><p><strong>Vínculo / cargo:</strong> {form.tipoVinculo} · {form.cargo || 'Não informado'}</p><p><strong>Remuneração:</strong> {form.valorMensal ? `Mensal ${form.valorMensal}` : ''}{form.valorMensal && form.valorDiaria ? ' · ' : ''}{form.valorDiaria ? `Diária ${form.valorDiaria}` : ''}{!form.valorMensal && !form.valorDiaria ? 'Não informada' : ''}</p></div></SectionCard>
+        {step === 0 ? <div className="employee-form-section"><strong>Tipo e identificação</strong><div className="employee-form-grid">
+          <label className="employee-form-wide">Tipo de vínculo *<select required autoFocus value={form.tipoVinculo} onChange={(event) => { setForm((current) => ({ ...current, tipoVinculo: event.target.value })); setStep(0); setError('') }}><option value="">Selecione o vínculo</option><option value="formal">CLT / Formal</option><option value="diarista">Diarista</option><option value="informal">Informal (legado)</option><option value="experiencia">Experiência (legado)</option></select></label>
+          <label>Nome completo *<input required autoComplete="name" value={form.fields.nome || ''} onChange={(event) => setField('nome', event.target.value)} placeholder="Nome e sobrenome" /></label>
+          <label>CPF *<input required inputMode="numeric" maxLength={14} autoComplete="off" value={form.fields.cpf || ''} onChange={(event) => setField('cpf', event.target.value)} placeholder="000.000.000-00" /></label>
+          {isClt ? <label>Data de nascimento *<input required type="date" value={form.fields.data_nascimento || ''} onChange={(event) => setField('data_nascimento', event.target.value)} /></label> : null}
+          {isDiarista ? <label>Valor da diária (opcional)<input type="number" inputMode="decimal" min="0.01" step="0.01" value={form.fields.valor_diaria || ''} onChange={(event) => setField('valor_diaria', event.target.value)} placeholder="Deixe em branco se ainda não definido" /></label> : null}
+        </div><small className="employee-form-help">O CPF será validado novamente pelo servidor. Para diarista, nome e CPF bastam. A remuneração diária é opcional; sem valor, o cadastro não calcula pagamentos por diária.</small></div> : null}
+        {step === 1 && isClt ? <div className="employee-form-section"><strong>Ficha completa do vínculo CLT</strong><p className="employee-form-help">Campos organizados conforme a ficha funcional disponível no sistema. Para concluir o cadastro CLT, informe admissão e salário mensal; os demais dados podem ficar vazios e ser completados depois.</p><div className="employee-ficha-groups employee-create-clt-groups">
+          {registrationFieldGroups.map((group, groupIndex) => <details className="employee-ficha-group" key={group.title} open={groupIndex === 0 || group.title.includes('Vínculo')}><summary>{group.title}</summary><div className="employee-ficha-grid">{group.fields.map(renderFichaField)}</div></details>)}
+        </div></div> : null}
+        {step === 1 && !isClt && !isDiarista ? <div className="employee-form-section"><strong>Vínculo e contato</strong><div className="employee-form-grid">
+          <label>Cargo<input value={form.fields.cargo || ''} onChange={(event) => setField('cargo', event.target.value)} placeholder="Ex.: Costureira" /></label>
+          <label>Valor mensal (opcional)<input inputMode="decimal" value={form.fields.salario || ''} onChange={(event) => setField('salario', event.target.value.replace(/[^0-9,.]/g, ''))} placeholder="R$ 0,00" /></label>
+          <label>Telefone<input autoComplete="tel" value={form.fields.telefone_celular || ''} onChange={(event) => setField('telefone_celular', event.target.value)} placeholder="(00) 00000-0000" /></label>
+          <label className="employee-form-wide">Endereço<input autoComplete="street-address" value={form.fields.endereco || ''} onChange={(event) => setField('endereco', event.target.value)} placeholder="Rua, número, bairro e cidade" /></label>
+        </div></div> : null}
+        {step === finalStep ? <>
+          {isDiarista ? <SectionCard title="Cadastro básico de diarista" caption="Nenhum dado trabalhista adicional é exigido nesta etapa"><p>O cadastro será salvo como diarista, sem exigir data de nascimento, salário ou valor da diária.</p></SectionCard> : null}
+          <SectionCard title="Revisão do cadastro" caption="Confira o tipo de vínculo e os dados antes de concluir"><div className="employee-wizard-review"><p><strong>Nome:</strong> {form.fields.nome || '—'}</p><p><strong>CPF:</strong> {maskedCpf(form.fields.cpf || '')}</p><p><strong>Vínculo:</strong> {typeLabel}</p>{isClt ? <><p><strong>Admissão:</strong> {formatDate(form.fields.data_admissao || '')}</p><p><strong>Salário mensal:</strong> {form.fields.salario ? formatMoney(parseMoney(form.fields.salario) || 0) : 'Não informado'}</p><p><strong>Campos da ficha:</strong> {registrationFieldGroups.flatMap((group) => group.fields).filter((field) => Boolean(form.fields[field.key]?.trim())).length} preenchido(s)</p></> : !isDiarista ? <><p><strong>Cargo:</strong> {form.fields.cargo || 'Não informado'}</p><p><strong>Remuneração mensal:</strong> {form.fields.salario ? formatMoney(parseMoney(form.fields.salario) || 0) : 'Não informada'}</p></> : null}</div></SectionCard>
+          <div className="employee-form-section"><strong>Portal do funcionário</strong><label className="check-line employee-access-toggle"><input type="checkbox" checked={form.liberarAcesso} onChange={(event) => setForm((current) => ({ ...current, liberarAcesso: event.target.checked }))} /> Criar acesso ao portal agora</label>{form.liberarAcesso && !form.fields.data_nascimento ? <label>Data de nascimento *<input required type="date" value={form.fields.data_nascimento || ''} onChange={(event) => setField('data_nascimento', event.target.value)} /></label> : null}<small className="employee-form-help">O acesso é opcional e começa desativado. O fluxo atual usa a data de nascimento como senha inicial e exige troca no primeiro acesso; entregue a credencial por canal privado.</small></div>
         </> : null}
         {error ? <div className="form-error" role="alert">{error}</div> : null}
-        <div className="employee-create-actions"><button className="secondary-button" type="button" onClick={step === 0 ? onClose : () => { setError(''); setStep((current) => Math.max(0, current - 1)) }} disabled={saving}>{step === 0 ? 'Cancelar' : 'Voltar'}</button><button className="primary-button" type={step < 2 ? 'button' : 'submit'} onClick={step < 2 ? validateStep : undefined} disabled={saving}>{saving ? <><RefreshCw size={16} className="spin" /> Salvando…</> : step < 2 ? <>Continuar <ChevronRight size={16} /></> : <><Plus size={16} /> Concluir cadastro</>}</button></div>
+        <div className="employee-create-actions"><button className="secondary-button" type="button" onClick={step === 0 ? onClose : () => { setError(''); setStep((current) => Math.max(0, current - 1)) }} disabled={saving}>{step === 0 ? 'Cancelar' : 'Voltar'}</button><button className="primary-button" type={step < finalStep ? 'button' : 'submit'} onClick={step < finalStep ? validateStep : undefined} disabled={saving}>{saving ? <><RefreshCw size={16} className="spin" /> Salvando…</> : step < finalStep ? <>Continuar <ChevronRight size={16} /></> : <><Plus size={16} /> Concluir cadastro</>}</button></div>
       </form>
     </section>
   </div>
@@ -240,6 +307,6 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
         </div> : tab === 'timeline' ? <EmployeeTimeline token={token} funcionarioId={selected.id} /> : <SectionCard title={title} caption={`${items.length} registro(s) carregado(s) · a linha do tempo tem paginação independente`}><RecordList items={items} /></SectionCard>}
       </> : null}
     </div></div></div> : null}
-    <RegistrationWizard open={createOpen} token={token} onClose={() => setCreateOpen(false)} onCreated={(_id, cpf) => { const next = { ...filters, busca: cpf }; setFilters(next); void runSearch(next, 0).then(() => setNotice('Funcionário cadastrado e disponível para consulta.')) }} />
+    <EmployeeRegistrationWizard open={createOpen} token={token} onClose={() => setCreateOpen(false)} onCreated={(_id, cpf) => { const next = { ...filters, busca: cpf }; setFilters(next); void runSearch(next, 0).then(() => setNotice('Funcionário cadastrado e disponível para consulta.')) }} />
   </div>
 }

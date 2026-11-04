@@ -52,6 +52,8 @@
 .employee-record-modal { width:min(1080px,100%); max-height:calc(100vh - 48px); overflow:auto; border-radius:18px; box-shadow:0 30px 80px rgba(0,0,0,.55); }
 .employee-record-modal .employee-record-shell { margin:0; background:#17151d; }
 .employee-create-modal { width:min(760px,100%); max-height:calc(100vh - 48px); overflow:auto; border:1px solid rgba(215,168,74,.35); border-radius:18px; background:#17151d; box-shadow:0 30px 80px rgba(0,0,0,.55); }
+.employee-create-modal.is-clt { width:min(1040px,100%); }
+.employee-create-clt-groups { grid-template-columns:1fr; }
 .employee-create-heading { display:flex; justify-content:space-between; gap:20px; padding:24px 24px 18px; border-bottom:1px solid var(--line); }
 .employee-create-heading h2 { margin:4px 0 5px; font-size:24px; }
 .employee-create-heading p { margin:0; color:var(--muted); font-size:11px; }

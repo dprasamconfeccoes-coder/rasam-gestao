@@ -939,11 +939,10 @@ export function adminAtualizarFichaFuncionario(token: string, funcionarioId: str
 }
 
 
-export function adminCadastrarFuncionario(token: string, payload: { nome: string; cpf: string; dataNascimento: string; tipoVinculo: string; cargo: string; telefone: string; endereco: string; valorMensal: number | null; valorDiaria: number | null; liberarAcesso: boolean }) {
-  return rpc<{ sucesso: boolean; erro?: string; funcionario_id?: string }>('app_admin_cadastrar_funcionario', {
-    p_token: token, p_nome: payload.nome, p_cpf: payload.cpf, p_data_nascimento: payload.dataNascimento, p_tipo_vinculo: payload.tipoVinculo,
-    p_cargo: payload.cargo, p_telefone: payload.telefone, p_endereco: payload.endereco, p_valor_mensal: payload.valorMensal,
-    p_valor_diaria: payload.valorDiaria, p_liberar_acesso: payload.liberarAcesso,
+export function adminCadastrarFuncionario(token: string, payload: Record<string, string | number | boolean | null>) {
+  return rpc<{ sucesso: boolean; erro?: string; funcionario_id?: string }>('app_admin_cadastrar_funcionario_com_ficha', {
+    p_token: token,
+    p_dados: payload,
   })
 }
 
