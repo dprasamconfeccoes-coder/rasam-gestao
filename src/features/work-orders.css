@@ -35,36 +35,9 @@
 .work-orders-metric > strong i { color: #72666b; font-size: 12px; font-style: normal; letter-spacing: 0; font-weight: 650; }
 .work-orders-metric > small { position: relative; z-index: 1; margin-top: 7px; color: #786c72; font-size: 10px; line-height: 1.4; }
 .metric-orders { --metric-color: #9a6c12; --metric-tint: rgba(183,140,44,.12); }
-.metric-production { --metric-color: #31704e; --metric-tint: rgba(46,113,78,.1); }
-.metric-sewing { --metric-color: #8b5c20; --metric-tint: rgba(183,128,48,.1); }
 .metric-delivered { --metric-color: #356993; --metric-tint: rgba(53,105,147,.1); }
 .metric-payment { --metric-color: #a23f69; --metric-tint: rgba(162,63,105,.09); }
 .metric-invoice { --metric-color: #65509a; --metric-tint: rgba(101,80,154,.09); }
-.work-orders-overview-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(280px, .85fr); gap: 14px; align-items: stretch; }
-.work-orders-overview-grid .section-card { margin: 0; min-width: 0; }
-.work-orders-stage-chart { display: grid; gap: 12px; }
-.work-orders-stage-row { display: grid; gap: 6px; width: 100%; padding: 0; border: 0; text-align: left; background: transparent; }
-.work-orders-stage-label { display: flex; justify-content: space-between; gap: 12px; color: #665a60; font-size: 11px; }
-.work-orders-stage-label b { color: #352d31; font-size: 11px; }
-.work-orders-stage-track { display: block; height: 8px; overflow: hidden; border-radius: 99px; background: #f0ece7; }
-.work-orders-stage-track i { display: block; height: 100%; min-width: 0; border-radius: inherit; transition: width .25s ease; }
-.work-orders-stage-track .tone-slate { background: #828089; }
-.work-orders-stage-track .tone-gold { background: #c09232; }
-.work-orders-stage-track .tone-blue { background: #5084aa; }
-.work-orders-stage-track .tone-violet { background: #8070b2; }
-.work-orders-stage-track .tone-green { background: #4c936a; }
-.work-orders-chart-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 15px; margin-top: 17px; padding-top: 13px; border-top: 1px solid var(--line); color: #685d62; font-size: 10px; }
-.work-orders-chart-foot span { display: inline-flex; align-items: center; gap: 6px; }
-.work-orders-chart-foot svg { color: var(--green); }
-.work-orders-finance-total { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 3px 0 16px; border-bottom: 1px solid var(--line); }
-.work-orders-finance-total span { color: #695e63; font-size: 11px; }
-.work-orders-finance-total strong { color: #2d272b; font-size: 19px; letter-spacing: -.04em; }
-.work-orders-finance-line { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0 0; color: #61565c; font-size: 11px; }
-.work-orders-finance-line > span { display: inline-flex; align-items: center; gap: 7px; }
-.work-orders-finance-line strong { color: #342c31; font-size: 12px; }
-.dot { width: 8px; height: 8px; border-radius: 50%; }
-.dot-paid { background: #4c936a; }
-.dot-pending { background: #c09232; }
 .work-orders-finance-note { display: flex; align-items: flex-start; gap: 7px; margin-top: 14px; padding: 10px; border-radius: 9px; color: #655b60; background: #f7f4ef; font-size: 10px; line-height: 1.45; }
 .work-orders-finance-note svg { flex: 0 0 auto; color: var(--gold); }
 .work-orders-page .section-card { min-width: 0; }
@@ -124,7 +97,6 @@
 .work-order-progress-summary > div { display: grid; gap: 4px; padding-left: 10px; border-left: 2px solid rgba(137,98,15,.25); }
 .work-order-progress-summary span { color: #766a70; font-size: 9px; }
 .work-order-progress-summary strong { color: #352d31; font-size: 14px; }
-.work-order-management-grid { display: grid; grid-template-columns: minmax(150px, .8fr) minmax(170px, .9fr) minmax(260px, 1.4fr); gap: 10px; align-items: start; }
 .work-order-control { display: grid; gap: 6px; min-width: 0; color: #574c51; font-size: 10px; font-weight: 750; }
 .work-order-control > span { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 16px; }
 .work-order-control > small { color: #81757b; font-size: 9px; font-weight: 500; }
@@ -147,9 +119,6 @@
 .work-order-size-table-row { border-top: 1px solid rgba(54,40,45,.07); color: #64595f; font-size: 10px; }
 .work-order-size-table-row strong { color: #3c3338; }
 .work-orders-page .work-order-size-table-row input { min-height: 33px; padding: 6px 7px; text-align: center; font-size: 11px; }
-.work-order-progress-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-top: 1px solid rgba(54,40,45,.08); }
-.work-order-progress-actions small { color: #81757b; font-size: 9px; }
-.work-order-progress-actions .secondary-button { min-height: 34px; padding: 7px 10px; }
 .work-order-no-sizes { margin: 0; padding: 12px; border-top: 1px solid var(--line); color: #766a70; font-size: 10px; }
 .work-order-history { background: #fff; }
 .work-order-history > summary { color: #62575d; }
@@ -164,8 +133,6 @@
 .work-orders-list-foot { padding-top: 13px; color: #81757b; font-size: 9px; text-align: right; }
 
 @media (max-width: 1000px) {
-  .work-orders-overview-grid { grid-template-columns: 1fr 1fr; }
-  .work-order-management-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .work-order-invoice-control { grid-column: 1 / -1; }
 }
 @media (max-width: 720px) {
@@ -179,7 +146,6 @@
   .work-orders-metric { min-height: 133px; padding: 13px; }
   .work-orders-metric-icon { top: 12px; right: 12px; width: 30px; height: 30px; }
   .work-orders-metric > strong { margin-top: 15px; font-size: 22px; }
-  .work-orders-overview-grid { grid-template-columns: 1fr; }
   .work-order-form-grid { grid-template-columns: 1fr; }
   .work-order-number-hint { min-height: 55px; }
   .work-order-size-head { align-items: flex-start; flex-direction: column; }
@@ -195,12 +161,9 @@
   .work-order-progress-summary > div { padding-left: 6px; }
   .work-order-progress-summary span { font-size: 8px; }
   .work-order-progress-summary strong { font-size: 12px; }
-  .work-order-management-grid { grid-template-columns: 1fr; }
   .work-order-invoice-control { grid-column: auto; }
   .work-order-invoice-input { align-items: stretch; }
   .work-order-invoice-input .secondary-button { padding: 7px; }
-  .work-order-progress-actions { align-items: stretch; flex-direction: column; }
-  .work-order-progress-actions .secondary-button { align-self: flex-start; }
 }
 @media (max-width: 380px) {
   .work-orders-metric { padding: 11px; }
@@ -216,100 +179,6 @@
   border-color: rgba(54, 40, 45, .11);
   border-radius: 16px;
   box-shadow: 0 8px 28px rgba(47, 36, 41, .045);
-}
-.work-orders-overview-grid .section-card {
-  border-top: 3px solid rgba(183, 140, 44, .52);
-}
-.work-orders-overview-grid .section-header {
-  padding: 17px 20px 14px;
-  background: linear-gradient(180deg, #fff 0%, #fdfbf8 100%);
-}
-.work-orders-overview-grid .section-header h2 {
-  font-size: 14px;
-  font-weight: 760;
-}
-.work-orders-overview-grid .section-header span {
-  font-size: 11px;
-}
-.work-orders-stage-chart {
-  gap: 11px;
-  padding: 15px 20px 4px;
-}
-.work-orders-stage-row {
-  gap: 7px;
-  padding: 5px 8px;
-  border-radius: 9px;
-  cursor: pointer;
-  transition: background .16s ease, transform .16s ease;
-}
-.work-orders-stage-row:hover {
-  background: #f7f4ef;
-  transform: translateX(2px);
-}
-.work-orders-stage-row:focus-visible {
-  outline: 2px solid rgba(137, 98, 15, .58);
-  outline-offset: 2px;
-}
-.work-orders-stage-label {
-  align-items: center;
-  color: #5f545a;
-  font-size: 11px;
-  font-weight: 620;
-}
-.work-orders-stage-label b {
-  display: inline-grid;
-  min-width: 25px;
-  min-height: 22px;
-  place-items: center;
-  padding: 0 7px;
-  border: 1px solid rgba(54, 40, 45, .08);
-  border-radius: 7px;
-  color: #493f44;
-  background: #fff;
-  font-size: 10px;
-  font-weight: 760;
-}
-.work-orders-stage-track {
-  height: 9px;
-  border: 1px solid rgba(54, 40, 45, .035);
-  background: #f0ede8;
-  box-shadow: inset 0 1px 2px rgba(47, 36, 41, .045);
-}
-.work-orders-stage-track i {
-  min-width: 0;
-  box-shadow: inset 0 1px rgba(255, 255, 255, .26);
-}
-.work-orders-chart-foot {
-  margin: 6px 20px 17px;
-  padding-top: 12px;
-  color: #655a60;
-  font-size: 10px;
-}
-.work-orders-finance-total {
-  margin: 16px 20px 0;
-  padding: 3px 0 15px;
-}
-.work-orders-finance-total span {
-  font-size: 11px;
-  font-weight: 650;
-}
-.work-orders-finance-total strong {
-  color: #2b2529;
-  font-size: 20px;
-}
-.work-orders-finance-line {
-  margin: 0 20px;
-  padding: 13px 0;
-  border-bottom: 1px solid rgba(54, 40, 45, .07);
-  font-size: 11px;
-}
-.work-orders-finance-line:last-of-type {
-  border-bottom: 0;
-}
-.work-orders-finance-line strong {
-  font-size: 12px;
-  font-weight: 760;
-  font-variant-numeric: tabular-nums;
 }
 .work-orders-finance-note {
   margin: 12px 20px 18px;
@@ -387,9 +256,6 @@
   font-size: 15px;
   font-variant-numeric: tabular-nums;
 }
-.work-order-management-grid {
-  gap: 12px;
-}
 .work-order-control {
   gap: 7px;
   color: #4e4449;
@@ -422,28 +288,7 @@
 .work-order-form {
   padding: 19px 20px 21px;
 }
-
-@media (max-width: 960px) {
-  .work-orders-overview-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 @media (max-width: 720px) {
-  .work-orders-overview-grid .section-header {
-    padding: 15px 16px 12px;
-  }
-  .work-orders-stage-chart {
-    padding: 13px 14px 3px;
-  }
-  .work-orders-chart-foot {
-    margin: 5px 14px 14px;
-  }
-  .work-orders-finance-total {
-    margin: 14px 16px 0;
-  }
-  .work-orders-finance-line {
-    margin: 0 16px;
-  }
   .work-orders-finance-note {
     margin: 11px 16px 15px;
   }
@@ -566,3 +411,25 @@
 .work-order-form-error { margin: 0 0 16px; padding: 11px 13px; border: 1px solid rgba(163,61,73,.22); border-radius: 10px; color: #883640; background: #fff4f2; font-size: 11px; line-height: 1.5; }
 .work-order-form-error:focus { outline: 3px solid rgba(163,61,73,.28); outline-offset: 2px; }
 .work-order-client-options button:focus-visible { outline: 2px solid #9a6c12; outline-offset: -3px; background: #fbf7ed; }
+
+
+/* Breakpoints orientados à área útil do conteúdo (a sidebar permanece aberta em tablets). */
+@media (max-width: 1180px) {
+  .work-orders-metrics.financial-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 1000px) {
+  .work-orders-page .page-heading { align-items: flex-start; flex-direction: column; gap: 13px; }
+  .work-orders-page .heading-action { width: 100%; }
+  .work-orders-heading-actions { width: 100%; flex-wrap: wrap; }
+  .work-orders-heading-actions > button { flex: 1 1 150px; min-width: 0; }
+  .work-orders-toolbar { flex-wrap: wrap; }
+  .work-orders-search { flex: 1 1 260px; }
+  .work-orders-filter { flex: 1 1 190px; min-width: 0; }
+  .work-orders-filter select { width: 100%; min-width: 0; }
+  .work-order-financial-grid { grid-template-columns: minmax(0, 1fr); }
+  .work-order-size-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px; align-items: end; gap: 8px; }
+  .work-order-size-row > label:nth-child(3) { grid-column: 1; }
+  .work-order-size-subtotal { grid-column: 2; grid-row: 2; }
+  .work-order-remove-size { grid-column: 3; grid-row: 1 / span 2; align-self: center; }
+  .work-order-cost-line { grid-template-columns: minmax(48px, .4fr) minmax(0, 1fr) minmax(75px, auto); gap: 5px; }
+}

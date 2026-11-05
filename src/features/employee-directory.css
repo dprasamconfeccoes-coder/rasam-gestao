@@ -90,31 +90,13 @@
 .employee-record-tabs button.active { color:#29252b; }
 .employee-record-tabs small { background:#f1ebe4; color:#746d66; }
 .employee-record-item { border-bottom-color:#eee8e1; }
-.employee-record-item-button { width:100%; border-top:0; border-left:0; border-right:0; background:transparent; color:#29252b; text-align:left; cursor:pointer; }
-.employee-record-item-button:hover { background:#fff8ec; }
 .employee-record-value { color:#29252b; font-size:11px; font-weight:700; white-space:nowrap; }
-.employee-more-button { margin-top:12px; border:0; background:transparent; color:#9b6915; font-size:11px; font-weight:700; cursor:pointer; }
-.history-detail-card { display:grid; gap:8px; margin-top:15px; padding:15px 17px; border:1px solid #e5d2af; border-radius:12px; background:#fff8ec; color:#29252b; }
-.history-detail-card > div { display:flex; justify-content:space-between; align-items:center; }
-.history-detail-card p { margin:0; color:#746d66; font-size:11px; }
-.history-detail-card > span { color:#9b6915; font-size:11px; font-weight:700; }
-.point-filter-bar { display:flex; align-items:end; flex-wrap:wrap; gap:12px; padding:18px 20px; border-bottom:1px solid #eee8e1; }
-.point-filter-bar label { display:grid; gap:6px; color:#746d66; font-size:10px; font-weight:700; }
-.point-custom-toggle { display:flex !important; align-items:center; height:36px; }
-.point-custom-toggle input, .check-line input { width:auto; }
-.point-vertical-list { display:grid; gap:8px; padding:16px 20px 20px; }
-.point-day-card { display:grid; grid-template-columns:110px minmax(0,1fr) auto; align-items:center; gap:14px; padding:13px 14px; border:1px solid #eee8e1; border-radius:10px; background:#fff; }
-.point-day-card > div:first-child { display:grid; gap:4px; }
-.point-day-card > div:first-child small { color:#746d66; font-size:10px; }
-.point-times { display:flex; flex-wrap:wrap; gap:14px; }
-.point-times span { display:grid; gap:3px; color:#8e857c; font-size:9px; }
-.point-times b { color:#29252b; font-size:11px; }
+.check-line input { width:auto; }
 .employee-create-form { color:#29252b; }
 .employee-form-section { border-bottom-color:#eee8e1; }
 .employee-form-section > strong { color:#9b6915; }
 .employee-form-grid label, .employee-form-section > label { color:#746d66; }
 .employee-create-actions { border-top:1px solid #eee8e1; padding-top:18px; }
-@media (max-width:700px) { .point-day-card { grid-template-columns:1fr; align-items:start; } .point-times { gap:10px; } }
 .employee-record-modal { width:min(1080px,100%); height:min(760px,calc(100vh - 48px)); overflow:hidden; }
 .employee-record-modal .employee-record-shell { height:100%; overflow:hidden; display:flex; flex-direction:column; }
 .employee-record-modal .employee-record-shell > .section-card, .employee-record-modal .employee-record-shell > .employee-record-summary { min-height:0; overflow:auto; flex:1; }
@@ -129,3 +111,66 @@
 .employee-password-form input { width: 100%; min-height: 2.7rem; border: 1px solid #d9d1c8; border-radius: 0.55rem; padding: 0.65rem 0.8rem; color: #29252b; background: #fff; font: inherit; }
 .employee-password-form .primary-button { justify-self: start; }
 @media (max-width: 640px) { .employee-password-form .primary-button { width: 100%; } }
+
+
+/* Prontuários da Central de RH: conteúdo interno não deve encostar nas bordas do card. */
+.admin-prontuario-tab {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+  gap: 18px;
+}
+.admin-prontuario-tab > .section-card { min-width: 0; }
+.admin-prontuario-tab > .section-card > select {
+  display: block;
+  box-sizing: border-box;
+  width: calc(100% - 40px);
+  min-width: 0;
+  min-height: 42px;
+  margin: 18px 20px 0;
+  padding: 10px 12px;
+  border: 1px solid #d9d1c8;
+  border-radius: 9px;
+  color: #29252b;
+  background: #fff;
+}
+.admin-prontuario-tab > .section-card > .profile-summary {
+  display: grid;
+  gap: 7px;
+  margin: 14px 20px 20px;
+  padding: 16px;
+  border: 1px solid #e8e1d8;
+  border-radius: 12px;
+  color: #29252b;
+  background: #fcfaf7;
+}
+.admin-prontuario-tab .profile-summary > strong { font-size: 14px; }
+.admin-prontuario-tab .profile-summary > small { color: #746d66; font-size: 10px; line-height: 1.5; }
+.admin-prontuario-tab .profile-summary .metric-grid.compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin: 8px 0 0;
+}
+.admin-prontuario-tab .profile-summary .metric-grid.compact > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #eee8e1;
+  border-radius: 9px;
+  background: #fff;
+}
+.admin-prontuario-tab .profile-summary .metric-grid.compact b { color: #29252b; font-size: 15px; }
+.admin-prontuario-tab .profile-summary .metric-grid.compact small { color: #746d66; font-size: 9px; }
+.admin-prontuario-tab > .section-card > .state-card { margin: 16px 20px 20px; }
+.admin-prontuario-tab > .section-card > .callout { margin: 14px 20px 20px; }
+@media (max-width: 960px) {
+  .admin-prontuario-tab { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .admin-prontuario-tab { gap: 14px; }
+  .admin-prontuario-tab > .section-card > select { width: calc(100% - 28px); margin: 14px 14px 0; }
+  .admin-prontuario-tab > .section-card > .profile-summary { margin: 12px 14px 14px; padding: 13px; }
+  .admin-prontuario-tab > .section-card > .state-card { margin: 14px; }
+  .admin-prontuario-tab > .section-card > .callout { margin: 12px 14px 14px; }
+  .admin-prontuario-tab .profile-summary .metric-grid.compact { gap: 6px; }
+  .admin-prontuario-tab .profile-summary .metric-grid.compact > div { padding: 8px 6px; }
+}
