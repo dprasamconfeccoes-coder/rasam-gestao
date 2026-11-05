@@ -898,6 +898,54 @@ export function debtAttachmentDownload(token: string, attachmentId: string) {
   return callDebtFunction<DebtFunctionResponse>(token, { action: 'download', arquivo_id: attachmentId })
 }
 
+export type FinanceDocumentTarget = 'lancamento' | 'acordo_parcela'
+type FinanceDocumentResponse = { sucesso: boolean; erro?: string; url?: string; expires_in?: number; arquivo_nome?: string }
+
+async function callFinanceDocument<T extends FinanceDocumentResponse>(token: string, body: Record<string, unknown> | FormData): Promise<T> {
+  const isForm = body instanceof FormData
+  const response = await fetch(`${config.supabaseUrl}/functions/v1/financeiro-documento`, {
+    method: 'POST',
+    headers: {
+      apikey: config.supabaseKey,
+      Authorization: `Bearer ${token}`,
+      'x-app-token': token,
+      ...(isForm ? {} : { 'Content-Type': 'application/json' }),
+    },
+    body: isForm ? body : JSON.stringify(body),
+  })
+  const data = await response.json() as T
+  if (!response.ok || !data.sucesso) throw new Error(data.erro || 'Não foi possível concluir a operação de documentos financeiros.')
+  return data
+}
+
+export function uploadFinancePaymentInstruction(token: string, targetType: FinanceDocumentTarget, targetId: string, file: File) {
+  const form = new FormData()
+  form.set('action', 'instruction')
+  form.set('alvo_tipo', targetType)
+  form.set('alvo_id', targetId)
+  form.set('arquivo', file)
+  return callFinanceDocument<FinanceDocumentResponse>(token, form)
+}
+
+export function settleFinancePayment(token: string, targetType: FinanceDocumentTarget, targetId: string, paidOn: string, method: DebtPaymentMethod, reason = '', proof?: File | null) {
+  if (proof) {
+    const form = new FormData()
+    form.set('action', 'settle')
+    form.set('alvo_tipo', targetType)
+    form.set('alvo_id', targetId)
+    form.set('pago_em', paidOn)
+    form.set('forma_pagamento', method)
+    form.set('motivo', reason)
+    form.set('arquivo', proof)
+    return callFinanceDocument<FinanceDocumentResponse>(token, form)
+  }
+  return callFinanceDocument<FinanceDocumentResponse>(token, { action: 'settle', alvo_tipo: targetType, alvo_id: targetId, pago_em: paidOn, forma_pagamento: method, motivo: reason })
+}
+
+export function financePaymentDocumentDownload(token: string, documentId: string) {
+  return callFinanceDocument<FinanceDocumentResponse>(token, { action: 'download', documento_id: documentId })
+}
+
 export function updateOrder(token: string, id: string, status: string) {
   return rpc<{ sucesso: boolean; erro?: string }>('app_admin_atualizar_ordem', { p_token: token, p_id: id, p_status: status })
 }
@@ -1028,8 +1076,8 @@ export function adminFinanceiroExecutivo(token: string, inicio?: string, fim?: s
   return rpc<import('./types').FinanceiroExecutivoDashboard>('app_admin_financeiro_executivo', { p_token: token, p_inicio: inicio || null, p_fim: fim || null })
 }
 
-export function adminFinanceiroRelatorio(token: string, tipo: 'fluxo'|'categorias'|'contas_pagar'|'contas_receber'|'producao'|'dre'|'inadimplencia'|'recorrencias'|'orcamento'|'producao_status'|'producao_clientes'|'produtividade'|'producao_fluxo_diario'|'controle_tamanhos_lotes'|'quadro_funcionarios'|'ponto_jornada'|'absenteismo'|'ferias_afastamentos'|'dividas_posicao'|'dividas_credores', inicio?: string, fim?: string) {
-  const operational = ['producao_status','producao_clientes','produtividade','producao_fluxo_diario','controle_tamanhos_lotes','quadro_funcionarios','ponto_jornada','absenteismo','ferias_afastamentos','dividas_posicao','dividas_credores'].includes(tipo)
+export function adminFinanceiroRelatorio(token: string, tipo: 'fluxo'|'categorias'|'contas_pagar'|'contas_receber'|'producao'|'dre'|'inadimplencia'|'recorrencias'|'orcamento'|'producao_status'|'producao_clientes'|'produtividade'|'producao_fluxo_diario'|'controle_tamanhos_lotes'|'quadro_funcionarios'|'ponto_jornada'|'absenteismo'|'ferias_afastamentos'|'dividas_posicao'|'dividas_credores'|'acordos_posicao'|'acordos_quitacoes', inicio?: string, fim?: string) {
+  const operational = ['producao_status','producao_clientes','produtividade','producao_fluxo_diario','controle_tamanhos_lotes','quadro_funcionarios','ponto_jornada','absenteismo','ferias_afastamentos','dividas_posicao','dividas_credores','acordos_posicao','acordos_quitacoes'].includes(tipo)
   return rpc<import('./types').FinanceiroRelatorioResponse>(operational ? 'app_admin_relatorio_operacional' : 'app_admin_financeiro_relatorio', { p_token: token, p_tipo: tipo, p_inicio: inicio || null, p_fim: fim || null })
 }
 

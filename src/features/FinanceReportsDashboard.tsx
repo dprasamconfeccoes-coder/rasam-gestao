@@ -44,12 +44,14 @@ type ReportType =
   | 'ferias_afastamentos'
   | 'dividas_posicao'
   | 'dividas_credores'
+  | 'acordos_posicao'
+  | 'acordos_quitacoes'
 
 type ReportDefinition = {
   key: ReportType
   label: string
   description: string
-  area: 'Financeiro' | 'Produção' | 'Pessoas' | 'Dívidas'
+  area: 'Financeiro' | 'Produção' | 'Pessoas' | 'Dívidas' | 'Acordos'
   icon: 'chart' | 'table' | 'file' | 'alert' | 'briefcase' | 'calendar'
 }
 
@@ -74,12 +76,9 @@ const reportOptions: ReportDefinition[] = [
   { key: 'ferias_afastamentos', label: 'Férias e afastamentos', description: 'Períodos sobrepostos e inícios dentro do intervalo escolhido.', area: 'Pessoas', icon: 'calendar' },
   { key: 'dividas_posicao', label: 'Contratos cadastrados no período', description: 'Contratos por status; saldo atual, filtrados pela data de contratação ou cadastro.', area: 'Dívidas', icon: 'alert' },
   { key: 'dividas_credores', label: 'Contratos por credor cadastrados no período', description: 'Contratos e saldo atual por credor; não representa posição histórica.', area: 'Dívidas', icon: 'table' },
+  { key: 'acordos_posicao', label: 'Posição de Acordos', description: 'Parcelas com vencimento no período e situação atual do pagamento.', area: 'Acordos', icon: 'briefcase' },
+  { key: 'acordos_quitacoes', label: 'Quitações de Acordos', description: 'Baixas por data efetiva, forma de pagamento e valor quitado.', area: 'Acordos', icon: 'file' },
 ]
-
-const adminOnlyOrderProductionReports = new Set<ReportType>([
-  'producao', 'producao_status', 'producao_clientes', 'produtividade',
-  'producao_fluxo_diario', 'controle_tamanhos_lotes',
-])
 
 const columns: Record<ReportType, Array<[string, string]>> = {
   fluxo: [['mes', 'Competência'], ['receitas_recebidas', 'Receitas recebidas'], ['despesas_pagas', 'Despesas pagas'], ['receitas_previstas', 'Receitas previstas'], ['despesas_previstas', 'Despesas previstas']],
@@ -102,6 +101,8 @@ const columns: Record<ReportType, Array<[string, string]>> = {
   ferias_afastamentos: [['tipo', 'Tipo'], ['quantidade', 'Períodos sobrepostos'], ['inicios_no_periodo', 'Inícios no período']],
   dividas_posicao: [['status', 'Status'], ['quantidade', 'Contratos'], ['valor', 'Saldo atual']],
   dividas_credores: [['credor', 'Credor'], ['contratos', 'Contratos'], ['saldo', 'Saldo atual']],
+  acordos_posicao: [['processo', 'Processo'], ['favorecido', 'Favorecido'], ['item', 'Item'], ['valor', 'Valor'], ['vencimento', 'Vencimento'], ['status', 'Status atual'], ['pago_em', 'Quitada em'], ['forma_pagamento', 'Forma de pagamento']],
+  acordos_quitacoes: [['processo', 'Processo'], ['favorecido', 'Favorecido'], ['item', 'Item'], ['valor', 'Valor'], ['pago_em', 'Quitada em'], ['forma_pagamento', 'Forma de pagamento']],
 }
 
 const num = (value: unknown) => Number(value || 0)
@@ -147,8 +148,9 @@ export function FinanceReportsDashboard({ token, isAdmin = false }: { token: str
 
   async function load(nextType: ReportType = type, openDetail = true) {
     const currentRequest = ++requestId.current
-    if (!isAdmin && adminOnlyOrderProductionReports.has(nextType)) {
-      setError('Relatórios de Ordens e Produção estão disponíveis somente para administradores.')
+    const nextArea = reportOptions.find((item) => item.key === nextType)?.area
+    if (!isAdmin && nextArea !== 'Pessoas') {
+      setError('Relatórios financeiros, de Dívidas, Acordos, Ordens e Produção estão disponíveis somente para administradores.')
       setLoading(false)
       return
     }
@@ -201,23 +203,24 @@ export function FinanceReportsDashboard({ token, isAdmin = false }: { token: str
   }
 
   useEffect(() => {
-    void load('fluxo', false)
+    void load(isAdmin ? 'fluxo' : 'quadro_funcionarios', false)
     // O relatório inicial deve ser carregado quando a sessão muda.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
   useEffect(() => {
-    if (!isAdmin && adminOnlyOrderProductionReports.has(type)) {
-      setType('fluxo')
+    const currentArea = reportOptions.find((item) => item.key === type)?.area
+    if (!isAdmin && currentArea !== 'Pessoas') {
+      setType('quadro_funcionarios')
       setData(null)
       setShowCatalog(true)
       setSpecialReport(null)
     }
   }, [isAdmin, type])
 
-  const visibleReportOptions = reportOptions.filter((item) => isAdmin || !adminOnlyOrderProductionReports.has(item.key))
-  const visibleAreas = ['Financeiro', ...(isAdmin ? ['Produção'] : []), 'Pessoas', 'Dívidas']
-  const option = visibleReportOptions.find((item) => item.key === type) || reportOptions[0]
+  const visibleReportOptions = reportOptions.filter((item) => isAdmin || item.area === 'Pessoas')
+  const visibleAreas = isAdmin ? ['Financeiro', 'Produção', 'Pessoas', 'Dívidas', 'Acordos'] : ['Pessoas']
+  const option = visibleReportOptions.find((item) => item.key === type) || visibleReportOptions[0]
   const rows = data?.linhas || []
   const fields = columns[type]
   const financeOptions = visibleReportOptions.filter((item) => item.area === 'Financeiro')
@@ -225,6 +228,7 @@ export function FinanceReportsDashboard({ token, isAdmin = false }: { token: str
   const isSizeControl = type === 'controle_tamanhos_lotes'
   const isDre = type === 'dre'
   const isFinancialReport = option.area === 'Financeiro'
+  const isAgreementReport = type === 'acordos_posicao' || type === 'acordos_quitacoes'
   const isNewFactoryReport = isFactoryFlow || isSizeControl
   const totalRows = rows.length
   const statusOptions = Array.from(new Set(rows.map((row) => String(row.status || '')).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt-BR'))
@@ -258,6 +262,12 @@ export function FinanceReportsDashboard({ token, isAdmin = false }: { token: str
       costuradas: sum(['costuradas']),
       entregues: sum(['entregues']),
       daysWithMovement,
+      acordoValor: sum(['valor']),
+      acordoQuantidade: filteredRows.length,
+      acordoEmAberto: filteredRows.filter((row) => ['pendente', 'atrasada'].includes(String(row.status))).reduce((total, row) => total + num(row.valor), 0),
+      acordoQuitado: filteredRows.filter((row) => String(row.status) === 'quitada').reduce((total, row) => total + num(row.valor), 0),
+      acordoEmAbertoQuantidade: filteredRows.filter((row) => ['pendente', 'atrasada'].includes(String(row.status))).length,
+      acordoQuitadoQuantidade: filteredRows.filter((row) => String(row.status) === 'quitada').length,
     }
   }, [filteredRows, data?.totais, isSizeControl])
 
@@ -335,7 +345,7 @@ export function FinanceReportsDashboard({ token, isAdmin = false }: { token: str
           <section className="report-catalog-section" key={area}>
             <div className="report-catalog-heading">
               <div><span className="eyebrow">Catálogo</span><h2>{area}</h2></div>
-              <small>{area === 'Financeiro' ? 'Indicadores, caixa, compromissos e resultado.' : area === 'Produção' ? 'Ordens, fluxo diário e controle das etapas por tamanho.' : area === 'Pessoas' ? 'Jornada, custos e movimentações de pessoal.' : 'Contratos, credores e comprometimento financeiro.'}</small>
+              <small>{area === 'Financeiro' ? 'Indicadores, caixa, compromissos e resultado.' : area === 'Produção' ? 'Ordens, fluxo diário e controle das etapas por tamanho.' : area === 'Pessoas' ? 'Jornada, custos e movimentações de pessoal.' : area === 'Acordos' ? 'Parcelas trabalhistas, vencimentos e pagamentos efetivamente quitados.' : 'Contratos, credores e comprometimento financeiro.'}</small>
             </div>
             <div className="report-catalog-grid">
               {visibleReportOptions.filter((item) => item.area === area).map((item) => (
@@ -376,6 +386,11 @@ export function FinanceReportsDashboard({ token, isAdmin = false }: { token: str
           <article><span>Receitas previstas</span><strong>{formatMoney(summary.dreReceitasPrevistas)}</strong><small>Títulos pendentes/vencidos no período</small></article>
           <article><span>Despesas pagas</span><strong>{formatMoney(summary.dreDespesasPagas)}</strong><small>Pagamentos realizados no período</small></article>
           <article><span>Despesas previstas</span><strong>{formatMoney(summary.dreDespesasPrevistas)}</strong><small>Títulos pendentes/vencidos no período</small></article>
+        </div> : isAgreementReport ? <div className="report-kpi-strip">
+          <article><span>{type === 'acordos_quitacoes' ? 'Quitações listadas' : 'Parcelas listadas'}</span><strong>{summary.acordoQuantidade}</strong><small>Registros retornados para o intervalo</small></article>
+          <article><span>Valor listado</span><strong>{formatMoney(summary.acordoValor)}</strong><small>{type === 'acordos_quitacoes' ? 'Pagamentos efetivados pela data de baixa' : 'Valores dos itens com vencimento no período'}</small></article>
+          <article><span>Em aberto</span><strong>{formatMoney(summary.acordoEmAberto)}</strong><small>{summary.acordoEmAbertoQuantidade} parcela(s) pendente(s) ou vencida(s)</small></article>
+          <article><span>Quitado</span><strong>{formatMoney(summary.acordoQuitado)}</strong><small>{summary.acordoQuitadoQuantidade} parcela(s) quitada(s)</small></article>
         </div> : !isFinancialReport ? <div className="report-kpi-strip">
           <article><span>Linhas / grupos</span><strong>{totalRows}</strong><small>Resultado agregado</small></article>
           <article><span>Itens contados</span><strong>{summary.quantidadeGenerica.toLocaleString('pt-BR')}</strong><small>Contagens disponíveis no relatório</small></article>

@@ -95,6 +95,11 @@
 .agreement-status-action.is-reopen { color: #754e13; background: #fffaf0; border-color: #eee0c2; }
 .agreement-status-action.is-reopen:hover:not(:disabled) { color: #fff; background: #89620f; border-color: #89620f; }
 .agreement-status-action:disabled { opacity: .55; cursor: wait; }
+.agreement-installment-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.agreement-document-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 34px; padding: 7px 9px; color: #5d5060; background: #fbf8fb; border: 1px solid #e8dfe9; border-radius: 8px; font-size: 10px; font-weight: 750; white-space: nowrap; }
+.agreement-document-toggle:hover { color: #7d3561; background: #f8edf4; border-color: #dcb8ce; }
+.agreement-installment-documents { grid-column: 1 / -1; padding: 12px 15px; border-bottom: 1px solid #f0ebea; background: #fcfbfa; }
+.agreement-installment-documents .payment-documents { margin: 0; }
 .agreements-dashboard .state-card { color: #655960; background: #fff; }
 .agreements-dashboard .state-card p { color: #786c71; }
 @media (max-width: 980px) {
@@ -148,7 +153,10 @@
   .agreement-installment-name { grid-column: 1; grid-row: 1; }
   .agreement-installment-value { grid-column: 2; grid-row: 1; justify-self: end; }
   .agreement-status { grid-column: 1; grid-row: 2; }
-  .agreement-status-action { grid-column: 2; grid-row: 2; justify-self: end; min-height: 32px; padding: 6px 8px; font-size: 9px; }
+  .agreement-installment-actions { grid-column: 1 / -1; grid-row: 3; justify-content: stretch; }
+  .agreement-installment-actions > button { flex: 1; }
+  .agreement-status-action { min-height: 32px; padding: 6px 8px; font-size: 9px; }
+  .agreement-installment-documents { padding: 9px 11px; }
 }
 @media (max-width: 380px) {
   .agreement-heading-actions button { gap: 5px; padding: 7px 8px; }

@@ -151,19 +151,20 @@ const managerProfiles: Profile[] = ['gestor', 'administrador', 'admin']
 const adminProfiles: Profile[] = ['administrador', 'admin']
 
 function redactOperationalDashboard(data: DashboardResponse): DashboardResponse {
-  const isOperationalDestination = (destination: ModuleKey) => destination === 'ordens' || destination === 'producao'
+  const isRestrictedDestination = (destination: ModuleKey) => ['ordens', 'producao', 'financeiro', 'dividas', 'acordos'].includes(destination)
   return {
     ...data,
-    indicadores: data.indicadores ? { ...data.indicadores, ordens_ativas: 0, lotes_em_costura: 0 } : data.indicadores,
-    alertas: (data.alertas || []).filter((alert) => !isOperationalDestination(alert.destino)),
+    indicadores: data.indicadores ? { ...data.indicadores, ordens_ativas: 0, lotes_em_costura: 0, contas_pendentes: 0, saldo_dividas: 0 } : data.indicadores,
+    alertas: (data.alertas || []).filter((alert) => !isRestrictedDestination(alert.destino)),
     funil: { recebidas: 0, em_producao: 0, costuradas: 0, entregues: 0, pagas: 0 },
     comparativos: { ...data.comparativos, ordens_entrada_mes: undefined, ordens_entrada_mes_anterior: undefined },
     inteligencia: {
       ...data.inteligencia,
       operacao: undefined,
-      agenda: (data.inteligencia?.agenda || []).filter((item) => !isOperationalDestination(item.destino)),
+      financeiro: undefined,
+      agenda: (data.inteligencia?.agenda || []).filter((item) => !isRestrictedDestination(item.destino)),
       evolucao: [],
-      pendencias_area: { ...data.inteligencia?.pendencias_area, operacao: undefined, producao: undefined },
+      pendencias_area: { ...data.inteligencia?.pendencias_area, financeiro: undefined, operacao: undefined, producao: undefined },
     },
   }
 }
@@ -175,7 +176,7 @@ const navItems: NavItem[] = [
   { key: 'funcionarios', label: 'Funcionários', description: 'Gestão da equipe e prontuário próprio', icon: UsersRound, group: 'Operação', profiles: ['funcionario', ...managerProfiles] },
   { key: 'ordens', label: 'Ordens de serviço', description: 'Cadastro de lotes e financeiro', icon: ClipboardList, group: 'Operação', profiles: adminProfiles },
   { key: 'producao', label: 'Produção', description: 'Lotes e costura', icon: Factory, group: 'Operação', profiles: adminProfiles },
-  { key: 'financeiro', label: 'Financeiro', description: 'Fluxo e compromissos', icon: CircleDollarSign, group: 'Controle', profiles: managerProfiles },
+  { key: 'financeiro', label: 'Financeiro', description: 'Fluxo e compromissos', icon: CircleDollarSign, group: 'Controle', profiles: adminProfiles },
   { key: 'folha', label: 'Folha de pagamento', description: 'Simulação CLT, dados fiscais e lançamentos', icon: Receipt, group: 'Controle', profiles: adminProfiles },
   { key: 'acordos', label: 'Acordos e parcelas', description: 'Pagamentos trabalhistas', icon: Scale, group: 'Controle', profiles: adminProfiles },
   { key: 'dividas', label: 'Dívidas', description: 'Saldos e vencimentos', icon: WalletCards, group: 'Controle', profiles: adminProfiles },
@@ -432,48 +433,49 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
         let periodData: DashboardPeriodOverviewResponse | undefined
         let periodError: string | undefined
 
-        if (user.perfil !== 'funcionario') {
-          let productionResult: PromiseSettledResult<Awaited<ReturnType<typeof getFactoryProduction>>> | undefined
-          let ordersResult: PromiseSettledResult<Awaited<ReturnType<typeof listOrders>>> | undefined
-          if (adminProfiles.includes(user.perfil)) {
-            [productionResult, ordersResult] = await Promise.allSettled([
-              getFactoryProduction(token),
-              listOrders(token),
-            ])
+        const accepted = <T,>(label: string, result: PromiseSettledResult<T>, requireSuccess = false): T | undefined => {
+          if (result.status === 'rejected') { partialErrors.push(label); return undefined }
+          const value = result.value
+          if (requireSuccess && typeof value === 'object' && value !== null && 'sucesso' in value && value.sucesso === false) {
+            partialErrors.push(label)
+            return undefined
           }
-          const [agreementsResult, debtsResult, employeesResult, financeResult, periodResult] = await Promise.allSettled([
-            listAgreements(token),
-            managedDebts(token),
+          return value
+        }
+
+        if (user.perfil !== 'funcionario') {
+          const isAdmin = adminProfiles.includes(user.perfil)
+          const [employeesResult, periodResult] = await Promise.allSettled([
             listEmployees(token),
-            adminFinanceiroWorkspace(token),
             dashboardPeriod(token, quickReportWindow.start, quickReportWindow.end),
           ])
-          const accepted = <T,>(label: string, result: PromiseSettledResult<T>, requireSuccess = false): T | undefined => {
-            if (result.status === 'rejected') { partialErrors.push(label); return undefined }
-            const value = result.value
-            if (requireSuccess && typeof value === 'object' && value !== null && 'sucesso' in value && value.sucesso === false) {
-              partialErrors.push(label)
-              return undefined
-            }
-            return value
-          }
-          const production = productionResult ? accepted('Produção detalhada', productionResult, true) as Awaited<ReturnType<typeof getFactoryProduction>> | undefined : undefined
-          const agreements = accepted('Acordos', agreementsResult, true) as Awaited<ReturnType<typeof listAgreements>> | undefined
-          const debts = accepted('Dívidas', debtsResult, true) as Awaited<ReturnType<typeof managedDebts>> | undefined
           const employees = accepted('Equipe', employeesResult) as EmployeeRow[] | undefined
-          const orders = ordersResult ? accepted('Ordens', ordersResult, true) as Awaited<ReturnType<typeof listOrders>> | undefined : undefined
-          const finance = accepted('Contas do financeiro', financeResult, true) as Awaited<ReturnType<typeof adminFinanceiroWorkspace>> | undefined
+          if (employees) quickDetails.employees = employees
           const period = accepted('Movimento no período', periodResult, true) as DashboardPeriodOverviewResponse | undefined
 
-          if (production?.sucesso) { enrichment.production = production.resumo; quickDetails.lots = production.lotes }
-          if (agreements?.sucesso) enrichment.agreements = agreements.parcelas
-          if (debts?.sucesso) enrichment.debts = debts.dividas
-          if (employees) quickDetails.employees = employees
-          if (orders?.sucesso) quickDetails.orders = orders.ordens
-          if (finance?.sucesso) quickDetails.contas = finance.contas
-          if (period?.sucesso && period.financeiro && period.ponto && period.inconsistencias_ponto && period.ausencias
-            && (!adminProfiles.includes(user.perfil) || (period.ordens && period.producao))) {
-            periodData = adminProfiles.includes(user.perfil) ? period : { ...period, ordens: undefined, producao: undefined }
+          if (isAdmin) {
+            const [productionResult, ordersResult, agreementsResult, debtsResult, financeResult] = await Promise.allSettled([
+              getFactoryProduction(token),
+              listOrders(token),
+              listAgreements(token),
+              managedDebts(token),
+              adminFinanceiroWorkspace(token),
+            ])
+            const production = accepted('Produção detalhada', productionResult, true) as Awaited<ReturnType<typeof getFactoryProduction>> | undefined
+            const orders = accepted('Ordens', ordersResult, true) as Awaited<ReturnType<typeof listOrders>> | undefined
+            const agreements = accepted('Acordos', agreementsResult, true) as Awaited<ReturnType<typeof listAgreements>> | undefined
+            const debts = accepted('Dívidas', debtsResult, true) as Awaited<ReturnType<typeof managedDebts>> | undefined
+            const finance = accepted('Contas do financeiro', financeResult, true) as Awaited<ReturnType<typeof adminFinanceiroWorkspace>> | undefined
+            if (production?.sucesso) { enrichment.production = production.resumo; quickDetails.lots = production.lotes }
+            if (agreements?.sucesso) enrichment.agreements = agreements.parcelas
+            if (debts?.sucesso) enrichment.debts = debts.dividas
+            if (orders?.sucesso) quickDetails.orders = orders.ordens
+            if (finance?.sucesso) quickDetails.contas = finance.contas
+          }
+
+          const periodHasPeopleData = period?.ponto && period.inconsistencias_ponto && period.ausencias
+          if (period?.sucesso && periodHasPeopleData && (!isAdmin || (period.financeiro && period.ordens && period.producao))) {
+            periodData = isAdmin ? period : { ...period, financeiro: undefined, ordens: undefined, producao: undefined }
           }
           else periodError = period?.erro || 'O resumo do período veio incompleto; os números não serão apresentados como zero.'
         }
@@ -540,7 +542,7 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
   if (state.loading) return <><PageHeading eyebrow="Centro de comando" title="Visão geral" description={`Bom dia, ${user.nome.split(' ')[0]}.`} /><LoadingState label="Preparando seu painel de atenção…" /></>
   if ((state.error && !state.data) || !state.data?.sucesso) return <><PageHeading eyebrow="Centro de comando" title="Visão geral" /><ErrorState message={state.error || state.data?.erro || 'Sessão inválida'} /><button className="secondary-button" onClick={() => setRefreshKey((value) => value + 1)}><RefreshCw size={15} /> Tentar novamente</button></>
   const data = state.data; const isEmployee = user.perfil === 'funcionario'; const isAdmin = adminProfiles.includes(user.perfil); const indicators = data.indicadores!; const personal = data.pessoal || {}; const alerts = data.alertas || []; const funnel: DashboardResponse['funil'] = data.funil; const comparisons = data.comparativos || {}; const intelligence = data.inteligencia || {}; const agenda = intelligence.agenda || []; const evolution = intelligence.evolucao || []; const maxEvolution = Math.max(1, ...evolution.flatMap((point) => [point.ordens, point.entregues])); const variation = (current = 0, previous = 0) => previous === 0 ? (current > 0 ? 'Novo no período' : 'Sem movimentação') : `${current - previous >= 0 ? '+' : ''}${current - previous} versus mês anterior`;
-  const reportRows = isAdmin ? periodRows : periodRows.filter((item) => item.grupo !== 'Produção')
+  const reportRows = isAdmin ? periodRows : periodRows.filter((item) => !['Financeiro', 'Produção', 'Dívidas', 'Acordos'].includes(item.grupo))
   const reportGroups = ['Financeiro', 'Produção', 'Pessoas'].map((group) => ({ group, rows: reportRows.filter((item) => item.grupo === group) })).filter((item) => item.rows.length)
   const reportDestination = (module: string): ModuleKey => module === 'dividas' ? 'dividas' : module === 'acordos' ? 'acordos' : module === 'rh' || module === 'afastamentos' ? 'rh' : module === 'producao' ? 'producao' : module === 'ponto' ? 'ponto' : module === 'ordens' ? 'ordens' : 'financeiro'
   const filteredEvolution = evolution.slice(-Math.min(chartRange, 6))
@@ -554,10 +556,10 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
     {state.error && state.data && <div className="overview-data-warning" role="status"><AlertTriangle size={16} /><span>Não foi possível atualizar o painel principal: {state.error}. Os últimos dados carregados continuam visíveis.</span></div>}
     {!!state.partialErrors?.length && <div className="overview-data-warning" role="status"><AlertTriangle size={16} /><span>Atualização parcial. Não foi possível consultar: {state.partialErrors.join(', ')}. As métricas afetadas não são apresentadas como zero.</span></div>}
     <div className="overview-welcome"><div><span className="eyebrow">{isEmployee ? 'Seu painel pessoal' : 'Prioridade do dia'}</span><h2>{isEmployee ? 'Tudo o que depende de você, em um só lugar.' : 'Decida primeiro. Aprofunde depois.'}</h2><p>{isEmployee ? 'Consulte sua jornada, acompanhe documentos e mantenha suas solicitações em dia.' : 'Indicadores operacionais e alertas priorizados para iniciar o dia com clareza.'}</p></div><div className="overview-welcome-symbol"><Gauge size={32}/></div></div>
-    <div className="metric-grid overview-metrics">{isEmployee ? <><MetricCard label="Ponto a revisar" value={personal.ponto_sem_justificativa || 0} detail="Registros sem justificativa" tone="gold" onClick={() => onNavigate('ponto')} /><MetricCard label="Atestados" value={personal.atestados_em_analise || 0} detail="Em análise pelo RH" tone="pink" onClick={() => onNavigate('atestados')} /><MetricCard label="Solicitações" value={personal.solicitacoes_abertas || 0} detail="Pedidos em aberto" tone="green" onClick={() => onNavigate('solicitacoes')} /><MetricCard label="Avisos novos" value={personal.avisos_nao_lidos || 0} detail="Comunicados não lidos" tone="blue" onClick={() => onNavigate('avisos')} /></> : <><MetricCard label="Equipe ativa" value={indicators.funcionarios_ativos} detail="Pessoas no quadro · abrir detalhes" tone="gold" onClick={() => setQuickModal('equipe')} />{isAdmin && <MetricCard label="Ordens ativas" value={indicators.ordens_ativas} detail="Em operação · abrir detalhes" tone="pink" onClick={() => setQuickModal('ordens')} />}{isAdmin && <MetricCard label="Lotes em costura" value={indicators.lotes_em_costura} detail="Acompanhar produção · abrir detalhes" tone="green" onClick={() => setQuickModal('costura')} />}<MetricCard label="Contas pendentes" value={indicators.contas_pendentes} detail="Financeiro exige atenção · abrir detalhes" tone="blue" onClick={() => setQuickModal('contas')} /></>}</div>
+    <div className="metric-grid overview-metrics">{isEmployee ? <><MetricCard label="Ponto a revisar" value={personal.ponto_sem_justificativa || 0} detail="Registros sem justificativa" tone="gold" onClick={() => onNavigate('ponto')} /><MetricCard label="Atestados" value={personal.atestados_em_analise || 0} detail="Em análise pelo RH" tone="pink" onClick={() => onNavigate('atestados')} /><MetricCard label="Solicitações" value={personal.solicitacoes_abertas || 0} detail="Pedidos em aberto" tone="green" onClick={() => onNavigate('solicitacoes')} /><MetricCard label="Avisos novos" value={personal.avisos_nao_lidos || 0} detail="Comunicados não lidos" tone="blue" onClick={() => onNavigate('avisos')} /></> : <><MetricCard label="Equipe ativa" value={indicators.funcionarios_ativos} detail="Pessoas no quadro · abrir detalhes" tone="gold" onClick={() => setQuickModal('equipe')} />{isAdmin && <MetricCard label="Ordens ativas" value={indicators.ordens_ativas} detail="Em operação · abrir detalhes" tone="pink" onClick={() => setQuickModal('ordens')} />}{isAdmin && <MetricCard label="Lotes em costura" value={indicators.lotes_em_costura} detail="Acompanhar produção · abrir detalhes" tone="green" onClick={() => setQuickModal('costura')} />}{isAdmin && <MetricCard label="Contas pendentes" value={indicators.contas_pendentes} detail="Financeiro exige atenção · abrir detalhes" tone="blue" onClick={() => setQuickModal('contas')} />}{!isAdmin && <MetricCard label="Pessoas ausentes" value={(indicators.em_ferias || 0) + (indicators.em_afastamento || 0)} detail="Em férias ou afastamento" tone="blue" onClick={() => onNavigate('funcionarios')} />}</>}</div>
     {!isEmployee && <section className="overview-quick-report" aria-label="Movimentação por período">
       <div className="overview-quick-report-heading">
-        <div><span className="eyebrow">Movimentação · período selecionado</span><h2>{isAdmin ? 'Financeiro, produção, ponto e ausências' : 'Financeiro, ponto e ausências'}</h2><p>Os cartões acima mostram a posição atual. Este resumo usa os lançamentos e eventos datados no intervalo selecionado.</p></div>
+        <div><span className="eyebrow">Movimentação · período selecionado</span><h2>{isAdmin ? 'Financeiro, produção, ponto e ausências' : 'Pessoas, ponto e ausências'}</h2><p>{isAdmin ? 'Os cartões acima mostram a posição atual. Este resumo usa os lançamentos e eventos datados no intervalo selecionado.' : 'Este resumo mostra eventos de Pessoas e Ponto datados no intervalo; informações financeiras ficam restritas a administradores.'}</p></div>
         <div className="overview-quick-report-controls">
           <select value={quickGranularity} onChange={(event) => { setQuickGranularity(event.target.value as typeof quickGranularity); setQuickAnchor(new Date()) }} aria-label="Granularidade do período"><option value="mes">Por mês</option><option value="semana">Por semana</option></select>
           <div className="overview-quick-report-navigation"><button type="button" onClick={() => shiftQuickWindow(-1)} aria-label="Período anterior"><ChevronLeft size={14} /></button><span>{quickReportWindow.label}</span><button type="button" onClick={() => shiftQuickWindow(1)} aria-label="Próximo período"><ChevronRight size={14} /></button></div>
@@ -568,7 +570,7 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
         {state.refreshing && <div className="overview-period-refreshing"><RefreshCw size={14} className="spin" /> Atualizando o período…</div>}
         {state.lastUpdated && <p className="overview-period-updated">Dados completos atualizados em {new Date(state.lastUpdated).toLocaleString('pt-BR')}.</p>}
         <div className="overview-quick-report-grid">{reportGroups.map(({ group, rows }) => <article className="overview-quick-report-card" key={group}><div className="overview-quick-report-card-heading"><strong>{group}</strong><small>{rows.length} indicador(es)</small></div><div className="overview-quick-report-list">{rows.map((item) => <button type="button" key={`${item.grupo}-${item.indicador}`} onClick={() => openReportDetails(item)}><span><strong>{item.indicador}</strong><small>{item.contexto}</small></span><b className={`is-${item.status}`}>{item.valor}</b><ChevronRight size={14} /></button>)}</div></article>)}</div>
-        <p className="overview-period-footnote">{isAdmin ? 'Financeiro usa baixa/vencimento no intervalo; ordens usam data de entrada; produção usa eventos fabris (incluindo ajustes); férias e afastamentos contam períodos sobrepostos.' : 'Financeiro usa baixa/vencimento no intervalo; férias e afastamentos contam períodos sobrepostos.'}</p>
+        <p className="overview-period-footnote">{isAdmin ? 'Financeiro usa baixa/vencimento no intervalo; ordens usam data de entrada; produção usa eventos fabris (incluindo ajustes); férias e afastamentos contam períodos sobrepostos.' : 'Ponto usa registros no período; férias e afastamentos contam períodos sobrepostos.'}</p>
       </>}
     </section>}
     <div className="overview-main-grid"><SectionCard title={isEmployee ? 'Pendências pessoais' : 'Alertas prioritários'} caption={isEmployee ? 'Resolva o que pode bloquear sua rotina' : `${alerts.length} ponto(s) selecionado(s) por urgência`}><div className="overview-alert-list">{isEmployee ? <><button className="overview-alert-item is-attention" onClick={() => onNavigate('ponto')}><span><Fingerprint size={18}/></span><div><strong>{personal.ponto_sem_justificativa || 0} registro(s) de ponto precisam de revisão</strong><small>Confira sua jornada e envie justificativa quando necessário.</small></div><ChevronRight size={16}/></button><button className="overview-alert-item is-info" onClick={() => onNavigate('atestados')}><span><HeartPulse size={18}/></span><div><strong>{personal.atestados_em_analise || 0} atestado(s) em análise</strong><small>Acompanhe o status dos documentos enviados ao RH.</small></div><ChevronRight size={16}/></button><button className="overview-alert-item is-success" onClick={() => onNavigate('solicitacoes')}><span><FileCheck2 size={18}/></span><div><strong>{personal.solicitacoes_abertas || 0} solicitação(ões) em aberto</strong><small>Veja respostas ou complemente seus pedidos.</small></div><ChevronRight size={16}/></button></> : alerts.length === 0 ? <EmptyState title="Operação sob controle" description="Não há alertas prioritários para este momento." /> : alerts.map((alert) => <button className={`overview-alert-item is-${alert.prioridade}`} key={alert.id} onClick={() => onNavigate(alertDestination(alert.destino))}><span>{alert.prioridade === 'urgente' ? <AlertCircle size={18}/> : alert.destino === 'producao' ? <Factory size={18}/> : alert.destino === 'financeiro' ? <CircleDollarSign size={18}/> : <ShieldCheck size={18}/>}</span><div><strong>{alert.titulo} <b>{alert.valor}</b></strong><small>{alert.detalhe}</small></div><ChevronRight size={16}/></button>)}</div></SectionCard><SectionCard title={isEmployee ? 'Acesso rápido' : 'Resumo executivo'} caption={isEmployee ? 'Atalhos para sua rotina' : 'Contexto para a primeira decisão do dia'}><div className="overview-summary-list">{isEmployee ? <><button onClick={() => onNavigate('ponto')}><Fingerprint size={17}/><span><strong>Minha jornada</strong><small>Registros, atrasos e justificativas</small></span><ChevronRight size={15}/></button><button onClick={() => onNavigate('avisos')}><Bell size={17}/><span><strong>Avisos da empresa</strong><small>{personal.avisos_nao_lidos || 0} comunicado(s) aguardando leitura</small></span><ChevronRight size={15}/></button><button onClick={() => onNavigate('holerites')}><Receipt size={17}/><span><strong>Comprovantes</strong><small>{personal.holerites_disponiveis || 0} holerite(s) disponíveis</small></span><ChevronRight size={15}/></button></> : <><div><span>Saldo de dívidas ativo</span><strong>{isAdmin ? formatMoney(indicators.saldo_dividas) : 'Disponível para administradores'}</strong></div><div><span>Pessoas ausentes hoje</span><strong>{indicators.em_ferias + indicators.em_afastamento}</strong></div><div><span>Compromissos financeiros</span><strong>{indicators.contas_pendentes}</strong></div><div><span>Próximo passo recomendado</span><strong>{alerts[0]?.titulo || 'Revisar o fechamento do dia'}</strong></div></>}</div></SectionCard></div>
@@ -1638,7 +1640,9 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'ordens') return adminProfiles.includes(user.perfil)
       ? <WorkOrdersDashboard token={token} onGoToProduction={() => navigate('producao')} />
       : <><PageHeading eyebrow="Acesso restrito" title="Ordens de serviço" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
-    if (active === 'financeiro') return <FinanceExecutiveDashboard token={token} />
+    if (active === 'financeiro') return adminProfiles.includes(user.perfil)
+      ? <FinanceExecutiveDashboard token={token} />
+      : <><PageHeading eyebrow="Acesso restrito" title="Financeiro" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
     if (active === 'dividas') return adminProfiles.includes(user.perfil)
       ? <DebtManagementDashboard token={token} />
       : <><PageHeading eyebrow="Acesso restrito" title="Gestão de dívidas" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
@@ -1662,7 +1666,9 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'beneficios_descontos') return adminProfiles.includes(user.perfil)
       ? <PayrollManagementDashboard token={token} initialTab="beneficios" />
       : <><PageHeading eyebrow="Acesso restrito" title="Folha de pagamento" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
-    if (active === 'acordos') return <AgreementsDashboard token={token} />
+    if (active === 'acordos') return adminProfiles.includes(user.perfil)
+      ? <AgreementsDashboard token={token} />
+      : <><PageHeading eyebrow="Acesso restrito" title="Acordos e parcelas" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
     if (active === 'documentos') return <InternalDocumentsDashboard token={token} canManage={adminProfiles.includes(user.perfil)} />
     return <ControlModuleView token={token} module={active} />
   }

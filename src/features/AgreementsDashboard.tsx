@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { AlertCircle, CheckCircle2, Clock3, Plus, RefreshCw, Scale, Search, Trash2, UserRound } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Clock3, Paperclip, Plus, RefreshCw, Scale, Search, Trash2, UserRound, X } from 'lucide-react'
 import { createAgreement, listAgreements, updateAgreementInstallmentStatus } from '../lib/api'
 import type { AgreementInstallment, CreateAgreementPayload } from '../lib/types'
 import { EmptyState, ErrorState, PageHeading, SectionCard, formatDate, formatMoney } from '../components/ui'
 import './agreements.css'
+import { financePaymentDocumentDownload, settleFinancePayment, uploadFinancePaymentInstruction } from '../lib/api'
+import type { DebtPaymentMethod } from '../lib/types'
+import { PaymentDocuments } from './PaymentDocuments'
 
 type Filter = 'todos' | 'pendente' | 'atrasada' | 'quitada'
 type DraftInstallment = { key: string; tipo: 'entrada' | 'parcela'; numero: string; valor: string; vencimento: string }
@@ -83,6 +86,12 @@ export function AgreementsDashboard({ token }: { token: string }) {
   const [funcionarioCpf, setFuncionarioCpf] = useState('')
   const [observacoes, setObservacoes] = useState('')
   const [installments, setInstallments] = useState<DraftInstallment[]>(blankDraft)
+  const [expandedDocumentsId, setExpandedDocumentsId] = useState('')
+  const [paymentTarget, setPaymentTarget] = useState<AgreementInstallment | null>(null)
+  const [paymentDate, setPaymentDate] = useState(localToday())
+  const [paymentMethod, setPaymentMethod] = useState<DebtPaymentMethod>('pix')
+  const [paymentReason, setPaymentReason] = useState('')
+  const [proofFile, setProofFile] = useState<File | null>(null)
 
   async function load() {
     setError('')
@@ -99,6 +108,20 @@ export function AgreementsDashboard({ token }: { token: string }) {
   }
 
   useEffect(() => { void load() }, [token])
+
+  useEffect(() => {
+    if (!paymentTarget) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && busyId !== paymentTarget.id) setPaymentTarget(null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [paymentTarget, busyId])
 
   const groups = useMemo<AgreementGroup[]>(() => {
     const map = new Map<string, AgreementGroup>()
@@ -253,33 +276,52 @@ export function AgreementsDashboard({ token }: { token: string }) {
   }
 
   async function togglePaid(row: AgreementInstallment) {
-    let status: 'quitada' | 'pendente'
-    let motivo = ''
     if (row.status === 'quitada') {
       const input = window.prompt('Justificativa obrigatória para reabrir esta parcela:')
       if (input === null) return
-      motivo = input.trim()
+      const motivo = input.trim()
       if (!motivo) {
         setError('A reabertura foi cancelada: informe uma justificativa para continuar.')
         return
       }
-      status = 'pendente'
-    } else {
-      const label = row.tipo === 'entrada' ? 'a entrada' : `a parcela ${row.numero}`
-      if (!window.confirm(`Confirmar que ${label} do processo ${row.processo} foi quitada hoje?`)) return
-      status = 'quitada'
+      setBusyId(row.id)
+      setError('')
+      setMessage('')
+      try {
+        const result = await updateAgreementInstallmentStatus(token, row.id, 'pendente', motivo)
+        if (!result.sucesso) throw new Error(result.erro || 'Não foi possível reabrir a parcela.')
+        setMessage('Parcela reaberta como pendente; a justificativa foi auditada.')
+        await load()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Falha ao reabrir a parcela.')
+      } finally {
+        setBusyId('')
+      }
+      return
     }
 
-    setBusyId(row.id)
     setError('')
     setMessage('')
+    setPaymentDate(localToday())
+    setPaymentMethod(row.forma_pagamento || 'pix')
+    setPaymentReason('')
+    setProofFile(null)
+    setPaymentTarget(row)
+  }
+
+  async function submitPayment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!paymentTarget) return
+    setBusyId(paymentTarget.id)
+    setError('')
     try {
-      const result = await updateAgreementInstallmentStatus(token, row.id, status, motivo)
-      if (!result.sucesso) throw new Error(result.erro || 'Não foi possível atualizar o status.')
-      setMessage(status === 'quitada' ? 'Parcela marcada como quitada e registrada na auditoria.' : 'Parcela reaberta como pendente; a justificativa foi auditada.')
+      const result = await settleFinancePayment(token, 'acordo_parcela', paymentTarget.id, paymentDate, paymentMethod, paymentReason, proofFile)
+      setMessage(result.erro || 'Parcela quitada; forma de pagamento e baixa foram registradas na auditoria.')
+      setPaymentTarget(null)
+      setProofFile(null)
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao atualizar a parcela.')
+      setError(err instanceof Error ? err.message : 'Falha ao registrar a quitação.')
     } finally {
       setBusyId('')
     }
@@ -293,11 +335,11 @@ export function AgreementsDashboard({ token }: { token: string }) {
   function printReport() {
     const rowsHtml = filteredGroups.flatMap((group) => group.parcelasVisiveis.map((row) => {
       const itemLabel = row.tipo === 'entrada' ? 'Entrada' : `Parcela ${row.numero}`
-      return `<tr><td>${escapeHtml(group.processo)}</td><td>${escapeHtml(group.funcionario_nome || '—')}</td><td>${escapeHtml(displayCpf(group.funcionario_cpf) || '—')}</td><td>${escapeHtml(itemLabel)}</td><td>${escapeHtml(formatMoney(row.valor))}</td><td>${escapeHtml(formatDate(row.vencimento))}</td><td>${escapeHtml(statusLabel(row.status))}</td></tr>`
+      return `<tr><td>${escapeHtml(group.processo)}</td><td>${escapeHtml(group.funcionario_nome || '—')}</td><td>${escapeHtml(displayCpf(group.funcionario_cpf) || '—')}</td><td>${escapeHtml(itemLabel)}</td><td>${escapeHtml(formatMoney(row.valor))}</td><td>${escapeHtml(formatDate(row.vencimento))}</td><td>${escapeHtml(statusLabel(row.status))}</td><td>${escapeHtml(row.forma_pagamento || '—')}</td><td>${escapeHtml(formatDate(row.pago_em))}</td></tr>`
     })).join('')
     const popup = window.open('', '_blank')
     if (!popup) return
-    popup.document.write(`<html><head><title>Acordos e parcelas</title><style>body{font:12px Arial,sans-serif;padding:24px;color:#222}h1{font-size:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:7px;text-align:left}th{background:#f2eee8}</style></head><body><h1>Acordos e parcelas · RF Gestão</h1><table><thead><tr><th>Processo</th><th>Funcionário</th><th>CPF</th><th>Item</th><th>Valor</th><th>Vencimento</th><th>Status</th></tr></thead><tbody>${rowsHtml}</tbody></table><script>onload=()=>print()</script></body></html>`)
+    popup.document.write(`<html><head><title>Acordos e parcelas</title><style>body{font:12px Arial,sans-serif;padding:24px;color:#222}h1{font-size:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:7px;text-align:left}th{background:#f2eee8}</style></head><body><h1>Acordos e parcelas · RF Gestão</h1><table><thead><tr><th>Processo</th><th>Funcionário</th><th>CPF</th><th>Item</th><th>Valor</th><th>Vencimento</th><th>Status</th><th>Forma de pagamento</th><th>Quitada em</th></tr></thead><tbody>${rowsHtml}</tbody></table><script>onload=()=>print()</script></body></html>`)
     popup.document.close()
   }
 
@@ -386,18 +428,35 @@ export function AgreementsDashboard({ token }: { token: string }) {
               </header>
               <div className="agreement-installments">
               {group.parcelasVisiveis.map((row) => <div className="agreement-installment-row" key={row.id}>
-                  <div className="agreement-installment-name"><span className={`agreement-kind ${row.tipo === 'entrada' ? 'is-entry' : ''}`}>{row.tipo === 'entrada' ? 'Entrada' : `Parcela ${row.numero}`}</span><small>{row.vencimento ? `Vencimento ${formatDate(row.vencimento)}` : 'Sem vencimento definido'}{row.pago_em ? ` · quitada em ${formatDate(row.pago_em)}` : ''}</small></div>
+                  <div className="agreement-installment-name"><span className={`agreement-kind ${row.tipo === 'entrada' ? 'is-entry' : ''}`}>{row.tipo === 'entrada' ? 'Entrada' : `Parcela ${row.numero}`}</span><small>{row.vencimento ? `Vencimento ${formatDate(row.vencimento)}` : 'Sem vencimento definido'}{row.pago_em ? ` · quitada em ${formatDate(row.pago_em)}` : ''}{row.forma_pagamento ? ` · ${row.forma_pagamento}` : ''}</small></div>
                   <strong className="agreement-installment-value">{formatMoney(row.valor)}</strong>
                   <span className={`agreement-status status-${row.status}`}><span />{statusLabel(row.status)}</span>
-                  <button type="button" className={`agreement-status-action ${row.status === 'quitada' ? 'is-reopen' : ''}`} onClick={() => void togglePaid(row)} disabled={busyId === row.id}>
-                    {busyId === row.id ? <RefreshCw size={15} className="spin" /> : row.status === 'quitada' ? <RefreshCw size={15} /> : <CheckCircle2 size={15} />}
-                    {busyId === row.id ? 'Salvando…' : row.status === 'quitada' ? 'Reabrir' : 'Marcar quitada'}
-                  </button>
+                  <div className="agreement-installment-actions">
+                    <button type="button" className="agreement-document-toggle" aria-expanded={expandedDocumentsId === row.id} onClick={() => setExpandedDocumentsId((current) => current === row.id ? '' : row.id)}><Paperclip size={14} /> Documentos</button>
+                    <button type="button" className={`agreement-status-action ${row.status === 'quitada' ? 'is-reopen' : ''}`} onClick={() => void togglePaid(row)} disabled={busyId === row.id}>
+                      {busyId === row.id ? <RefreshCw size={15} className="spin" /> : row.status === 'quitada' ? <RefreshCw size={15} /> : <CheckCircle2 size={15} />}
+                      {busyId === row.id ? 'Salvando…' : row.status === 'quitada' ? 'Reabrir' : 'Registrar quitação'}
+                    </button>
+                  </div>
                 </div>)}
+                {group.parcelasVisiveis.filter((row) => expandedDocumentsId === row.id).map((row) => <div className="agreement-installment-documents" key={`${row.id}-documents`}><PaymentDocuments
+                  documents={row.documentos || []}
+                  canAttachInstruction={row.status !== 'quitada'}
+                  onUploadInstruction={async (file) => { await uploadFinancePaymentInstruction(token, 'acordo_parcela', row.id, file); await load() }}
+                  onDownload={async (documentId) => { const result = await financePaymentDocumentDownload(token, documentId); if (!result.url) throw new Error('O link temporário não foi recebido.'); return { url: result.url, arquivo_nome: result.arquivo_nome } }}
+                /></div>)}
               </div>
             </article>
           })}</div>}
     </SectionCard>
+    {paymentTarget && <div className="finance-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && busyId !== paymentTarget.id) setPaymentTarget(null) }}><section className="finance-modal finance-payment-modal" role="dialog" aria-modal="true" aria-labelledby="agreement-payment-title">
+      <div className="finance-modal-header"><div><span className="eyebrow">Baixa de acordo</span><h2 id="agreement-payment-title">Registrar quitação</h2><p>Processo {paymentTarget.processo} · {paymentTarget.tipo === 'entrada' ? 'entrada' : `parcela ${paymentTarget.numero}`} · {formatMoney(paymentTarget.valor)}</p></div><button className="finance-modal-close" aria-label="Fechar quitação" onClick={() => setPaymentTarget(null)} disabled={busyId === paymentTarget.id}><X size={18} /></button></div>
+      <form className="finance-modal-form" onSubmit={(event) => void submitPayment(event)}>
+        <div className="finance-modal-grid"><label>Data efetiva do pagamento<input required type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} /></label><label>Forma de pagamento<select required value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as DebtPaymentMethod)}><option value="pix">PIX</option><option value="transferencia">Transferência</option><option value="boleto">Boleto</option><option value="outro">Outro</option></select></label><label className="finance-modal-wide">Referência / observação <span className="field-note">Opcional</span><input maxLength={500} value={paymentReason} onChange={(event) => setPaymentReason(event.target.value)} placeholder="Identificação da baixa" /></label><label className="finance-modal-wide">Comprovante de pagamento <span className="field-note">Opcional · PDF, JPG, PNG ou WEBP · até 10 MB</span><input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => setProofFile(event.target.files?.[0] || null)} /><small>{proofFile ? proofFile.name : 'Nenhum comprovante selecionado'}</small></label></div>
+        {error && <div className="finance-modal-error"><AlertCircle size={16} />{error}</div>}
+        <div className="finance-modal-actions"><button type="button" className="secondary-button" onClick={() => setPaymentTarget(null)} disabled={busyId === paymentTarget.id}>Cancelar</button><button type="submit" className="primary-button" disabled={busyId === paymentTarget.id}>{busyId === paymentTarget.id ? <RefreshCw size={16} className="spin" /> : <CheckCircle2 size={16} />} Confirmar quitação</button></div>
+      </form>
+    </section></div>}
   </div>
 }
 
