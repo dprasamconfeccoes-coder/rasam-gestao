@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ArrowRight, Check, Clock3, FileCheck2, RefreshCw, Send } from 'lucide-react'
-import { createRequest, listRequests } from '../lib/api'
+import { createProfileChangeRequest, createRequest, listRequests } from '../lib/api'
 import type { RequestAuditEvent, RequestRow } from '../lib/types'
 import { EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate } from '../components/ui'
 import './hr-requests.css'
@@ -14,6 +14,10 @@ const requestTypes = [
   { value: 'Benefício', description: 'Dúvidas ou solicitações relacionadas a benefícios.' },
   { value: 'Outro assunto', description: 'Use quando o assunto não se encaixar nas opções acima.' },
 ]
+const profileChangeFields = [
+  ['endereco', 'Endereço residencial'], ['cep', 'CEP'], ['telefone_residencial', 'Telefone residencial'],
+  ['telefone_celular', 'Telefone celular'], ['beneficiarios', 'Beneficiários'],
+] as const
 
 function statusLabel(status: string) {
   const labels: Record<string, string> = {
@@ -39,6 +43,9 @@ export function EmployeeHRRequests({ token }: { token: string }) {
   const [success, setSuccess] = useState('')
   const [type, setType] = useState(requestTypes[0].value)
   const [description, setDescription] = useState('')
+  const [profileField, setProfileField] = useState<string>('endereco')
+  const [proposedValue, setProposedValue] = useState('')
+  const isProfileChange = type === 'Correção cadastral'
   const selectedType = requestTypes.find((item) => item.value === type) || requestTypes[0]
 
   async function reload() {
@@ -70,9 +77,12 @@ export function EmployeeHRRequests({ token }: { token: string }) {
     setSuccess('')
     setError('')
     try {
-      const result = await createRequest(token, type, description.trim())
+      const result = isProfileChange
+        ? await createProfileChangeRequest(token, profileField, proposedValue.trim(), description.trim())
+        : await createRequest(token, type, description.trim())
       if (!result.sucesso) throw new Error(result.erro || 'Não foi possível registrar a solicitação')
       setDescription('')
+      setProposedValue('')
       setSuccess('Solicitação enviada. Você pode acompanhar as atualizações nesta página.')
       await reload()
     } catch (err) {
@@ -104,12 +114,24 @@ export function EmployeeHRRequests({ token }: { token: string }) {
             </select>
             <small className="hr-request-help">{selectedType.description}</small>
           </label>
-          <label>Descrição
+          {isProfileChange ? <>
+            <label>Qual dado precisa ser corrigido?
+              <select value={profileField} onChange={(event) => setProfileField(event.target.value)}>{profileChangeFields.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select>
+            </label>
+            <label>Valor correto proposto
+              <textarea required maxLength={profileField === 'beneficiarios' ? 2500 : profileField === 'endereco' ? 1000 : profileField === 'cep' ? 9 : 20} rows={3} value={proposedValue} onChange={(event) => setProposedValue(event.target.value)} placeholder="Informe o valor que deve substituir o dado atual." />
+            </label>
+            <label>Motivo da alteração
+              <textarea required minLength={10} maxLength={1500} rows={4} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Explique por que o dado precisa ser corrigido." />
+              <small className="hr-request-help hr-request-counter">Mínimo de 10 caracteres · {description.length}/1.500</small>
+            </label>
+            <div className="hr-request-form-note"><Clock3 size={16} /><span>O valor no seu cadastro só será alterado depois que o RH aprovar. O sistema evita sobrescrever dados se a ficha mudar enquanto o pedido aguarda análise.</span></div>
+          </> : <label>Descrição
             <textarea required minLength={10} maxLength={2500} rows={6} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Explique seu pedido com detalhes para que o RH consiga analisar." />
             <small className="hr-request-help hr-request-counter">Mínimo de 10 caracteres · {description.length}/2.500</small>
-          </label>
-          <div className="hr-request-form-note"><Clock3 size={16} /><span>Após o envio, o pedido ficará registrado no seu histórico e o RH atualizará o status por aqui.</span></div>
-          <button className="primary-button hr-request-submit" type="submit" disabled={saving || description.trim().length < 10}>
+          </label>}
+          {!isProfileChange ? <div className="hr-request-form-note"><Clock3 size={16} /><span>Após o envio, o pedido ficará registrado no seu histórico e o RH atualizará o status por aqui.</span></div> : null}
+          <button className="primary-button hr-request-submit" type="submit" disabled={saving || description.trim().length < 10 || (isProfileChange && !proposedValue.trim())}>
             {saving ? <><RefreshCw size={16} className="spin" /> Enviando…</> : <><Send size={16} /> Enviar solicitação</>}
           </button>
         </form>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { FileDown, X } from 'lucide-react'
-import { adminAtualizarFichaFuncionario, adminProntuario } from '../lib/api'
+import { adminAtualizarFichaFuncionario, adminFichaCompleta } from '../lib/api'
 import type { EmployeeFichaPayload, EmployeeFichaRecord } from '../lib/types'
 
 export type FieldKind = 'text' | 'date' | 'number' | 'textarea'
@@ -80,6 +80,7 @@ export const fieldGroups: FieldGroup[] = [
       { key: 'cbo', label: 'CBO', maxLength: 10 },
       { key: 'data_admissao', label: 'Data de admissão', kind: 'date' },
       { key: 'salario', label: 'Salário atual (R$)', kind: 'number' },
+      { key: 'valor_diaria', label: 'Valor da diária (R$)', kind: 'number' },
       { key: 'salario_admissao', label: 'Salário na admissão (R$)', kind: 'number' },
       { key: 'salario_periodo', label: 'Período salarial', maxLength: 10 },
       { key: 'horario_trabalho', label: 'Horário de trabalho', maxLength: 50 },
@@ -244,6 +245,10 @@ export function EmployeeFichaPanel({
       setError('Informe um CPF válido com 11 dígitos.')
       return
     }
+    if (String(employee.tipo_vinculo || '') === 'diarista' && !(Number(draft.valor_diaria) > 0)) {
+      setError('Informe um valor individual da diária maior que zero.')
+      return
+    }
 
     const payload = makePayload(draft)
     payload.cpf = cpfDigits
@@ -254,7 +259,7 @@ export function EmployeeFichaPanel({
 
       let updated: EmployeeFichaRecord = { ...employee, ...payload, cpf: cpfDigits }
       try {
-        const refreshed = await adminProntuario(token, employee.id)
+        const refreshed = await adminFichaCompleta(token, employee.id)
         if (refreshed.sucesso && refreshed.funcionario) updated = refreshed.funcionario
       } catch {
         // A atualização já foi confirmada pela RPC; o payload salvo continua disponível localmente.
@@ -329,7 +334,7 @@ export function EmployeeFichaPanel({
                   <details className="employee-ficha-group" key={group.title} open={groupIndex === 1 || groupIndex === 4 || groupIndex === 6}>
                     <summary>{group.title}</summary>
                     <div className="employee-ficha-grid">
-                      {group.fields.map((field) => (
+                      {group.fields.filter((field) => field.key !== 'valor_diaria' || String(employee.tipo_vinculo || '') === 'diarista').map((field) => (
                         <label className={`employee-ficha-field${field.kind === 'textarea' ? ' is-wide' : ''}`} key={field.key}>
                           <span>{field.label}{field.required ? ' *' : ''}</span>
                           {field.kind === 'textarea' ? (
@@ -372,7 +377,7 @@ export function EmployeeFichaPanel({
                 <details className="employee-ficha-group" key={group.title} open={groupIndex === 1 || groupIndex === 4 || groupIndex === 6}>
                   <summary>{group.title}</summary>
                   <div className="employee-ficha-grid">
-                    {group.fields.map((field) => (
+                    {group.fields.filter((field) => field.key !== 'valor_diaria' || String(employee.tipo_vinculo || '') === 'diarista').map((field) => (
                       <div className={`employee-ficha-value${field.kind === 'textarea' ? ' is-wide' : ''}`} key={field.key}>
                         <span>{field.label}</span>
                         <strong>{displayValue(field, employee[field.key])}</strong>

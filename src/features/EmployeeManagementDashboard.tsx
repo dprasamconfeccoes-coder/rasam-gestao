@@ -1,21 +1,21 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { BriefcaseBusiness, CalendarDays, ChevronLeft, ChevronRight, FileText, Plus, RefreshCw, Search, ShieldCheck, UserPlus, UserRound, X } from 'lucide-react'
-import { adminCadastrarFuncionario, adminProntuario, searchEmployees } from '../lib/api'
+import { adminCadastrarFuncionario, adminFichaCompleta, adminProntuario, searchEmployees } from '../lib/api'
 import type { EmployeeRow, EmployeeSearchPage, ProntuarioResponse, Profile } from '../lib/types'
-import { fieldGroups, type FieldDefinition } from './EmployeeFichaPanel'
+import { displayValue, EmployeeFichaPanel, fieldGroups, type FieldDefinition } from './EmployeeFichaPanel'
 import { EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
 import { EmployeeTimeline } from './EmployeeTimeline'
 import './employee-directory.css'
 
 type FilterState = { busca: string; situacao: string; tipoVinculo: string; cargo: string; salarioMin: string; salarioMax: string }
 type FormState = { fields: Record<string, string>; tipoVinculo: string; liberarAcesso: boolean }
-type TabKey = 'resumo' | 'atestados' | 'afastamentos' | 'justificativas' | 'advertencias' | 'ferias' | 'documentos' | 'ponto' | 'holerites' | 'beneficios' | 'descontos' | 'timeline'
+type TabKey = 'resumo' | 'ficha' | 'atestados' | 'afastamentos' | 'justificativas' | 'advertencias' | 'ferias' | 'documentos' | 'ponto' | 'holerites' | 'beneficios' | 'descontos' | 'timeline'
 
 const emptyFilters: FilterState = { busca: '', situacao: '', tipoVinculo: '', cargo: '', salarioMin: '', salarioMax: '' }
 const fichaFields = fieldGroups.flatMap((group) => group.fields)
 const registrationFieldGroups = fieldGroups.map((group) => ({
   ...group,
-  fields: group.fields.filter((field) => !['nome', 'cpf', 'data_nascimento', 'data_saida', 'tipo_desligamento'].includes(field.key)),
+  fields: group.fields.filter((field) => !['nome', 'cpf', 'data_nascimento', 'data_saida', 'tipo_desligamento', 'valor_diaria'].includes(field.key)),
 })).filter((group) => group.fields.length > 0)
 
 function createInitialForm(): FormState {
@@ -25,7 +25,7 @@ function createInitialForm(): FormState {
 }
 
 const tabs: Array<[TabKey, string]> = [
-  ['resumo', 'Resumo'], ['timeline', 'Linha do tempo'], ['ponto', 'Ponto'], ['atestados', 'Atestados'], ['afastamentos', 'Afastamentos'],
+  ['resumo', 'Resumo'], ['ficha', 'Ficha completa'], ['timeline', 'Linha do tempo'], ['ponto', 'Ponto'], ['atestados', 'Atestados'], ['afastamentos', 'Afastamentos'],
   ['justificativas', 'Justificativas'], ['advertencias', 'Advertências'], ['ferias', 'Férias'], ['documentos', 'Documentos'],
   ['holerites', 'Holerites'], ['beneficios', 'Benefícios'], ['descontos', 'Descontos'],
 ]
@@ -217,6 +217,7 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const [suggestionsOpen, setSuggestionsOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
+  const [editFichaOpen, setEditFichaOpen] = useState(false)
   const [notice, setNotice] = useState('')
   const searchSequence = useRef(0)
   const recordSequence = useRef(0)
@@ -252,10 +253,11 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
     const requestId = ++recordSequence.current
     setSelected(employee); setRecord(null); setRecordError(''); setRecordLoading(true); setTab('resumo')
     try {
-      const result = await adminProntuario(token, employee.id)
+      const [result, ficha] = await Promise.all([adminProntuario(token, employee.id), adminFichaCompleta(token, employee.id)])
       if (requestId !== recordSequence.current) return
       if (!result.sucesso || !result.funcionario) throw new Error(result.erro || 'Não foi possível abrir o prontuário.')
-      setRecord(result)
+      if (!ficha.sucesso || !ficha.funcionario) throw new Error(ficha.erro || 'Não foi possível carregar a ficha completa do funcionário.')
+      setRecord({ ...result, funcionario: ficha.funcionario })
     } catch (cause) { if (requestId === recordSequence.current) setRecordError(cause instanceof Error ? cause.message : 'Falha ao abrir o prontuário.') }
     finally { if (requestId === recordSequence.current) setRecordLoading(false) }
   }
@@ -267,6 +269,7 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
   }
   const totalPages = page ? Math.max(1, Math.ceil(page.total / 20)) : 0
   const recordData = record as unknown as Record<string, unknown> | null
+  const employeeFicha = record?.funcionario as import('../lib/types').EmployeeFichaRecord | undefined
   const collection = (key: string) => Array.isArray(recordData?.[key]) ? recordData[key] as Array<Record<string, unknown>> : []
   const items = tab === 'resumo' || tab === 'timeline' ? [] : collection(tab)
   const title = tabs.find(([key]) => key === tab)?.[1] || 'Registros'
@@ -298,7 +301,7 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
       <div className="employee-directory-results">{page.registros.length ? page.registros.map((employee) => <button className="employee-directory-result" type="button" key={employee.id} onClick={() => void openRecord(employee)}>
         <span className="employee-directory-avatar">{employee.avatar_url ? <img src={employee.avatar_url} alt="" /> : <UserRound size={20} />}</span>
         <span className="employee-directory-main"><strong>{employee.nome}</strong><small>{employee.cargo || 'Cargo não informado'} · CPF {maskedCpf(employee.cpf)}</small><small>{employee.tipo_vinculo || 'Vínculo não informado'} · admissão {formatDate(employee.data_admissao)}</small></span>
-        <span className="employee-directory-meta"><b>{employee.salario === null ? 'Remuneração não informada' : formatMoney(employee.salario)}</b><StatusPill value={employee.situacao} /></span><ChevronRight size={17} />
+        <span className="employee-directory-meta"><b>{employee.tipo_vinculo === 'diarista' ? (employee.valor_diaria == null ? 'Diária não informada' : `${formatMoney(employee.valor_diaria)} / diária`) : (employee.valor_mensal ?? employee.salario) === null ? 'Remuneração não informada' : `${formatMoney((employee.valor_mensal ?? employee.salario) as number)} / mês`}</b><StatusPill value={employee.situacao} /></span><ChevronRight size={17} />
       </button>) : <EmptyState title="Nenhum funcionário encontrado" description="Ajuste os filtros e faça uma nova busca." />}</div>
       {page.total > 20 ? <div className="employee-directory-pagination"><button className="secondary-button compact-button" type="button" disabled={pageNumber === 0} onClick={() => void runSearch(activeFilters, pageNumber - 1)}><ChevronLeft size={15} /> Anterior</button><span>{pageNumber + 1} / {totalPages}</span><button className="secondary-button compact-button" type="button" disabled={pageNumber + 1 >= totalPages} onClick={() => void runSearch(activeFilters, pageNumber + 1)}>Próxima <ChevronRight size={15} /></button></div> : null}
     </SectionCard> : null}
@@ -306,13 +309,16 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
     {selected ? <div className="employee-record-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeRecord() }}><div className="employee-record-modal"><div className="employee-record-shell">
       <div className="employee-record-heading"><div><span className="eyebrow">Prontuário individual</span><h2>{selected.nome}</h2><p>{selected.cargo || 'Cargo não informado'} · {selected.tipo_vinculo || 'Vínculo não informado'} · CPF {selected.cpf}</p></div><button className="secondary-button" type="button" onClick={closeRecord}><X size={16} /> Fechar prontuário</button></div>
       {recordLoading ? <LoadingState label="Montando prontuário…" /> : recordError ? <ErrorState message={recordError} /> : record ? <>
-        <div className="employee-record-tabs">{tabs.map(([key, label]) => { const count = key === 'resumo' || key === 'timeline' ? null : collection(key).length; return <button type="button" key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}{count !== null ? <small>{count}</small> : null}</button> })}</div>
+        <div className="employee-record-tabs">{tabs.map(([key, label]) => { const count = key === 'resumo' || key === 'ficha' || key === 'timeline' ? null : collection(key).length; return <button type="button" key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}{count !== null ? <small>{count}</small> : null}</button> })}</div>
         {tab === 'resumo' ? <div className="employee-record-summary">
-          <SectionCard title="Resumo funcional" caption="Dados principais do vínculo"><div className="employee-record-metrics"><div><span>Situação</span><StatusPill value={selected.situacao} /></div><div><span>Remuneração cadastrada</span><strong>{selected.salario === null ? 'Não informada' : formatMoney(selected.salario)}</strong></div><div><span>Admissão</span><strong>{formatDate(selected.data_admissao)}</strong></div><div><span>Vínculo</span><strong>{selected.tipo_vinculo || 'Não informado'}</strong></div><div><span>Atestados</span><strong>{collection('atestados').length}</strong></div><div><span>Afastamentos</span><strong>{collection('afastamentos').length}</strong></div></div></SectionCard>
+          <SectionCard title="Resumo funcional" caption="Dados principais do vínculo"><div className="employee-record-metrics"><div><span>Situação</span><StatusPill value={selected.situacao} /></div><div><span>Remuneração cadastrada</span><strong>{selected.tipo_vinculo === 'diarista' ? (selected.valor_diaria == null ? 'Não informada' : `${formatMoney(Number(selected.valor_diaria))} / diária`) : (selected.valor_mensal ?? selected.salario) === null ? 'Não informada' : `${formatMoney(Number(selected.valor_mensal ?? selected.salario))} / mês`}</strong></div><div><span>Admissão</span><strong>{formatDate(selected.data_admissao)}</strong></div><div><span>Vínculo</span><strong>{selected.tipo_vinculo || 'Não informado'}</strong></div><div><span>Atestados</span><strong>{collection('atestados').length}</strong></div><div><span>Afastamentos</span><strong>{collection('afastamentos').length}</strong></div></div></SectionCard>
           <SectionCard title="Movimentos recentes" caption="O histórico completo fica na linha do tempo"><div className="employee-record-attention"><p><BriefcaseBusiness size={17} /> {collection('advertencias').length} advertência(s) e {collection('justificativas').length} justificativa(s).</p><p><CalendarDays size={17} /> {collection('ferias').length} período(s) de férias e {collection('ponto').length} registros recentes de ponto.</p><p><FileText size={17} /> {collection('documentos').length} documento(s) e {collection('holerites').length} holerite(s).</p></div></SectionCard>
-        </div> : tab === 'timeline' ? <EmployeeTimeline token={token} funcionarioId={selected.id} /> : <SectionCard title={title} caption={`${items.length} registro(s) carregado(s) · a linha do tempo tem paginação independente`}><RecordList items={items} /></SectionCard>}
+        </div> : tab === 'ficha' ? <SectionCard title="Ficha completa do funcionário" caption="Dados cadastrais e trabalhistas vinculados a este funcionário.">
+          {employeeFicha ? <><div className="employee-ficha-groups">{fieldGroups.map((group) => <details className="employee-ficha-group" key={group.title} open={group.title.includes('Identificação') || group.title.includes('Vínculo')}><summary>{group.title}</summary><div className="employee-ficha-grid">{group.fields.filter((field) => field.key !== 'valor_diaria' || selected.tipo_vinculo === 'diarista').map((field) => <div className={`employee-ficha-value${field.kind === 'textarea' ? ' is-wide' : ''}`} key={field.key}><span>{field.label}</span><strong>{displayValue(field, employeeFicha[field.key])}</strong></div>)}</div></details>)}</div><div className="employee-create-actions"><button className="primary-button" type="button" onClick={() => setEditFichaOpen(true)}>Editar ficha completa</button></div></> : <EmptyState title="Ficha indisponível" description="Não foi possível obter os dados completos deste cadastro." />}
+        </SectionCard> : tab === 'timeline' ? <EmployeeTimeline token={token} funcionarioId={selected.id} /> : <SectionCard title={title} caption={`${items.length} registro(s) carregado(s) · a linha do tempo tem paginação independente`}><RecordList items={items} /></SectionCard>}
       </> : null}
     </div></div></div> : null}
+    {editFichaOpen && employeeFicha ? <EmployeeFichaPanel token={token} employee={employeeFicha} onClose={() => setEditFichaOpen(false)} onSaved={(updated) => { setRecord((current) => current ? { ...current, funcionario: updated } : current); setEditFichaOpen(false); void runSearch(activeFilters, pageNumber) }} /> : null}
     <EmployeeRegistrationWizard open={createOpen} token={token} onClose={() => setCreateOpen(false)} onCreated={(_id, cpf) => { const next = { ...filters, busca: cpf }; setFilters(next); void runSearch(next, 0).then(() => setNotice('Funcionário cadastrado e disponível para consulta.')) }} />
   </div>
 }

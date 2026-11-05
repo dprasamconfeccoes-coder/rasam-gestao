@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight, Clock3, RefreshCw, Search, X } from 'lucide-react'
-import { adminRequestsPage, answerRequest } from '../lib/api'
-import type { AdminRequestRow, AdminRequestsSummary, EmployeeRow } from '../lib/types'
+import { adminProfileChanges, adminRequestsPage, answerRequest, decideProfileChange } from '../lib/api'
+import type { AdminProfileChange, AdminRequestRow, AdminRequestsSummary, EmployeeRow } from '../lib/types'
 import { EmptyState, ErrorState, LoadingState, SectionCard, StatusPill, formatDate } from '../components/ui'
 import './hr-requests.css'
 
@@ -34,6 +34,7 @@ function eventLabel(evento: string, novoStatus: string) {
 
 export function AdminHRRequestsDashboard({ token, employees, onRefresh }: { token: string; employees: EmployeeRow[]; onRefresh: () => Promise<void> }) {
   const [rows, setRows] = useState<AdminRequestRow[]>([])
+  const [profileChanges, setProfileChanges] = useState<AdminProfileChange[]>([])
   const [summary, setSummary] = useState<AdminRequestsSummary>({ total: 0, pendentes: 0, em_analise: 0, abertas: 0, atendidas: 0, recusadas: 0, canceladas: 0 })
   const [total, setTotal] = useState(0)
   const [offset, setOffset] = useState(0)
@@ -52,9 +53,14 @@ export function AdminHRRequestsDashboard({ token, employees, onRefresh }: { toke
     setLoading(true)
     setError('')
     try {
-      const result = await adminRequestsPage(token, month || null, status, employeeId || null, type || null, offset, pageSize)
+      const [result, changesResult] = await Promise.all([
+        adminRequestsPage(token, month || null, status, employeeId || null, type || null, offset, pageSize),
+        adminProfileChanges(token),
+      ])
       if (!result.sucesso) throw new Error(result.erro || 'Não foi possível carregar as solicitações do RH')
+      if (!changesResult.sucesso) throw new Error(changesResult.erro || 'Não foi possível carregar as alterações cadastrais')
       setRows(result.solicitacoes || [])
+      setProfileChanges(changesResult.solicitacoes || [])
       setSummary(result.resumo || { total: 0, pendentes: 0, em_analise: 0, abertas: 0, atendidas: 0, recusadas: 0, canceladas: 0 })
       setTotal(result.total || 0)
     } catch (err) {
@@ -89,8 +95,29 @@ export function AdminHRRequestsDashboard({ token, employees, onRefresh }: { toke
     }
   }
 
+  async function decideChange(row: AdminProfileChange, nextStatus: 'atendida' | 'recusada') {
+    const response = (reply[row.id] || '').trim()
+    if (response.length < 5) {
+      setError(nextStatus === 'recusada' ? 'A justificativa da recusa é obrigatória (mínimo de 5 caracteres).' : 'Explique a aprovação (mínimo de 5 caracteres).')
+      return
+    }
+    setSavingId(row.id); setError(''); setMessage('')
+    try {
+      const result = await decideProfileChange(token, row.id, nextStatus, response)
+      if (!result.sucesso) throw new Error(result.erro || 'Não foi possível decidir a alteração cadastral')
+      setMessage(nextStatus === 'atendida' ? 'Alteração cadastral aprovada e aplicada à ficha do funcionário.' : 'Alteração cadastral recusada com justificativa registrada.')
+      setReply((current) => ({ ...current, [row.id]: '' }))
+      await onRefresh()
+      setRevision((value) => value + 1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao decidir alteração cadastral')
+    } finally { setSavingId('') }
+  }
+
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
   const currentPage = Math.floor(offset / pageSize) + 1
+  const openProfileChanges = profileChanges.filter((row) => ['pendente', 'aberta', 'nova', 'em_analise'].includes(row.status))
+  const profileChangesById = new Map(profileChanges.map((row) => [row.id, row]))
   const metricCards = [
     { label: 'No período', value: summary.total, tone: 'total' },
     { label: 'Em aberto', value: summary.abertas, tone: 'open' },
@@ -115,6 +142,16 @@ export function AdminHRRequestsDashboard({ token, employees, onRefresh }: { toke
 
     {error && <ErrorState message={error} />}
     {message && <div className="form-success hr-request-feedback"><Check size={16} />{message}</div>}
+    <SectionCard title={`Alterações cadastrais pendentes (${openProfileChanges.length})`} caption="Aprovar aplica o valor proposto à ficha; recusar exige justificativa. Cada decisão fica registrada no histórico.">
+      {loading ? <LoadingState /> : openProfileChanges.length === 0 ? <EmptyState title="Nenhuma alteração aguardando análise" description="Pedidos de correção enviados pelos funcionários aparecerão nesta fila." /> : <div className="hr-request-list admin-hr-request-list">
+        {openProfileChanges.map((row) => <article className="hr-request-card admin-hr-request-card" key={row.id}>
+          <div className="hr-request-card-head"><div className="hr-request-card-title"><span className="hr-request-kind">{row.nome} <span className="hr-request-separator">·</span> {row.dados_alteracao.rotulo}</span><small>Enviada em {formatDate(row.created_at)}</small></div><StatusPill value={statusLabel(row.status)} /></div>
+          <p className="hr-request-description">{row.descricao}</p>
+          <div className="hr-profile-change-values"><div><span>Valor cadastrado no envio</span><strong>{row.dados_alteracao.valor_atual || 'Não informado'}</strong></div><div><span>Valor proposto</span><strong>{row.dados_alteracao.valor_proposto}</strong></div></div>
+          <div className="hr-request-review"><label>Resposta ao funcionário · obrigatória para aprovar ou recusar<textarea rows={3} maxLength={2000} value={reply[row.id] || ''} onChange={(event) => setReply((current) => ({ ...current, [row.id]: event.target.value }))} placeholder="Explique o motivo da decisão ou a confirmação da alteração." /></label><div className="hr-request-actions"><button className="primary-button" type="button" disabled={savingId === row.id} onClick={() => void decideChange(row, 'atendida')}><Check size={15} /> Aprovar e aplicar</button><button className="danger-button" type="button" disabled={savingId === row.id} onClick={() => void decideChange(row, 'recusada')}><X size={15} /> Recusar</button>{savingId === row.id && <span className="hr-request-saving"><RefreshCw size={14} className="spin" /> Salvando…</span>}</div></div>
+        </article>)}
+      </div>}
+    </SectionCard>
 
     <SectionCard title="Filtros" caption="Indicadores e resultados respeitam a competência e o escopo da empresa">
       <div className="hr-request-filters">
@@ -134,10 +171,11 @@ export function AdminHRRequestsDashboard({ token, employees, onRefresh }: { toke
             <StatusPill value={statusLabel(row.status)} />
           </div>
           <p className="hr-request-description">{row.descricao}</p>
+          {profileChangesById.has(row.id) ? <div className="hr-profile-change-values"><div><span>Valor cadastrado no envio</span><strong>{profileChangesById.get(row.id)?.dados_alteracao.valor_atual || 'Não informado'}</strong></div><div><span>Valor proposto</span><strong>{profileChangesById.get(row.id)?.dados_alteracao.valor_proposto}</strong></div><small>{['pendente', 'aberta', 'nova', 'em_analise'].includes(profileChangesById.get(row.id)?.status || '') ? 'Este pedido é tratado na fila de alterações cadastrais acima.' : 'Pedido já decidido; valores mantidos para consulta e auditoria.'}</small></div> : null}
           {row.anexo_nome && <div className="hr-request-attachment">Documento vinculado: <strong>{row.anexo_nome}</strong></div>}
           {row.resposta && <div className={`hr-request-answer ${['recusada', 'reprovada'].includes(row.status) ? 'is-rejected' : ''}`}><strong>Último retorno ao funcionário</strong><p>{row.resposta}</p>{row.analisado_em && <small>Atualizado em {formatDate(row.analisado_em)}</small>}</div>}
 
-          {['pendente', 'aberta', 'nova', 'em_analise'].includes(row.status) && <div className="hr-request-review">
+          {!profileChangesById.has(row.id) && ['pendente', 'aberta', 'nova', 'em_analise'].includes(row.status) && <div className="hr-request-review">
             <label>Resposta ao funcionário{row.status === 'pendente' && <small> · obrigatória para atender ou recusar</small>}
               <textarea rows={3} maxLength={2000} value={reply[row.id] || ''} onChange={(event) => setReply((current) => ({ ...current, [row.id]: event.target.value }))} placeholder="Escreva a orientação, a confirmação ou a justificativa da decisão." />
             </label>

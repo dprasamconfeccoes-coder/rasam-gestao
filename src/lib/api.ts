@@ -911,8 +911,19 @@ export function adminProntuario(token: string, funcionarioId: string) {
   return rpc<import('./types').ProntuarioResponse>('app_admin_prontuario', { p_token: token, p_funcionario_id: funcionarioId })
 }
 
-export function myProntuario(token: string) {
-  return rpc<import('./types').OwnProntuarioResponse>('app_meu_prontuario', { p_token: token })
+export function adminFichaCompleta(token: string, funcionarioId: string) {
+  return rpc<{ sucesso: boolean; erro?: string; funcionario?: import('./types').EmployeeFichaRecord }>('app_admin_ficha_completa', { p_token: token, p_funcionario_id: funcionarioId })
+}
+
+export async function myProntuario(token: string): Promise<import('./types').OwnProntuarioResponse> {
+  const result = await rpc<import('./types').OwnProntuarioResponse>('app_meu_prontuario', { p_token: token })
+  if (!result.sucesso || !result.funcionario) return result
+  const fullProfile = await myProfile(token).catch(() => null)
+  if (!fullProfile?.sucesso || !fullProfile.funcionario) return result
+  return {
+    ...result,
+    funcionario: { ...result.funcionario, ...fullProfile.funcionario } as NonNullable<import('./types').OwnProntuarioResponse['funcionario']>,
+  }
 }
 
 export function getProntuarioTimeline(
@@ -930,7 +941,7 @@ export function getProntuarioTimeline(
 }
 
 export function adminAtualizarFichaFuncionario(token: string, funcionarioId: string, payload: EmployeeFichaPayload) {
-  return rpc<{ sucesso: boolean; erro?: string; funcionario_id?: string }>('app_admin_atualizar_funcionario', {
+  return rpc<{ sucesso: boolean; erro?: string; funcionario_id?: string }>('app_admin_atualizar_ficha_com_diaria', {
     p_token: token,
     p_funcionario_id: funcionarioId,
     p_dados: payload,
@@ -1055,4 +1066,37 @@ export function adminCriarParcelamento(token: string, payload: { tipo: string; c
 
 export function adminCriarOrdem(token: string, payload: { numero: string; descricao: string; prioridade: string; prazo: string; quantidade: number; valor: number; observacoes: string }) {
   return rpc<{ sucesso: boolean; erro?: string; id?: string }>('app_admin_criar_ordem', { p_token: token, p_numero: payload.numero, p_descricao: payload.descricao, p_prioridade: payload.prioridade, p_prazo: payload.prazo || null, p_quantidade: payload.quantidade, p_valor: payload.valor, p_observacoes: payload.observacoes || null })
+}
+
+
+export function changePassword(token: string, currentPassword: string, newPassword: string) {
+  return rpc<{ sucesso: boolean; erro?: string }>('app_alterar_senha', {
+    p_token: token,
+    p_senha_atual: currentPassword,
+    p_nova_senha: newPassword,
+  })
+}
+
+export function createProfileChangeRequest(token: string, field: string, newValue: string, reason: string) {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string; status?: string }>('app_criar_solicitacao_alteracao_cadastral', {
+    p_token: token,
+    p_campo: field,
+    p_novo_valor: newValue,
+    p_motivo: reason,
+  })
+}
+
+export function adminProfileChanges(token: string) {
+  return rpc<{ sucesso: boolean; erro?: string; solicitacoes: import('./types').AdminProfileChange[] }>('app_admin_listar_alteracoes_cadastrais', {
+    p_token: token,
+  })
+}
+
+export function decideProfileChange(token: string, requestId: string, status: 'atendida' | 'recusada', response: string) {
+  return rpc<{ sucesso: boolean; erro?: string; status?: string }>('app_admin_decidir_alteracao_cadastral', {
+    p_token: token,
+    p_id: requestId,
+    p_status: status,
+    p_resposta: response,
+  })
 }

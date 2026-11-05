@@ -1035,6 +1035,7 @@ export interface OwnProntuarioResponse {
   sucesso: boolean
   erro?: string
   funcionario?: {
+    [key: string]: unknown
     id: string
     nome: string
     cpf: string
@@ -1162,3 +1163,37 @@ export interface FinanceiroExecutivoAgingBucket { quantidade?: number|string; va
 export interface FinanceiroExecutivoAlerta { nivel?: 'critico'|'atencao'|'informativo'|string; titulo?: string; detalhe?: string }
 export interface FinanceiroExecutivoDashboard { sucesso: boolean; erro?: string; periodo?: { inicio?: string; fim?: string }; kpis?: FinanceiroExecutivoKpis; evolucao?: FinanceiroExecutivoEvolucao[]; categorias?: FinanceiroExecutivoCategoria[]; aging?: { vencido?: FinanceiroExecutivoAgingBucket; hoje?: FinanceiroExecutivoAgingBucket; sete_dias?: FinanceiroExecutivoAgingBucket; trinta_dias?: FinanceiroExecutivoAgingBucket }; alertas?: Array<FinanceiroExecutivoAlerta|null> }
 export interface FinanceiroRelatorioResponse { sucesso: boolean; erro?: string; tipo?: string; inicio?: string; fim?: string; totais?: Record<string, unknown>; linhas?: Array<Record<string, unknown>> }
+
+
+// Campos versionados nesta extensão mantêm contratos antigos compatíveis durante o deploy.
+export interface EmployeeRow {
+  valor_diaria?: number | null
+  valor_mensal?: number | null
+}
+
+export interface EmployeeProfile {
+  [key: string]: unknown
+  id?: string
+  tipo_vinculo?: string | null
+  valor_diaria?: number | null
+  valor_mensal?: number | null
+  salario?: number | null
+  salario_periodo?: string | null
+}
+
+export interface AdminProfileChange {
+  id: string
+  funcionario_id: string
+  nome: string
+  status: string
+  descricao: string
+  resposta: string | null
+  dados_alteracao: {
+    campo: string
+    rotulo: string
+    valor_atual: string | null
+    valor_proposto: string
+  }
+  created_at: string
+  updated_at: string
+}

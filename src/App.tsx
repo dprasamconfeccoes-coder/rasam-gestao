@@ -80,11 +80,13 @@ import {
   login,
   logout,
   myProfile,
+  changePassword,
   setPassword,
   setToken,
   updateAvatar,
   uploadMedicalLeave,
 } from './lib/api'
+import { displayValue, fieldGroups } from './features/EmployeeFichaPanel'
 import { EmployeeMedicalLeaves } from './features/MedicalLeavesWorkflow'
 import { EmployeeHRRequests } from './features/EmployeeHRRequests'
 import { NoticeAttachments } from './features/NoticeAttachments'
@@ -769,7 +771,21 @@ function EmployeeProfileView({ token, onProfileUpdated }: { token: string; onPro
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [savingAvatar, setSavingAvatar] = useState(false)
-  useEffect(() => { myProfile(token).then((data) => { if (!data.sucesso || !data.funcionario) throw new Error(data.erro || 'Falha de sessão'); setProfile(data.funcionario); onProfileUpdated(data.funcionario) }).catch((err) => setError(err instanceof Error ? err.message : 'Falha de consulta')).finally(() => setLoading(false)) }, [token])
+  const [passwordCurrent, setPasswordCurrent] = useState('')
+  const [passwordNew, setPasswordNew] = useState('')
+  const [passwordConfirm, setPasswordConfirm] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordSuccess, setPasswordSuccess] = useState('')
+  useEffect(() => {
+    let cancelled = false
+    myProfile(token).then((data) => {
+      if (!data.sucesso || !data.funcionario) throw new Error(data.erro || 'Falha de sessão')
+      if (!cancelled) { setProfile(data.funcionario); onProfileUpdated(data.funcionario) }
+    }).catch((err) => { if (!cancelled) setError(err instanceof Error ? err.message : 'Falha de consulta') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [token, onProfileUpdated])
+
   async function changeAvatar(file: File | undefined) {
     if (!file || !profile) return
     setSavingAvatar(true); setError('')
@@ -781,6 +797,7 @@ function EmployeeProfileView({ token, onProfileUpdated }: { token: string; onPro
       setProfile(updated); onProfileUpdated(updated)
     } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao salvar a foto.') } finally { setSavingAvatar(false) }
   }
+
   async function removeAvatar() {
     if (!profile?.avatar_url) return
     setSavingAvatar(true); setError('')
@@ -791,7 +808,43 @@ function EmployeeProfileView({ token, onProfileUpdated }: { token: string; onPro
       setProfile(updated); onProfileUpdated(updated)
     } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao remover a foto.') } finally { setSavingAvatar(false) }
   }
-  return <><PageHeading eyebrow="Minha área · cadastro" title="Meu perfil" description="Confira os dados que o RH mantém no sistema." />{loading ? <LoadingState /> : error && !profile ? <ErrorState message={error} /> : profile ? <div className="profile-layout"><SectionCard title={profile.nome} caption={profile.cargo || 'Cargo não informado'}><div className="profile-identity"><UserAvatar name={profile.nome} url={profile.avatar_url} className="profile-avatar" /><div><strong>Foto do perfil</strong><span>JPG, PNG ou WebP · até 800 KB</span><div className="profile-avatar-actions"><label className="secondary-button">{savingAvatar ? <RefreshCw className="spin" size={15} /> : <Upload size={15} />} {profile.avatar_url ? 'Trocar foto' : 'Adicionar foto'}<input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={savingAvatar} onChange={(event) => { void changeAvatar(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>{profile.avatar_url && <button className="text-button" type="button" onClick={() => void removeAvatar()} disabled={savingAvatar}>Remover</button>}</div></div></div>{error && <div className="form-error profile-error"><AlertCircle size={16} />{error}</div>}<div className="detail-grid"><div><span>CPF</span><strong>{maskCpf(profile.cpf)}</strong></div><div><span>Data de nascimento</span><strong>{formatDate(profile.data_nascimento)}</strong></div><div><span>Admissão</span><strong>{formatDate(profile.data_admissao)}</strong></div><div><span>Telefone</span><strong>{profile.telefone_celular || 'Não informado'}</strong></div><div className="wide"><span>Endereço</span><strong>{profile.endereco || 'Não informado'}</strong></div></div></SectionCard><SectionCard title="Dados de trabalho" caption="Visão pessoal"><div className="security-row"><span>Cargo</span><strong>{profile.cargo || 'Não informado'}</strong></div><div className="security-row"><span>Função</span><strong>{profile.funcao || 'Não informado'}</strong></div><div className="security-row"><span>Situação</span><strong><StatusPill value={profile.ativo ? 'Ativo' : 'Inativo'} /></strong></div></SectionCard></div> : null}</>
+
+  async function submitPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setPasswordError(''); setPasswordSuccess('')
+    if (passwordNew.length < 8) { setPasswordError('A nova senha deve ter pelo menos 8 caracteres.'); return }
+    if (passwordNew !== passwordConfirm) { setPasswordError('A confirmação não corresponde à nova senha.'); return }
+    try {
+      const result = await changePassword(token, passwordCurrent, passwordNew)
+      if (!result.sucesso) throw new Error(result.erro || 'Não foi possível alterar a senha.')
+      setPasswordCurrent(''); setPasswordNew(''); setPasswordConfirm('')
+      setPasswordSuccess('Senha alterada. Use a nova senha no próximo acesso.')
+    } catch (err) { setPasswordError(err instanceof Error ? err.message : 'Falha ao alterar a senha.') }
+  }
+
+  const profileFields = profile as unknown as Record<string, unknown> | undefined
+  return <>
+    <PageHeading eyebrow="Minha área · cadastro" title="Meu perfil" description="Consulte sua ficha funcional completa, solicite correções e proteja seu acesso." />
+    {loading ? <LoadingState /> : error && !profile ? <ErrorState message={error} /> : profile ? <div className="profile-layout">
+      <SectionCard title={profile.nome} caption={`${profile.cargo || 'Cargo não informado'} · ${profile.tipo_vinculo || 'Vínculo não informado'}`}>
+        <div className="profile-identity"><UserAvatar name={profile.nome} url={profile.avatar_url} className="profile-avatar" /><div><strong>Foto do perfil</strong><span>JPG, PNG ou WebP · até 800 KB</span><div className="profile-avatar-actions"><label className="secondary-button">{savingAvatar ? <RefreshCw className="spin" size={15} /> : <Upload size={15} />} {profile.avatar_url ? 'Trocar foto' : 'Adicionar foto'}<input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={savingAvatar} onChange={(event) => { void changeAvatar(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>{profile.avatar_url && <button className="text-button" type="button" onClick={() => void removeAvatar()} disabled={savingAvatar}>Remover</button>}</div></div></div>
+        {error && <div className="form-error profile-error"><AlertCircle size={16} />{error}</div>}
+        <div className="detail-grid"><div><span>Situação</span><strong><StatusPill value={profile.ativo ? 'Ativo' : 'Inativo'} /></strong></div><div><span>Tipo de vínculo</span><strong>{profile.tipo_vinculo || 'Não informado'}</strong></div><div><span>CPF</span><strong>{maskCpf(profile.cpf)}</strong></div></div>
+      </SectionCard>
+      <SectionCard title="Ficha funcional completa" caption="Dados apresentados conforme o cadastro mantido pelo RH. Para corrigir informações, envie uma solicitação ao RH.">
+        <div className="employee-ficha-groups own-profile-ficha">{fieldGroups.map((group) => <details className="employee-ficha-group" key={group.title} open={group.title.includes('Identificação') || group.title.includes('Vínculo')}><summary>{group.title}</summary><div className="employee-ficha-grid">{group.fields.map((field) => <div className={`employee-ficha-value${field.kind === 'textarea' ? ' is-wide' : ''}`} key={field.key}><span>{field.label}</span><strong>{displayValue(field, profileFields?.[field.key])}</strong></div>)}</div></details>)}</div>
+      </SectionCard>
+      <SectionCard title="Trocar senha" caption="Disponível a qualquer momento, não apenas no primeiro acesso. Sua senha atual é validada pelo servidor.">
+        <form className="employee-password-form" onSubmit={(event) => void submitPassword(event)}>
+          <label>Senha atual<input type="password" autoComplete="current-password" required value={passwordCurrent} onChange={(event) => setPasswordCurrent(event.target.value)} /></label>
+          <label>Nova senha<input type="password" autoComplete="new-password" minLength={8} required value={passwordNew} onChange={(event) => setPasswordNew(event.target.value)} /></label>
+          <label>Confirmar nova senha<input type="password" autoComplete="new-password" minLength={8} required value={passwordConfirm} onChange={(event) => setPasswordConfirm(event.target.value)} /></label>
+          {passwordError ? <div className="form-error" role="alert">{passwordError}</div> : null}
+          {passwordSuccess ? <div className="form-success" role="status">{passwordSuccess}</div> : null}
+          <button className="primary-button" type="submit">Alterar senha</button>
+        </form>
+      </SectionCard>
+    </div> : null}
+  </>
 }
 
 function PointView({ token, user, refreshSignal = 0 }: { token: string; user: SessionUser; refreshSignal?: number }) {

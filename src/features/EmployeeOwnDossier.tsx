@@ -4,11 +4,13 @@ import { myProntuario } from '../lib/api'
 import type { OwnProntuarioResponse } from '../lib/types'
 import { EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
 import { EmployeeTimeline } from './EmployeeTimeline'
+import { displayValue, fieldGroups } from './EmployeeFichaPanel'
 import './employee-own-dossier.css'
 
-type OwnTab = 'resumo' | 'advertencias' | 'atestados' | 'afastamentos' | 'justificativas' | 'ferias' | 'beneficios' | 'descontos' | 'documentos' | 'timeline'
+type OwnTab = 'resumo' | 'ficha' | 'advertencias' | 'atestados' | 'afastamentos' | 'justificativas' | 'ferias' | 'beneficios' | 'descontos' | 'documentos' | 'timeline'
 const tabs: Array<[OwnTab, string, keyof OwnProntuarioResponse | null]> = [
   ['resumo', 'Resumo', null],
+  ['ficha', 'Ficha completa', null],
   ['timeline', 'Linha do tempo', null],
   ['advertencias', 'Advertências', 'advertencias'],
   ['atestados', 'Atestados', 'atestados'],
@@ -93,6 +95,7 @@ export function EmployeeOwnDossier({ token }: { token: string }) {
   }, [token])
 
   const employee = data?.funcionario
+  const employeeFields = employee as unknown as Record<string, unknown> | undefined
   const selectedTab = tabs.find(([key]) => key === tab)
   const items = selectedTab?.[2] && data ? (data[selectedTab[2]] as Array<Record<string, unknown>> | undefined) || [] : []
 
@@ -131,7 +134,7 @@ export function EmployeeOwnDossier({ token }: { token: string }) {
                   <div><span><CalendarDays size={15} /> Admissão</span><strong>{formatDate(employee.data_admissao)}</strong></div>
                   <div><span><BadgeCheck size={15} /> Tipo de vínculo</span><strong>{employee.tipo_vinculo || 'Não informado'}</strong></div>
                   <div><span><FileText size={15} /> Horário</span><strong>{employee.horario_trabalho || 'Não informado'}</strong></div>
-                  {employee.salario !== null ? <div><span><FileText size={15} /> Remuneração cadastrada</span><strong>{formatMoney(employee.salario)}{employee.salario_periodo ? ` · ${employee.salario_periodo}` : ''}</strong></div> : null}
+                  {employee.tipo_vinculo === 'diarista' && employeeFields?.valor_diaria != null ? <div><span><FileText size={15} /> Valor da diária</span><strong>{formatMoney(Number(employeeFields.valor_diaria))} · por diária</strong></div> : employee.salario !== null ? <div><span><FileText size={15} /> Remuneração cadastrada</span><strong>{formatMoney(employee.salario)}{employee.salario_periodo ? ` · ${employee.salario_periodo}` : ''}</strong></div> : null}
                 </div>
               </SectionCard>
               <SectionCard title="Registros do prontuário" caption="Acesse cada seção para consultar seus próprios históricos">
@@ -144,6 +147,10 @@ export function EmployeeOwnDossier({ token }: { token: string }) {
                 </div>
               </SectionCard>
             </div>
+          ) : tab === 'ficha' ? (
+            <SectionCard title="Sua ficha completa" caption="Dados funcionais e cadastrais mantidos pelo RH. Para solicitar correção, use Solicitações ao RH.">
+              <div className="employee-ficha-groups own-profile-ficha">{fieldGroups.map((group) => <details className="employee-ficha-group" key={group.title} open={group.title.includes('Identificação') || group.title.includes('Vínculo')}><summary>{group.title}</summary><div className="employee-ficha-grid">{group.fields.map((field) => <div className={`employee-ficha-value${field.kind === 'textarea' ? ' is-wide' : ''}`} key={field.key}><span>{field.label}</span><strong>{displayValue(field, employeeFields?.[field.key])}</strong></div>)}</div></details>)}</div>
+            </SectionCard>
           ) : tab === 'timeline' ? (
             <EmployeeTimeline token={token} />
           ) : (

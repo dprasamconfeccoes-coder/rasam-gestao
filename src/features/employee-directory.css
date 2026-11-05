@@ -120,3 +120,12 @@
 .employee-record-modal .employee-record-shell > .section-card, .employee-record-modal .employee-record-shell > .employee-record-summary { min-height:0; overflow:auto; flex:1; }
 .employee-record-modal .employee-record-shell > .employee-record-tabs { flex:none; }
 @media (max-width:620px) { .employee-record-modal { height:calc(100vh - 20px); } }
+
+/* Perfil completo e segurança da conta no portal do funcionário. */
+.own-profile-ficha { margin-top: 0.25rem; }
+.own-profile-ficha .employee-ficha-group { margin-bottom: 0.65rem; }
+.employee-password-form { display: grid; gap: 1rem; max-width: 34rem; }
+.employee-password-form label { display: grid; gap: 0.4rem; color: #746d66; font-size: 0.875rem; font-weight: 600; }
+.employee-password-form input { width: 100%; min-height: 2.7rem; border: 1px solid #d9d1c8; border-radius: 0.55rem; padding: 0.65rem 0.8rem; color: #29252b; background: #fff; font: inherit; }
+.employee-password-form .primary-button { justify-self: start; }
+@media (max-width: 640px) { .employee-password-form .primary-button { width: 100%; } }
