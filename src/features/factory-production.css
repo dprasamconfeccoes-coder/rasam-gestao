@@ -427,6 +427,7 @@
 }
 .factory-lot-main h3 { margin: 9px 0 3px; color: #29322c; font-size: 16px; font-weight: 740; letter-spacing: -.025em; }
 .factory-lot-main p { margin: 0; color: #6d7870; font-size: 11px; line-height: 1.5; }
+.factory-lot-commercial-data { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 8px; color: #536057; font-size: 10px; line-height: 1.45; overflow-wrap: anywhere; }
 .factory-lot-deadline {
   display: grid;
   align-content: start;

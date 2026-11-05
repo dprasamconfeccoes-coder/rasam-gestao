@@ -114,6 +114,7 @@
 .work-order-title-block .status-pill { padding: 4px 8px; font-size: 9px; }
 .work-order-title-block h3 { margin: 8px 0 3px; color: #30292e; font-size: 16px; letter-spacing: -.025em; }
 .work-order-title-block p { margin: 0; color: #746970; font-size: 11px; line-height: 1.45; }
+.work-order-metadata { margin: 8px 0 0; color: #665a60; font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
 .work-order-value { display: grid; justify-items: end; align-content: start; gap: 4px; flex: 0 0 auto; text-align: right; }
 .work-order-value > small { color: #81757b; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; font-weight: 750; }
 .work-order-value > strong { color: #332b30; font-size: 17px; letter-spacing: -.03em; }

@@ -6,7 +6,7 @@ import { ConfirmationModal, EmptyState, ErrorState, LoadingState, PageHeading, S
 import './work-orders.css'
 
 type FilterKey = 'todas' | 'recebida' | 'em_producao' | 'costurada' | 'expedida' | 'entregue' | 'vencida' | 'vence_7_dias' | 'pagamento_pendente' | 'pago' | 'sem_nf'
-type SizeDraft = { tamanho: string; quantidade: string; valor_unitario: string }
+type SizeDraft = { tamanho: string; quantidade: string }
 type ClientChoice = { id: string; nome: string }
 type WorkOrderConfirmation =
   | { kind: 'client'; name: string }
@@ -27,6 +27,7 @@ const filterLabels: Record<FilterKey, string> = {
 const auditLabels: Record<string, string> = {
   ordem_criada: 'Ordem criada', status_alterado: 'Etapa operacional atualizada',
   financeiro_nf_atualizado: 'Pagamento ou nota fiscal atualizados',
+  ordem_campos_comerciais_incluidos: 'Fornecedor, referência e preço do lote registrados',
   progresso_atualizado: 'Progresso por tamanho atualizado',
   financeiro_liberado: 'Lote liberado para financeiro', documento_adicionado: 'Documento anexado',
 }
@@ -90,8 +91,8 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
   const [confirmationBusy, setConfirmationBusy] = useState(false)
   const formAnchorRef = useRef<HTMLDivElement>(null)
   const formErrorRef = useRef<HTMLDivElement>(null)
-  const [form, setForm] = useState({ cliente: '', descricao: '', prioridade: 'normal', prazo: '', observacoes: '' })
-  const [sizes, setSizes] = useState<SizeDraft[]>([{ tamanho: 'M', quantidade: '1', valor_unitario: '' }])
+  const [form, setForm] = useState({ cliente: '', fornecedor: '', referencia: '', descricao: '', prioridade: 'normal', prazo: '', observacoes: '', valor_unitario: '' })
+  const [sizes, setSizes] = useState<SizeDraft[]>([{ tamanho: 'M', quantidade: '1' }])
 
   const reload = useCallback(async (showSpinner = true) => {
     if (showSpinner) setLoading(true)
@@ -144,7 +145,7 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
 
   const sizeCalculations = sizes.map((item) => {
     const quantity = Number(item.quantidade) || 0
-    const unitPrice = parseUnitPrice(item.valor_unitario)
+    const unitPrice = parseUnitPrice(form.valor_unitario)
     const subtotal = Number.isFinite(unitPrice) ? moneyRound(quantity * unitPrice) : 0
     return { quantity, unitPrice, subtotal }
   })
@@ -163,7 +164,7 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
   const filteredOrders = useMemo(() => {
     const term = query.trim().toLocaleLowerCase('pt-BR')
     return orders.filter((order) => {
-      const matchesText = !term || [order.numero, order.cliente, order.descricao].some((value) => value?.toLocaleLowerCase('pt-BR').includes(term))
+      const matchesText = !term || [order.numero, order.cliente, order.fornecedor, order.referencia, order.descricao].some((value) => value?.toLocaleLowerCase('pt-BR').includes(term))
       const matchesFilter = filter === 'todas'
         || order.status === filter
         || (filter === 'vencida' && isOverdue(order))
@@ -179,27 +180,33 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
     event.preventDefault(); setError(''); setFormError(''); setNotice('')
     const rejectForm = (message: string) => { setError(message); setFormError(message) }
     if (!selectedClient || selectedClient.nome !== form.cliente.trim()) { rejectForm('Pesquise e selecione um cliente da lista ou cadastre o nome antes de continuar.'); return }
+    if (!form.fornecedor.trim() || form.fornecedor.trim().length > 180) { rejectForm('Informe o fornecedor do lote (até 180 caracteres).'); return }
+    if (!form.referencia.trim() || form.referencia.trim().length > 120) { rejectForm('Informe a referência ou modelo do produto (até 120 caracteres).'); return }
     if (!form.descricao.trim()) { rejectForm('Informe o produto ou a descrição do lote.'); return }
     if (form.descricao.trim().length > 500) { rejectForm('A descrição deve ter até 500 caracteres.'); return }
     if (!form.prazo) { rejectForm('Informe o prazo previsto para entrega.'); return }
     if (form.observacoes.length > 5000) { rejectForm('As observações devem ter até 5.000 caracteres.'); return }
-    const normalized = sizes.map((item) => ({ tamanho: item.tamanho.trim().toUpperCase(), quantidade: Number(item.quantidade), unitPrice: parseUnitPrice(item.valor_unitario) }))
+    const unitPrice = parseUnitPrice(form.valor_unitario)
+    const normalized = sizes.map((item) => ({ tamanho: item.tamanho.trim().toUpperCase(), quantidade: Number(item.quantidade) }))
     const labels = normalized.map((item) => item.tamanho)
     if (normalized.some((item) => !item.tamanho || !Number.isInteger(item.quantidade) || item.quantidade < 1)) {
       rejectForm('Informe um tamanho e uma quantidade inteira maior que zero em cada linha.'); return
     }
     if (new Set(labels).size !== labels.length) { rejectForm('Cada tamanho deve aparecer apenas uma vez na grade.'); return }
     if (normalized.reduce((sum, item) => sum + item.quantidade, 0) > 1000000) { rejectForm('A quantidade total do lote não pode exceder 1.000.000 de peças.'); return }
-    if (normalized.some((item) => !Number.isFinite(item.unitPrice) || item.unitPrice <= 0 || item.unitPrice > 9999999999.99)) { rejectForm('Informe um valor por peça válido, maior que zero e dentro do limite permitido.'); return }
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0 || unitPrice > 9999999999.99) { rejectForm('Informe um valor único por peça, maior que zero e dentro do limite permitido.'); return }
     if (!Number.isFinite(orderTotal) || orderTotal > MAX_ORDER_TOTAL) { rejectForm('O valor total calculado excede o limite de R$ 999.999.999.999,99 do sistema.'); return }
     const payload: CreateWorkOrderPayload = {
       clienteId: selectedClient.id,
       clienteNome: selectedClient.nome,
+      fornecedor: form.fornecedor.trim(),
+      referencia: form.referencia.trim(),
       descricao: form.descricao.trim(),
       prioridade: form.prioridade,
       prazo: form.prazo,
       observacoes: form.observacoes.trim(),
-      tamanhos: normalized.map(({ tamanho, quantidade, unitPrice }) => ({ tamanho, quantidade, valor_unitario: Number(unitPrice.toFixed(2)) })),
+      valorUnitario: Number(unitPrice.toFixed(2)),
+      tamanhos: normalized.map(({ tamanho, quantidade }) => ({ tamanho, quantidade })),
     }
     setConfirmation({ kind: 'order', payload })
   }
@@ -218,9 +225,9 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
         const result = await createWorkOrder(token, confirmation.payload)
         if (!result.sucesso) throw new Error(result.erro || 'Não foi possível cadastrar a ordem.')
         setNotice(`Ordem ${result.numero || ''} criada com ${(result.quantidade || orderQuantity).toLocaleString('pt-BR')} unidades · ${formatMoney(result.valor_total ?? orderTotal)}.`)
-        setForm({ cliente: '', descricao: '', prioridade: 'normal', prazo: '', observacoes: '' })
+        setForm({ cliente: '', fornecedor: '', referencia: '', descricao: '', prioridade: 'normal', prazo: '', observacoes: '', valor_unitario: '' })
         setSelectedClient(null); setClientMatches([])
-        setSizes([{ tamanho: 'M', quantidade: '1', valor_unitario: '' }]); setShowForm(false)
+        setSizes([{ tamanho: 'M', quantidade: '1' }]); setShowForm(false)
         await reload(false)
       } else if (confirmation.kind === 'finance') {
         const result = await updateWorkOrderFinance(token, confirmation.order.id, confirmation.statusPagamento, confirmation.notaFiscalNumero)
@@ -301,15 +308,18 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
             {!selectedClient && clientMatches.length > 0 && <div className="work-order-client-options" role="group" aria-label="Clientes encontrados">{clientMatches.map((client) => <button type="button" key={client.id} onClick={() => { setSelectedClient(client); setForm((current) => ({ ...current, cliente: client.nome })); setClientMatches([]) }}><span>{client.nome}</span><small>Selecionar cliente</small></button>)}</div>}
             {!selectedClient && form.cliente.trim().length >= 2 && !clientSearchLoading && <div className="work-order-client-create"><span>{clientMatches.length ? 'Não encontrou o cliente desejado?' : 'Nenhum cliente correspondente foi encontrado.'}</span><button type="button" className="text-button" onClick={() => { setError(''); setConfirmation({ kind: 'client', name: form.cliente.trim() }) }}><Plus size={14} /> Cadastrar cliente “{form.cliente.trim()}”</button></div>}
           </div>
+          <label>Fornecedor *<input required maxLength={180} value={form.fornecedor} onChange={(event) => setForm({ ...form, fornecedor: event.target.value })} placeholder="Nome do fornecedor" /></label>
+          <label>Referência / modelo *<input required maxLength={120} value={form.referencia} onChange={(event) => setForm({ ...form, referencia: event.target.value })} placeholder="Código ou referência do produto" /></label>
           <label>Produto / descrição<input required maxLength={500} value={form.descricao} onChange={(event) => setForm({ ...form, descricao: event.target.value })} placeholder="Ex.: Calça masculina · lote de inverno" /></label>
           <label>Prazo previsto<input required type="date" value={form.prazo} onChange={(event) => setForm({ ...form, prazo: event.target.value })} /></label>
           <label>Prioridade<select value={form.prioridade} onChange={(event) => setForm({ ...form, prioridade: event.target.value })}><option value="baixa">Baixa</option><option value="normal">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select></label>
+          <label>Valor único por peça do lote *<input required type="text" inputMode="decimal" value={form.valor_unitario} onChange={(event) => setForm({ ...form, valor_unitario: event.target.value })} placeholder="R$ 0,00" /><small>Este mesmo valor será aplicado a todos os tamanhos.</small></label>
           <div className="work-order-number-hint"><ClipboardList size={17} /><span><strong>Identificação automática</strong><small>Uma numeração única será reservada pelo sistema.</small></span></div>
         </div>
-        <div className="work-order-size-editor"><div className="work-order-size-head"><div><strong>Grade de tamanhos e valores</strong><small>Defina a quantidade e o preço por peça para cada tamanho.</small></div><button type="button" className="secondary-button" onClick={() => setSizes((current) => [...current, { tamanho: '', quantidade: '1', valor_unitario: '' }])}><Plus size={15} /> Adicionar tamanho</button></div>
-          {sizes.map((item, index) => <div className="work-order-size-row" key={index}><label>Tamanho<input required maxLength={24} value={item.tamanho} onChange={(event) => setSizes((current) => current.map((size, row) => row === index ? { ...size, tamanho: event.target.value } : size))} placeholder="Ex.: P, M, 40" /></label><label>Quantidade (peças)<input required type="number" min="1" max="1000000" step="1" value={item.quantidade} onChange={(event) => setSizes((current) => current.map((size, row) => row === index ? { ...size, quantidade: event.target.value } : size))} /></label><label>Valor por peça<input required type="text" inputMode="decimal" value={item.valor_unitario} onChange={(event) => setSizes((current) => current.map((size, row) => row === index ? { ...size, valor_unitario: event.target.value } : size))} placeholder="0,00" /></label><div className="work-order-size-subtotal"><span>Subtotal</span><strong>{(sizeCalculations[index]?.subtotal || 0) > MAX_ORDER_TOTAL ? 'Acima do limite' : formatMoney(sizeCalculations[index]?.subtotal || 0)}</strong></div><button type="button" className="work-order-remove-size" aria-label={`Remover tamanho ${item.tamanho || index + 1}`} disabled={sizes.length === 1} onClick={() => setSizes((current) => current.filter((_, row) => row !== index))}><X size={16} /></button></div>)}
+        <div className="work-order-size-editor"><div className="work-order-size-head"><div><strong>Grade de tamanhos</strong><small>Informe a quantidade de peças por tamanho. O preço é único para o lote (máximo de 50 tamanhos).</small></div><button type="button" className="secondary-button" disabled={sizes.length >= 50} onClick={() => setSizes((current) => [...current, { tamanho: '', quantidade: '1' }])}><Plus size={15} /> Adicionar tamanho</button></div>
+          {sizes.map((item, index) => <div className="work-order-size-row" key={index}><label>Tamanho<input required maxLength={24} value={item.tamanho} onChange={(event) => setSizes((current) => current.map((size, row) => row === index ? { ...size, tamanho: event.target.value } : size))} placeholder="Ex.: P, M, 40" /></label><label>Quantidade (peças)<input required type="number" min="1" max="1000000" step="1" value={item.quantidade} onChange={(event) => setSizes((current) => current.map((size, row) => row === index ? { ...size, quantidade: event.target.value } : size))} /></label><div className="work-order-size-subtotal"><span>Subtotal</span><strong>{Number.isFinite(sizeCalculations[index]?.unitPrice) ? (sizeCalculations[index].subtotal > MAX_ORDER_TOTAL ? 'Acima do limite' : formatMoney(sizeCalculations[index].subtotal)) : '—'}</strong></div><button type="button" className="work-order-remove-size" aria-label={`Remover tamanho ${item.tamanho || index + 1}`} disabled={sizes.length === 1} onClick={() => setSizes((current) => current.filter((_, row) => row !== index))}><X size={16} /></button></div>)}
           <div className="work-order-size-total"><span>Quantidade total do lote</span><strong>{orderQuantity.toLocaleString('pt-BR')} peças</strong></div>
-          <div className="work-order-cost-audit"><div className="work-order-cost-audit-heading"><div><strong>Memória de cálculo</strong><small>Quantidade por tamanho × valor por peça</small></div><span>Auditoria do lote</span></div>{sizes.map((item, index) => <div className="work-order-cost-line" key={`${item.tamanho}-${index}`}><span>{item.tamanho.trim() || `Tamanho ${index + 1}`}</span><strong>{sizeCalculations[index].quantity.toLocaleString('pt-BR')} × {formatMoney(Number.isFinite(sizeCalculations[index].unitPrice) ? sizeCalculations[index].unitPrice : 0)}</strong><b>{sizeCalculations[index].subtotal > MAX_ORDER_TOTAL ? 'Acima do limite' : formatMoney(sizeCalculations[index].subtotal)}</b></div>)}<div className="work-order-cost-total"><span>Valor total do lote <small>Soma dos subtotais calculados acima</small></span><strong>{orderTotal > MAX_ORDER_TOTAL ? 'Acima do limite' : formatMoney(orderTotal)}</strong></div></div>
+          <div className="work-order-cost-audit"><div className="work-order-cost-audit-heading"><div><strong>Memória de cálculo</strong><small>Quantidade por tamanho × o mesmo valor por peça</small></div><span>Auditoria do lote</span></div>{sizes.map((item, index) => <div className="work-order-cost-line" key={`${item.tamanho}-${index}`}><span>{item.tamanho.trim() || `Tamanho ${index + 1}`}</span><strong>{sizeCalculations[index].quantity.toLocaleString('pt-BR')} × {Number.isFinite(sizeCalculations[index].unitPrice) ? formatMoney(sizeCalculations[index].unitPrice) : 'Preço não informado'}</strong><b>{Number.isFinite(sizeCalculations[index].unitPrice) ? (sizeCalculations[index].subtotal > MAX_ORDER_TOTAL ? 'Acima do limite' : formatMoney(sizeCalculations[index].subtotal)) : '—'}</b></div>)}<div className="work-order-cost-total"><span>Valor total do lote <small>Soma dos subtotais calculados acima</small></span><strong>{Number.isFinite(parseUnitPrice(form.valor_unitario)) ? (orderTotal > MAX_ORDER_TOTAL ? 'Acima do limite' : formatMoney(orderTotal)) : 'Informe o preço único'}</strong></div></div>
         </div>
         <label>Observações<textarea rows={3} maxLength={5000} value={form.observacoes} onChange={(event) => setForm({ ...form, observacoes: event.target.value })} placeholder="Detalhes de produção, material ou combinação." /></label>
         <div className="work-order-form-actions"><button type="button" className="secondary-button" onClick={() => { setShowForm(false); setFormError(''); setError('') }}>Cancelar</button><button type="submit" className="primary-button" disabled={confirmationBusy}><Check size={16} /> Revisar e criar ordem</button></div>
@@ -326,6 +336,7 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
           const financialSaving = saving === 'confirmation' || confirmationBusy
           return <article className={`work-order-card ${isOverdue(order) ? 'is-overdue' : ''}`} key={order.id}>
             <header className="work-order-card-header"><div className="work-order-title-block"><div className="work-order-identity"><span className="work-order-number">{order.numero}</span><StatusPill value={orderStatusLabels[order.status] || order.status.replaceAll('_', ' ')} />{order.status !== 'cancelada' && <StatusPill value={order.status_pagamento === 'pago' ? 'Pago' : ready ? 'Aguardando pagamento' : order.status === 'entregue' ? 'Aguardando liberação' : 'Sem baixa financeira'} />}</div><h3>{order.cliente || 'Cliente não informado'}</h3><p>{order.descricao}{order.prioridade ? ` · prioridade ${order.prioridade}` : ''}</p></div><div className="work-order-value"><small>Valor do lote</small><strong>{formatMoney(Number(order.valor_total || 0))}</strong><span className={`work-order-deadline ${isOverdue(order) ? 'is-late' : ''}`}>{order.prazo ? `Prazo ${formatDate(order.prazo)}` : 'Sem prazo'}</span></div></header>
+            <p className="work-order-metadata">Fornecedor: {order.fornecedor || 'não informado'} · Referência: {order.referencia || 'não informada'} · Preço por peça: {order.valor_unitario_peca == null ? 'não informado' : formatMoney(Number(order.valor_unitario_peca))}</p>
             <div className="work-order-progress-summary"><div><span>Solicitadas</span><strong>{progress.total.toLocaleString('pt-BR')}</strong></div><div><span>Produzidas</span><strong>{progress.produced.toLocaleString('pt-BR')}</strong></div><div><span>Costuradas</span><strong>{progress.sewn.toLocaleString('pt-BR')}</strong></div><div><span>Entregues</span><strong>{progress.delivered.toLocaleString('pt-BR')}</strong></div></div>
             <div className="work-order-financial-grid">
               <label className="work-order-control"><span>Pagamento</span><select value={order.status_pagamento} disabled={financialSaving || !ready} onChange={(event) => setConfirmation({ kind: 'finance', order, statusPagamento: event.target.value as 'pendente' | 'pago', notaFiscalNumero: order.nota_fiscal_numero || '', success: `Pagamento da ordem ${order.numero} atualizado.` })}><option value="pendente">Aguardando pagamento</option><option value="pago">Pago</option></select><small>{order.pago_em ? `Baixado em ${formatDate(order.pago_em)}` : ready ? 'A baixa é registrada na data da alteração.' : 'Aguarde a liberação da Produção.'}</small></label>
@@ -347,7 +358,7 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
     {confirmation && <ConfirmationModal title={confirmationTitle} description={confirmationDescription} confirmLabel={confirmationLabel} busy={confirmationBusy} onCancel={() => { if (!confirmationBusy) { setConfirmation(null); setError('') } }} onConfirm={() => void confirmPendingAction()}>
       {error && <p className="confirmation-modal-error" role="alert">{error}</p>}
       {confirmation.kind === 'client' && <div className="confirmation-summary"><span>Nome do cliente</span><strong>{confirmation.name}</strong><small>Sem CNPJ ou outros dados obrigatórios neste cadastro rápido.</small></div>}
-      {confirmation.kind === 'order' && <div className="confirmation-summary"><div className="confirmation-summary-row"><span>Cliente</span><strong>{confirmation.payload.clienteNome}</strong></div><div className="confirmation-summary-row"><span>Produto</span><strong>{confirmation.payload.descricao}</strong></div><div className="confirmation-summary-row"><span>Prazo previsto</span><strong>{formatDate(confirmation.payload.prazo)}</strong></div><div className="confirmation-summary-row"><span>Prioridade</span><strong>{confirmation.payload.prioridade}</strong></div><div className="confirmation-calculation-list"><strong>Memória de cálculo por tamanho</strong>{confirmation.payload.tamanhos.map((size) => <div className="confirmation-calculation-row" key={size.tamanho}><span>{size.tamanho}</span><span>{size.quantidade.toLocaleString('pt-BR')} peças × {formatMoney(size.valor_unitario)}</span><strong>{formatMoney(moneyRound(size.quantidade * size.valor_unitario))}</strong></div>)}</div><div className="confirmation-summary-total"><span>{confirmation.payload.tamanhos.reduce((sum, size) => sum + size.quantidade, 0).toLocaleString('pt-BR')} peças · total calculado</span><strong>{formatMoney(confirmation.payload.tamanhos.reduce((sum, size) => sum + moneyRound(size.quantidade * size.valor_unitario), 0))}</strong></div></div>}
+      {confirmation.kind === 'order' && <div className="confirmation-summary"><div className="confirmation-summary-row"><span>Cliente</span><strong>{confirmation.payload.clienteNome}</strong></div><div className="confirmation-summary-row"><span>Fornecedor</span><strong>{confirmation.payload.fornecedor}</strong></div><div className="confirmation-summary-row"><span>Referência / modelo</span><strong>{confirmation.payload.referencia}</strong></div><div className="confirmation-summary-row"><span>Produto</span><strong>{confirmation.payload.descricao}</strong></div><div className="confirmation-summary-row"><span>Prazo previsto</span><strong>{formatDate(confirmation.payload.prazo)}</strong></div><div className="confirmation-summary-row"><span>Prioridade</span><strong>{confirmation.payload.prioridade}</strong></div><div className="confirmation-calculation-list"><strong>Preço único por peça · aplicado a todos os tamanhos</strong>{confirmation.payload.tamanhos.map((size) => <div className="confirmation-calculation-row" key={size.tamanho}><span>{size.tamanho}</span><span>{size.quantidade.toLocaleString('pt-BR')} peças × {formatMoney(confirmation.payload.valorUnitario)}</span><strong>{formatMoney(moneyRound(size.quantidade * confirmation.payload.valorUnitario))}</strong></div>)}</div><div className="confirmation-summary-total"><span>{confirmation.payload.tamanhos.reduce((sum, size) => sum + size.quantidade, 0).toLocaleString('pt-BR')} peças · total calculado</span><strong>{formatMoney(confirmation.payload.tamanhos.reduce((sum, size) => sum + moneyRound(size.quantidade * confirmation.payload.valorUnitario), 0))}</strong></div></div>}
       {confirmation.kind === 'finance' && <div className="confirmation-summary"><div className="confirmation-summary-row"><span>Ordem</span><strong>{confirmation.order.numero} · {confirmation.order.cliente || 'Cliente não informado'}</strong></div><div className="confirmation-summary-row"><span>Pagamento</span><strong>{confirmation.statusPagamento === 'pago' ? 'Pago' : 'Aguardando pagamento'}</strong></div><div className="confirmation-summary-row"><span>Número da NF</span><strong>{confirmation.notaFiscalNumero.trim() || 'Sem alteração / removido'}</strong></div></div>}
       {confirmation.kind === 'document' && <div className="confirmation-summary"><div className="confirmation-summary-row"><span>Ordem</span><strong>{confirmation.order.numero} · {confirmation.order.cliente || 'Cliente não informado'}</strong></div><div className="confirmation-summary-row"><span>Tipo</span><strong>{confirmation.type === 'nota_fiscal' ? 'Nota fiscal' : 'Comprovante de pagamento'}</strong></div><div className="confirmation-summary-row"><span>Arquivo</span><strong>{confirmation.file.name}</strong></div><div className="confirmation-summary-row"><span>Tamanho</span><strong>{fileSize(confirmation.file.size)}</strong></div></div>}
     </ConfirmationModal>}

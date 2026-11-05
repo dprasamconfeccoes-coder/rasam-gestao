@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Activity, AlertTriangle, Check, ChevronDown, Clock3, Factory, PackageCheck, RefreshCw, Scissors, Search, Truck } from 'lucide-react'
 import { getFactoryProduction, releaseWorkOrderForFinance, saveFactoryProduction, startWorkOrderProduction } from '../lib/api'
 import type { FactoryProductionLot, FactoryProductionResponse, FactoryProductionSummary, WorkOrderProgressPayload } from '../lib/types'
-import { ConfirmationModal, EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate } from '../components/ui'
+import { ConfirmationModal, EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
 import './factory-production.css'
 
 type FilterKey = 'todas' | 'recebida' | 'em_producao' | 'costurada' | 'expedida' | 'entregue' | 'aguardando_pagamento'
@@ -83,7 +83,7 @@ export function FactoryProductionDashboard({ token }: { token: string }) {
   const filteredLots = useMemo(() => {
     const term = query.trim().toLocaleLowerCase('pt-BR')
     return lots.filter((lot) => {
-      const matchText = !term || [lot.numero, lot.cliente, lot.descricao].some((value) => value?.toLocaleLowerCase('pt-BR').includes(term))
+      const matchText = !term || [lot.numero, lot.cliente, lot.fornecedor, lot.referencia, lot.descricao].some((value) => value?.toLocaleLowerCase('pt-BR').includes(term))
       const matchStatus = filter === 'todas'
         || (filter === 'aguardando_pagamento' && Boolean(lot.financeiro_liberado_em))
         || lot.status === filter
@@ -217,7 +217,7 @@ export function FactoryProductionDashboard({ token }: { token: string }) {
             const isEditable = !['recebida', 'cancelada', 'entregue'].includes(lot.status) && !lot.financeiro_liberado_em
             const currentDraft = drafts[lot.id] || []
             return <article className={`factory-lot-card ${isLate(lot) ? 'is-late' : ''}`} key={lot.id}>
-              <header className="factory-lot-header"><div className="factory-lot-main"><div className="factory-lot-identity"><strong>{lot.numero}</strong><StatusPill value={statusLabels[lot.status] || lot.status.replaceAll('_', ' ')} />{lot.financeiro_liberado_em && <span className="factory-finance-badge">Liberado para financeiro</span>}</div><h3>{lot.cliente || 'Cliente não informado'}</h3><p>{lot.descricao}</p></div><div className="factory-lot-deadline"><small>Prazo</small><strong className={isLate(lot) ? 'late' : ''}>{lot.prazo ? formatDate(lot.prazo) : 'Sem prazo'}</strong>{isLate(lot) && <span><AlertTriangle size={13} /> Atrasado</span>}</div></header>
+              <header className="factory-lot-header"><div className="factory-lot-main"><div className="factory-lot-identity"><strong>{lot.numero}</strong><StatusPill value={statusLabels[lot.status] || lot.status.replaceAll('_', ' ')} />{lot.financeiro_liberado_em && <span className="factory-finance-badge">Liberado para financeiro</span>}</div><h3>{lot.cliente || 'Cliente não informado'}</h3><p>{lot.descricao}</p><div className="factory-lot-commercial-data"><span>Fornecedor: {lot.fornecedor || 'não informado'}</span><span>Referência: {lot.referencia || 'não informada'}</span><span>Valor por peça: {lot.valor_unitario_peca == null ? 'não informado' : formatMoney(Number(lot.valor_unitario_peca))}</span></div></div><div className="factory-lot-deadline"><small>Prazo</small><strong className={isLate(lot) ? 'late' : ''}>{lot.prazo ? formatDate(lot.prazo) : 'Sem prazo'}</strong>{isLate(lot) && <span><AlertTriangle size={13} /> Atrasado</span>}</div></header>
               <div className="factory-progress-summary"><div><span>Solicitadas</span><strong>{sum.requested.toLocaleString('pt-BR')}</strong></div><div><span>Produzidas</span><strong>{sum.produced.toLocaleString('pt-BR')}</strong></div><div><span>Costuradas</span><strong>{sum.sewn.toLocaleString('pt-BR')}</strong></div><div><span>Entregues</span><strong>{sum.delivered.toLocaleString('pt-BR')}</strong></div></div>
               <div className="factory-lot-progress"><div><span>Produção do lote</span><b>{progress}%</b></div><span className="factory-progress-track"><i style={{ width: `${progress}%` }} /></span></div>
               <div className="factory-lot-actions">

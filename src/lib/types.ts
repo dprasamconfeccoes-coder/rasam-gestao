@@ -171,6 +171,9 @@ export interface OrderRow {
   numero: string
   cliente: string | null
   descricao: string
+  fornecedor?: string | null
+  referencia?: string | null
+  valor_unitario_peca?: number | null
   status: string
   prioridade: string
   data_entrada: string
@@ -271,6 +274,9 @@ export interface FactoryProductionLot {
   numero: string
   cliente: string | null
   descricao: string
+  fornecedor: string | null
+  referencia: string | null
+  valor_unitario_peca: number | null
   status: string
   prioridade: string
   data_entrada: string
@@ -305,11 +311,14 @@ export interface FactoryProductionResponse {
 export interface CreateWorkOrderPayload {
   clienteId: string
   clienteNome: string
+  fornecedor: string
+  referencia: string
   descricao: string
   prioridade: string
   prazo: string
   observacoes: string
-  tamanhos: Array<{ tamanho: string; quantidade: number; valor_unitario: number }>
+  valorUnitario: number
+  tamanhos: Array<{ tamanho: string; quantidade: number }>
 }
 
 export interface WorkOrderProgressPayload {

@@ -94,9 +94,11 @@ export function EmployeeRegistrationWizard({ open, token, onClose, onCreated }: 
       if ((form.fields.nome || '').trim().length < 2) return setError('Informe o nome completo.')
       if ((form.fields.cpf || '').replace(/\D/g, '').length !== 11) return setError('Informe um CPF com 11 dígitos.')
       if (isClt && !form.fields.data_nascimento) return setError('Informe a data de nascimento para o cadastro CLT.')
-      if (isDiarista && (form.fields.valor_diaria || '').trim()) {
+      if (isDiarista && !form.fields.data_nascimento) return setError('Informe a data de nascimento para o cadastro da diarista.')
+      if (isDiarista && !(form.fields.cargo || '').trim()) return setError('Informe o cargo ou função da diarista.')
+      if (isDiarista) {
         const dailyRate = parseMoney(form.fields.valor_diaria || '')
-        if (!(dailyRate && dailyRate > 0)) return setError('Informe um valor de diária maior que zero ou deixe o campo em branco.')
+        if (!(dailyRate && dailyRate > 0)) return setError('Informe o valor individual da diária, maior que zero.')
       }
     }
     if (step === 1 && isClt) {
@@ -126,6 +128,9 @@ export function EmployeeRegistrationWizard({ open, token, onClose, onCreated }: 
     setError('')
     const cpf = (form.fields.cpf || '').replace(/\D/g, '')
     if (form.liberarAcesso && !form.fields.data_nascimento) return setError('Informe a data de nascimento para criar o acesso ao portal.')
+    if (isDiarista && !form.fields.data_nascimento) return setError('Informe a data de nascimento para o cadastro da diarista.')
+    if (isDiarista && !(form.fields.cargo || '').trim()) return setError('Informe o cargo ou função da diarista.')
+    if (isDiarista && !((parseMoney(form.fields.valor_diaria || '') || 0) > 0)) return setError('Informe o valor individual da diária, maior que zero.')
     setSaving(true)
     try {
       const ficha = Object.fromEntries(fichaFields.map((field) => {
@@ -137,6 +142,7 @@ export function EmployeeRegistrationWizard({ open, token, onClose, onCreated }: 
             nome: (form.fields.nome || '').trim(),
             cpf,
             data_nascimento: form.fields.data_nascimento || null,
+            cargo: (form.fields.cargo || '').trim(),
             valor_diaria: parseMoney(form.fields.valor_diaria || ''),
           }
         : isClt
@@ -164,16 +170,17 @@ export function EmployeeRegistrationWizard({ open, token, onClose, onCreated }: 
 
   return <div className="employee-create-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose() }}>
     <section className={`employee-create-modal employee-wizard${isClt ? ' is-clt' : ''}`} role="dialog" aria-modal="true" aria-labelledby="employee-wizard-title">
-      <div className="employee-create-heading"><div><span className="eyebrow">Novo cadastro · departamento pessoal</span><h2 id="employee-wizard-title">Cadastrar funcionário</h2><p>Escolha o vínculo: a ficha integral é exibida para CLT; diarista exige apenas nome e CPF, com diária opcional.</p></div><button className="icon-button" type="button" onClick={onClose} disabled={saving} aria-label="Fechar cadastro"><X size={18} /></button></div>
+      <div className="employee-create-heading"><div><span className="eyebrow">Novo cadastro · departamento pessoal</span><h2 id="employee-wizard-title">Cadastrar funcionário</h2><p>Para diarista, informe nome, CPF, nascimento, cargo e valor individual da diária.</p></div><button className="icon-button" type="button" onClick={onClose} disabled={saving} aria-label="Fechar cadastro"><X size={18} /></button></div>
       <div className="employee-wizard-progress" aria-label={`Etapa ${step + 1} de ${stepLabels.length}`}>{stepLabels.map((label, index) => <div className={index <= step ? 'is-current' : ''} key={label}><span>{index + 1}</span><small>{label}</small></div>)}</div>
       <form className="employee-create-form" onSubmit={(event) => void submit(event)}>
         {step === 0 ? <div className="employee-form-section"><strong>Tipo e identificação</strong><div className="employee-form-grid">
           <label className="employee-form-wide">Tipo de vínculo *<select required autoFocus value={form.tipoVinculo} onChange={(event) => { setForm((current) => ({ ...current, tipoVinculo: event.target.value })); setStep(0); setError('') }}><option value="">Selecione o vínculo</option><option value="formal">CLT / Formal</option><option value="diarista">Diarista</option><option value="informal">Informal (legado)</option><option value="experiencia">Experiência (legado)</option></select></label>
           <label>Nome completo *<input required autoComplete="name" value={form.fields.nome || ''} onChange={(event) => setField('nome', event.target.value)} placeholder="Nome e sobrenome" /></label>
           <label>CPF *<input required inputMode="numeric" maxLength={14} autoComplete="off" value={form.fields.cpf || ''} onChange={(event) => setField('cpf', event.target.value)} placeholder="000.000.000-00" /></label>
-          {isClt ? <label>Data de nascimento *<input required type="date" value={form.fields.data_nascimento || ''} onChange={(event) => setField('data_nascimento', event.target.value)} /></label> : null}
-          {isDiarista ? <label>Valor da diária (opcional)<input type="number" inputMode="decimal" min="0.01" step="0.01" value={form.fields.valor_diaria || ''} onChange={(event) => setField('valor_diaria', event.target.value)} placeholder="Deixe em branco se ainda não definido" /></label> : null}
-        </div><small className="employee-form-help">O CPF será validado novamente pelo servidor. Para diarista, nome e CPF bastam. A remuneração diária é opcional; sem valor, o cadastro não calcula pagamentos por diária.</small></div> : null}
+          {isClt || isDiarista ? <label>Data de nascimento *<input required type="date" value={form.fields.data_nascimento || ''} onChange={(event) => setField('data_nascimento', event.target.value)} /></label> : null}
+          {isDiarista ? <label>Cargo / função *<input required maxLength={50} value={form.fields.cargo || ''} onChange={(event) => setField('cargo', event.target.value)} placeholder="Ex.: Costureira" /></label> : null}
+          {isDiarista ? <label>Valor individual da diária *<input required type="number" inputMode="decimal" min="0.01" step="0.01" value={form.fields.valor_diaria || ''} onChange={(event) => setField('valor_diaria', event.target.value)} placeholder="R$ 0,00" /></label> : null}
+        </div><small className="employee-form-help">O CPF será validado novamente pelo servidor. O valor é específico desta diarista e não é convertido em salário mensal.</small></div> : null}
         {step === 1 && isClt ? <div className="employee-form-section"><strong>Ficha completa do vínculo CLT</strong><p className="employee-form-help">Campos organizados conforme a ficha funcional disponível no sistema. Para concluir o cadastro CLT, informe admissão e salário mensal; os demais dados podem ficar vazios e ser completados depois.</p><div className="employee-ficha-groups employee-create-clt-groups">
           {registrationFieldGroups.map((group, groupIndex) => <details className="employee-ficha-group" key={group.title} open={groupIndex === 0 || group.title.includes('Vínculo')}><summary>{group.title}</summary><div className="employee-ficha-grid">{group.fields.map(renderFichaField)}</div></details>)}
         </div></div> : null}
@@ -184,8 +191,7 @@ export function EmployeeRegistrationWizard({ open, token, onClose, onCreated }: 
           <label className="employee-form-wide">Endereço<input autoComplete="street-address" value={form.fields.endereco || ''} onChange={(event) => setField('endereco', event.target.value)} placeholder="Rua, número, bairro e cidade" /></label>
         </div></div> : null}
         {step === finalStep ? <>
-          {isDiarista ? <SectionCard title="Cadastro básico de diarista" caption="Nenhum dado trabalhista adicional é exigido nesta etapa"><p>O cadastro será salvo como diarista, sem exigir data de nascimento, salário ou valor da diária.</p></SectionCard> : null}
-          <SectionCard title="Revisão do cadastro" caption="Confira o tipo de vínculo e os dados antes de concluir"><div className="employee-wizard-review"><p><strong>Nome:</strong> {form.fields.nome || '—'}</p><p><strong>CPF:</strong> {maskedCpf(form.fields.cpf || '')}</p><p><strong>Vínculo:</strong> {typeLabel}</p>{isClt ? <><p><strong>Admissão:</strong> {formatDate(form.fields.data_admissao || '')}</p><p><strong>Salário mensal:</strong> {form.fields.salario ? formatMoney(parseMoney(form.fields.salario) || 0) : 'Não informado'}</p><p><strong>Campos da ficha:</strong> {registrationFieldGroups.flatMap((group) => group.fields).filter((field) => Boolean(form.fields[field.key]?.trim())).length} preenchido(s)</p></> : !isDiarista ? <><p><strong>Cargo:</strong> {form.fields.cargo || 'Não informado'}</p><p><strong>Remuneração mensal:</strong> {form.fields.salario ? formatMoney(parseMoney(form.fields.salario) || 0) : 'Não informada'}</p></> : null}</div></SectionCard>
+          <SectionCard title="Revisão do cadastro" caption="Confira o tipo de vínculo e os dados antes de concluir"><div className="employee-wizard-review"><p><strong>Nome:</strong> {form.fields.nome || '—'}</p><p><strong>CPF:</strong> {maskedCpf(form.fields.cpf || '')}</p><p><strong>Vínculo:</strong> {typeLabel}</p>{isClt ? <><p><strong>Admissão:</strong> {formatDate(form.fields.data_admissao || '')}</p><p><strong>Salário mensal:</strong> {form.fields.salario ? formatMoney(parseMoney(form.fields.salario) || 0) : 'Não informado'}</p><p><strong>Campos da ficha:</strong> {registrationFieldGroups.flatMap((group) => group.fields).filter((field) => Boolean(form.fields[field.key]?.trim())).length} preenchido(s)</p></> : isDiarista ? <><p><strong>Nascimento:</strong> {formatDate(form.fields.data_nascimento || '')}</p><p><strong>Cargo / função:</strong> {form.fields.cargo || '—'}</p><p><strong>Valor da diária:</strong> {formatMoney(parseMoney(form.fields.valor_diaria || '') || 0)}</p></> : <><p><strong>Cargo:</strong> {form.fields.cargo || 'Não informado'}</p><p><strong>Remuneração mensal:</strong> {form.fields.salario ? formatMoney(parseMoney(form.fields.salario) || 0) : 'Não informada'}</p></>}</div></SectionCard>
           <div className="employee-form-section"><strong>Portal do funcionário</strong><label className="check-line employee-access-toggle"><input type="checkbox" checked={form.liberarAcesso} onChange={(event) => setForm((current) => ({ ...current, liberarAcesso: event.target.checked }))} /> Criar acesso ao portal agora</label>{form.liberarAcesso && !form.fields.data_nascimento ? <label>Data de nascimento *<input required type="date" value={form.fields.data_nascimento || ''} onChange={(event) => setField('data_nascimento', event.target.value)} /></label> : null}<small className="employee-form-help">O acesso é opcional e começa desativado. O fluxo atual usa a data de nascimento como senha inicial e exige troca no primeiro acesso; entregue a credencial por canal privado.</small></div>
         </> : null}
         {error ? <div className="form-error" role="alert">{error}</div> : null}

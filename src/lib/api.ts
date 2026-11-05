@@ -457,13 +457,16 @@ export function createOrderClient(token: string, name: string) {
   })
 }
 export function createWorkOrder(token: string, payload: CreateWorkOrderPayload) {
-  return rpc<{ sucesso: boolean; erro?: string; id?: string; numero?: string; quantidade?: number; valor_total?: number }>('app_admin_criar_ordem_painel_v2', {
+  return rpc<{ sucesso: boolean; erro?: string; id?: string; numero?: string; quantidade?: number; valor_total?: number }>('app_admin_criar_ordem_painel_v3', {
     p_token: token,
     p_cliente_id: payload.clienteId,
     p_descricao: payload.descricao,
     p_prioridade: payload.prioridade,
     p_prazo: payload.prazo,
     p_observacoes: payload.observacoes || null,
+    p_fornecedor: payload.fornecedor,
+    p_referencia: payload.referencia,
+    p_valor_unitario: payload.valorUnitario,
     p_tamanhos: payload.tamanhos,
   })
 }
