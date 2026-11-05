@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, BarChart3, Download, FileSpreadsheet, Printer, RefreshCw, Search } from 'lucide-react'
-import { adminRelatorioFechamento, getPayrollCatalog, getPayrollReport, simulateValeCesta } from '../lib/api'
+import { adminRelatorioFechamento, adminVisualizarFechamento, getPayrollCatalog, getPayrollReport, simulateValeCesta } from '../lib/api'
 import { EmptyState, ErrorState, LoadingState, formatDate, formatMoney } from '../components/ui'
 import { downloadReportCsv, downloadReportXlsx, printReport, type ReportExportColumn, type ReportCell } from '../lib/report-export'
+import type { FechamentoPreview } from '../lib/types'
 import './finance-reports.css'
 
 export type SpecialReportType = 'payroll' | 'closing_office' | 'closing_voucher' | 'vale_simulation'
 
 export const specialReportOptions: Array<{ key: SpecialReportType; label: string; description: string; icon: 'chart' | 'calendar' | 'file' }> = [
   { key: 'payroll', label: 'Benefícios e descontos por competência', description: 'Totais por tipo, sem detalhamento individual de valores.', icon: 'chart' },
-  { key: 'closing_office', label: 'Fechamento de escritório', description: 'Relatório mensal consolidado para revisão administrativa.', icon: 'calendar' },
+  { key: 'closing_office', label: 'Fechamento de ponto para o escritório', description: 'Relatório interno de ponto e jornada para conferência; não comprova processamento externo da folha.', icon: 'calendar' },
   { key: 'closing_voucher', label: 'Fechamento de vale', description: 'Relatório mensal de vale, com opção de incluir vínculos informais.', icon: 'file' },
   { key: 'vale_simulation', label: 'Simulação de Vale Cesta', description: 'Elegibilidade e custo estimado pela regra vigente.', icon: 'chart' },
 ]
@@ -48,10 +49,12 @@ export function PayrollClosingReports({ token, isAdmin, initialReport, onBack }:
   const [search, setSearch] = useState('')
   const [result, setResult] = useState<ReportResult | null>(null)
   const [generatedAt, setGeneratedAt] = useState('')
+  const [closingPreview, setClosingPreview] = useState<FechamentoPreview | null>(null)
 
   useEffect(() => {
     setMode(initialReport)
     setResult(null)
+    setClosingPreview(null)
     setError('')
     setSearch('')
   }, [initialReport])
@@ -69,6 +72,7 @@ export function PayrollClosingReports({ token, isAdmin, initialReport, onBack }:
     if (!/^\d{4}-\d{2}$/.test(competencia)) { setError('Informe uma competência válida.'); return }
     setLoading(true)
     setError('')
+    setClosingPreview(null)
     try {
       const date = monthDate(competencia)
       let next: ReportResult
@@ -105,12 +109,15 @@ export function PayrollClosingReports({ token, isAdmin, initialReport, onBack }:
           ],
         }
       } else {
+        const preview = mode === 'closing_office' ? await adminVisualizarFechamento(token, competencia) : null
+        if (preview && !preview.sucesso) throw new Error(preview.erro || 'A prévia interna está desatualizada ou indisponível; recalcule antes de consultar os indicadores.')
         const report = await adminRelatorioFechamento(token, date, mode === 'closing_office' ? 'escritorio' : 'vale', mode === 'closing_voucher' && incluirInformais)
         if (!report.sucesso) throw new Error(report.erro || 'Não foi possível gerar o relatório de fechamento.')
         const rawRows = report.linhas || []
         const keys = Array.from(new Set(rawRows.flatMap((row) => Object.keys(row))))
           .filter((key) => !/(^|_)id($|_)|cpf|token|email|telefone|endereco|nascimento|documento|uuid|senha/i.test(key))
         next = { columns: keys.map((key) => ({ key, label: humanize(key) })), rows: rawRows.map((row) => Object.fromEntries(keys.map((key) => [key, row[key] as ReportCell]))) }
+        if (preview?.sucesso) setClosingPreview(preview)
       }
       setResult(next)
       setGeneratedAt(new Date().toISOString())
@@ -118,6 +125,7 @@ export function PayrollClosingReports({ token, isAdmin, initialReport, onBack }:
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Falha ao gerar o relatório.')
       setResult(null)
+      setClosingPreview(null)
     } finally {
       setLoading(false)
     }
@@ -148,14 +156,28 @@ export function PayrollClosingReports({ token, isAdmin, initialReport, onBack }:
   return <div className="payroll-closing-reports">
     <div className="payroll-closing-toolbar">
       <button className="secondary-button" type="button" onClick={onBack}><ArrowLeft size={15} /> Voltar ao catálogo</button>
-      <label>Relatório<select value={mode} onChange={(event) => { setMode(event.target.value as SpecialReportType); setResult(null); setError('') }}>{specialReportOptions.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
-      <label>Competência<input type="month" value={competencia} onChange={(event) => { setCompetencia(event.target.value); setResult(null) }} /></label>
+      <label>Relatório<select value={mode} onChange={(event) => { setMode(event.target.value as SpecialReportType); setResult(null); setClosingPreview(null); setError('') }}>{specialReportOptions.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}</select></label>
+      <label>Competência<input type="month" value={competencia} onChange={(event) => { setCompetencia(event.target.value); setResult(null); setClosingPreview(null) }} /></label>
       {mode === 'closing_voucher' && <label className="payroll-closing-checkbox"><input type="checkbox" checked={incluirInformais} onChange={(event) => setIncluirInformais(event.target.checked)} /> Incluir informais</label>}
       <button className="primary-button" type="button" onClick={() => void generate()} disabled={loading}><RefreshCw size={15} className={loading ? 'spin' : ''} /> {loading ? 'Gerando…' : 'Gerar relatório'}</button>
     </div>
     <div className="payroll-closing-intro"><BarChart3 size={18} /><span><strong>{option.label}</strong><small>{option.description} A saída é restrita a perfis administradores.</small></span></div>
     {error && <ErrorState message={error} />}
     {loading && result && <div className="report-refresh-note"><RefreshCw size={14} className="spin" /> Atualizando. A última consulta permanece visível até a nova resposta.</div>}
+    {mode === 'closing_office' && closingPreview?.resumo && <section className="payroll-closing-internal-summary" aria-label="Indicadores do fechamento interno de ponto">
+      <div className="payroll-closing-internal-heading"><strong>Indicadores do fechamento interno para o escritório</strong><span>{closingPreview.status === 'fechado' ? 'Fechado internamente' : 'Prévia interna atual'} · competência {competencia}</span></div>
+      <div className="payroll-closing-internal-kpis">{[
+        ['Vínculos no fechamento', String(closingPreview.resumo.funcionarios ?? 0)],
+        ['Faltas justificadas', String(closingPreview.resumo.faltas_justificadas ?? 0)],
+        ['Faltas injustificadas', String(closingPreview.resumo.faltas_injustificadas ?? 0)],
+        ['Horas extras 50%', `${Number(closingPreview.resumo.horas_extras_50 ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} h · ${formatMoney(Number(closingPreview.resumo.extras_50_valor ?? 0))}`],
+        ['Horas extras 100%', `${Number(closingPreview.resumo.horas_extras_100 ?? 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })} h · ${formatMoney(Number(closingPreview.resumo.extras_100_valor ?? 0))}`],
+        ['Desconto DSR do fechamento', formatMoney(Number(closingPreview.resumo.dsr_desconto ?? 0))],
+        ['Pendências de DSR', String(closingPreview.resumo.dsr_pendencias ?? 0)],
+        ['Salários pendentes', String(closingPreview.resumo.salarios_pendentes ?? 0)],
+      ].map(([label, value]) => <article key={label}><span>{label}</span><strong>{value}</strong></article>)}</div>
+      <p>Resumo calculado pelo RF Gestão a partir da prévia validada de ponto e jornada. Não representa cálculo integral da folha, confirmação de processamento pelo escritório nem autorização de pagamento/recolhimento.</p>
+    </section>}
     {result?.summary && <div className="report-kpi-strip">{result.summary.map((item) => <article key={item.label}><span>{item.label}</span><strong>{item.value}</strong>{item.note && <small>{item.note}</small>}</article>)}</div>}
     {result && <>
       <div className="payroll-closing-filterbar"><label><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filtrar nome, motivo, tipo ou valor…" /></label><span>{filteredRows.length} de {result.rows.length} linha(s)</span><div className="finance-report-actions"><button className="secondary-button" type="button" onClick={() => downloadReportCsv(title, result.columns, exportRows, metadata)} disabled={!filteredRows.length}><Download size={15} /> CSV</button><button className="secondary-button" type="button" onClick={() => void exportXlsx()} disabled={!filteredRows.length || exporting}><FileSpreadsheet size={15} /> {exporting ? 'Exportando…' : 'Excel'}</button><button className="secondary-button" type="button" onClick={printCurrentReport} disabled={!filteredRows.length}><Printer size={15} /> Imprimir / PDF</button></div></div>

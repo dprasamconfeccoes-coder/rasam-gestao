@@ -12,4 +12,24 @@
 .payslip-process > div > span { display: grid; place-items: center; flex: 0 0 29px; width: 29px; height: 29px; border: 1px solid rgba(215,168,74,.4); border-radius: 50%; color: var(--gold); background: rgba(215,168,74,.08); font-size: 10px; font-weight: 800; }
 .payslip-process p { margin: 1px 0 0; }
 .payslip-history { max-height: 520px; overflow: auto; }
-@media (max-width: 760px) { .payslip-import-form, .payslip-process { padding: 14px; } }
+.payslip-competence-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.payslip-competence-toolbar label { display: grid; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.payslip-competence-toolbar input { min-height: 36px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; }
+.payslip-competence-toolbar > span { color: var(--muted); font-size: 11px; }
+.payslip-overview-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.payslip-overview-grid article { display: grid; grid-template-columns: 20px 1fr; align-items: center; gap: 5px 8px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.payslip-overview-grid svg { color: var(--gold); }
+.payslip-overview-grid span { color: var(--muted); font-size: 10px; }
+.payslip-overview-grid strong { grid-column: 2; color: var(--text); font-size: 20px; }
+.payslip-scope-note { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; color: #775b25; background: rgba(215,168,74,.09); font-size: 10px; line-height: 1.5; }
+.payslip-scope-note svg { flex: 0 0 auto; margin-top: 1px; }
+.payslip-pending-list { display: grid; gap: 8px; }
+.payslip-pending-list article { display: grid; grid-template-columns: 110px minmax(120px, 1fr) minmax(220px, 2fr) auto; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.payslip-pending-list strong { color: var(--text); font-size: 11px; }
+.payslip-pending-list small { color: var(--muted); font-size: 10px; line-height: 1.4; }
+.payslip-pending-status { width: fit-content; padding: 4px 7px; border-radius: 999px; font-size: 9px; font-weight: 800; }
+.payslip-pending-status.is-missing { color: #8b382c; background: #fff1ee; }
+.payslip-pending-status.is-reupload { color: #76551d; background: #fff6df; }
+@media (max-width: 900px) { .payslip-pending-list article { grid-template-columns: 100px 1fr auto; } .payslip-pending-list small { grid-column: 2; grid-row: 2; } .payslip-pending-list button { grid-column: 3; grid-row: 1 / span 2; } }
+@media (max-width: 760px) { .payslip-import-form, .payslip-process { padding: 14px; } .payslip-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .payslip-competence-toolbar { align-items: stretch; flex-direction: column; } .payslip-competence-toolbar input { width: 100%; box-sizing: border-box; } .payslip-pending-list article { grid-template-columns: 1fr auto; } .payslip-pending-status { grid-column: 1; } .payslip-pending-list strong { grid-column: 1; } .payslip-pending-list small { grid-column: 1; grid-row: auto; } .payslip-pending-list button { grid-column: 2; grid-row: 1 / span 3; align-self: center; } }

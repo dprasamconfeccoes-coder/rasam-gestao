@@ -916,6 +916,27 @@ export interface AdminPayslipRow {
   created_at: string
 }
 
+export interface PayslipCompetencePending {
+  funcionario_id: string
+  nome: string
+  status: 'ausente' | 'reenvio'
+}
+
+export interface PayslipCompetenceOverview {
+  sucesso: boolean
+  erro?: string
+  competencia?: string
+  funcionarios_elegiveis?: number
+  holerites_privados_recebidos?: number
+  holerites_ausentes?: number
+  holerites_reenvio?: number
+  pendencias_total?: number
+  pendencias_limitadas?: boolean
+  cobertura_percentual?: number | null
+  pendencias?: PayslipCompetencePending[]
+  escopo?: string
+}
+
 export interface AdminDebtRow {
   id: string
   credor: string

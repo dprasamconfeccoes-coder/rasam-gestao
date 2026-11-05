@@ -17,6 +17,7 @@ import type {
   AdminMedicalLeaveRow,
   AdminOrderRow,
   AdminPayslipRow,
+  PayslipCompetenceOverview,
   AdminPointRow,
   AdminRequestsPage,
   AdminRequestRow,
@@ -772,6 +773,10 @@ export function saveNotice(token: string, id: string | null, notice: { titulo: s
 
 export function adminPayslips(token: string) {
   return rpc<{ sucesso: boolean; erro?: string; holerites: AdminPayslipRow[] }>('app_admin_holerites', { p_token: token })
+}
+
+export function adminPayslipCompetence(token: string, competencia: string) {
+  return rpc<PayslipCompetenceOverview>('app_admin_holerites_competencia_resumo', { p_token: token, p_competencia: competencia })
 }
 
 export async function uploadPayslip(token: string, funcionarioId: string, competencia: string, file: File) {
