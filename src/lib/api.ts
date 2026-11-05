@@ -963,7 +963,7 @@ export function reinstateEmployee(token: string, funcionarioId: string, dataAdmi
 }
 
 export function adminCalcularFechamento(token: string, competencia: string, incluirInformaisVale: boolean) {
-  return rpc<import('./types').FechamentoResult>('app_admin_calcular_fechamento', { p_token: token, p_competencia: competencia, p_incluir_informais_vale: incluirInformaisVale })
+  return rpc<import('./types').FechamentoResult>('app_admin_calcular_fechamento_44h', { p_token: token, p_competencia: competencia, p_incluir_informais_vale: incluirInformaisVale })
 }
 
 export function adminVisualizarFechamento(token: string, competencia: string) {

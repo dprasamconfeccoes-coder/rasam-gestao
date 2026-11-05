@@ -92,3 +92,6 @@
 @media (max-width: 520px) { .schedule-template-card { align-items:flex-start; flex-direction:column; } .schedule-template-actions { align-self:flex-end; } .schedule-employee-search { align-items:stretch; flex-direction:column; } .schedule-employee-search .secondary-button { justify-content:center; } .schedule-assign-form { grid-template-columns:1fr; } .schedule-assign-form button { grid-column:auto; } .schedule-mode-switch { grid-template-columns:1fr; } .schedule-editor-heading,.schedule-editor-form { padding-left:15px; padding-right:15px; } .schedule-editor-summary { flex-wrap:wrap; } }
 
 .schedule-load-more { display:flex; align-items:center; justify-content:center; gap:7px; width:calc(100% - 36px); min-height:34px; margin:0 18px 12px; font-size:10px; }
+
+.schedule-rest-type { display:grid; gap:6px; margin-top:12px; color:var(--muted); font-size:10px; font-weight:750; }
+.schedule-rest-type select { width:100%; min-height:35px; box-sizing:border-box; border:1px solid var(--line); border-radius:8px; color:var(--text); background:var(--surface); padding:7px 9px; font:inherit; }

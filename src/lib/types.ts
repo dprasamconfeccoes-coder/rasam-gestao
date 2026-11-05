@@ -562,6 +562,7 @@ export interface PointScheduleDay {
   ativo: boolean
   periodos: PointSchedulePeriod[]
   minutos: number
+  tipo_descanso?: 'dsr' | 'repouso_adicional' | null
 }
 
 export type PointScheduleWeek = Record<string, PointScheduleDay>
@@ -1080,7 +1081,7 @@ export interface EmployeeTimelineResponse {
   limite: number
 }
 
-export interface FechamentoSummary { funcionarios?: number; faltas_injustificadas?: number; faltas_justificadas?: number; horas_extras_50?: number; horas_extras_100?: number; extras_50_valor?: number; extras_100_valor?: number; dsr_desconto?: number }
+export interface FechamentoSummary { funcionarios?: number; faltas_injustificadas?: number; faltas_justificadas?: number; horas_extras_50?: number; horas_extras_100?: number; extras_50_valor?: number; extras_100_valor?: number; dsr_desconto?: number; dsr_semanas_perdidas?: number; dsr_pendencias?: number; salarios_pendentes?: number; importacoes_pendentes?: number; pendencias_total?: number }
 export interface FechamentoResult { sucesso: boolean; erro?: string; fechamento_id?: string; competencia?: string; status?: string; mensagem?: string; resumo?: FechamentoSummary; source_fingerprint?: string }
 export interface FechamentoPreview extends FechamentoResult { confirmado_at?: string | null; regras?: Record<string, unknown>; linhas?: Array<Record<string, unknown>> }
 export interface FechamentoReport { sucesso: boolean; erro?: string; competencia?: string; tipo?: string; linhas?: Array<Record<string, unknown>> }

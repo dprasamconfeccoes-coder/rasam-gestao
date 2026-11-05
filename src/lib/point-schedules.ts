@@ -10,11 +10,11 @@ export const WEEK_DAYS = [
 
 export type ScheduleMode = 'horarios_fixos' | 'carga_semanal'
 export interface WorkPeriod { inicio: string; fim: string }
-export interface WorkScheduleDay { ativo: boolean; periodos: WorkPeriod[]; minutos: number }
+export interface WorkScheduleDay { ativo: boolean; periodos: WorkPeriod[]; minutos: number; tipo_descanso?: 'dsr' | 'repouso_adicional' | null }
 export type WorkScheduleWeek = Record<string, WorkScheduleDay>
 
 export function createEmptyScheduleWeek(): WorkScheduleWeek {
-  return Object.fromEntries(WEEK_DAYS.map(({ key }) => [key, { ativo: false, periodos: [], minutos: 0 }]))
+  return Object.fromEntries(WEEK_DAYS.map(({ key }) => [key, { ativo: false, periodos: [], minutos: 0, tipo_descanso: null }]))
 }
 
 export function timeToMinutes(value: string): number | null {
@@ -96,6 +96,8 @@ export function distributeWeeklyMinutes(total: number, activeKeys: string[]): Re
 export function validateSchedule(mode: ScheduleMode, days: WorkScheduleWeek, weeklyTarget: number): string | null {
   const activeDays = WEEK_DAYS.filter(({ key }) => days[key]?.ativo)
   if (!activeDays.length) return 'Selecione ao menos um dia de trabalho.'
+  if (!WEEK_DAYS.some(({ key }) => !days[key]?.ativo && days[key]?.tipo_descanso === 'dsr')) return 'Marque pelo menos um dia de descanso semanal remunerado (DSR).'
+  if (WEEK_DAYS.some(({ key }) => days[key]?.ativo && days[key]?.tipo_descanso)) return 'Um dia de trabalho não pode ser marcado como DSR ou repouso adicional.'
 
   if (mode === 'carga_semanal') {
     if (!Number.isInteger(weeklyTarget) || weeklyTarget < 1 || weeklyTarget > 10080) return 'Informe uma carga semanal válida.'
