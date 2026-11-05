@@ -56,6 +56,7 @@ import {
   ignorePointImport,
   listImportedPoint,
   listPointImports,
+  reconcilePointImports,
   dashboard,
   getFactoryProduction,
   listAgreements,
@@ -1428,6 +1429,9 @@ function PointImportsView({ token }: { token: string }) {
   })
   const [file, setFile] = useState<File | null>(null)
   const [imports, setImports] = useState<PointImportSummary[]>([])
+  const [selectedImportIds, setSelectedImportIds] = useState<string[]>([])
+  const [reconciliation, setReconciliation] = useState<Awaited<ReturnType<typeof reconcilePointImports>> | null>(null)
+  const [reconciling, setReconciling] = useState(false)
   const [rows, setRows] = useState<PointImportRow[]>([])
   const [previewPage, setPreviewPage] = useState(0)
   const previewRequestRef = useRef(0)
@@ -1492,17 +1496,23 @@ function PointImportsView({ token }: { token: string }) {
     previewRequestRef.current += 1
     setActionLoading(true); setError('')
     try {
-      let result = await applyPointImport(token, importId)
-      if (!result.sucesso && result.confirmacao_substituicao_requerida) {
-        const total = result.registros_existentes || 0
-        if (!window.confirm(`${total} batida(s) já existem para funcionário/data deste lote. Confirmar substituir esses registros com os dados desta importação?`)) return
-        result = await applyPointImport(token, importId, true)
-      }
+      const result = await applyPointImport(token, importId)
       if (!result.sucesso) throw new Error(result.erro || 'Não foi possível aplicar os registros')
       await reload(); await loadPreview(importId)
-      setMessage(`${result.linhas_aplicadas || 0} registro(s) aplicados após conferência.`)
+      setMessage(`${result.linhas_inseridas || result.linhas_aplicadas || 0} batida(s) nova(s) inserida(s). ${result.registros_existentes_preservados || 0} registro(s) existente(s) foram preservados sem alteração.`)
     }
     catch (err) { setError(err instanceof Error ? err.message : 'Falha ao aplicar os registros.') } finally { importOperationLockRef.current = false; setActionLoading(false) }
+  }
+
+  async function runReconciliation() {
+    if (selectedImportIds.length < 2) { setError('Selecione pelo menos duas importações para conciliar.'); return }
+    setReconciling(true); setError(''); setMessage(''); setReconciliation(null)
+    try {
+      const result = await reconcilePointImports(token, selectedImportIds)
+      if (!result.sucesso) throw new Error(result.erro || 'Não foi possível conciliar as importações.')
+      setReconciliation(result)
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Falha ao conciliar os lotes.') }
+    finally { setReconciling(false) }
   }
 
   async function ignorePending() {
@@ -1561,7 +1571,7 @@ function PointImportsView({ token }: { token: string }) {
         </div>
       </SectionCard>
     </div>
-    {pending && <SectionCard title="Revisão antes da aplicação" caption={`Importação ${pending.tipo === 'mensal' ? 'mensal' : 'diária'} · ${pending.arquivo_nome}`} className="import-review-card"><div className="import-summary"><div className="import-stat"><span>Linhas lidas</span><strong>{pending.total_linhas}</strong></div><div className="import-stat valid"><span>Pessoas localizadas</span><strong>{pending.linhas_encontradas}</strong></div><div className="import-stat invalid"><span>CPFs sem vínculo</span><strong>{pending.linhas_nao_encontradas}</strong></div><div className="import-stat invalid"><span>Linhas inconsistentes</span><strong>{pending.linhas_com_inconsistencia}</strong></div><div className="import-stat"><span>Importado por</span><strong>{pending.imported_by_name || 'Você'}</strong></div></div><div className="import-review-actions"><div><strong>{importHasBlockingIssues ? 'Aplicação bloqueada: corrija os erros e analise o arquivo novamente.' : 'Nenhuma inconsistência detectada nesta prévia.'}</strong><small>Se já houver batidas para as mesmas datas, o sistema pedirá confirmação antes de substituí-las.</small></div><div className="button-row"><button className="primary-button" onClick={() => void applyPending()} disabled={loading || actionLoading || reportLoading || pending.status !== 'pendente' || importHasBlockingIssues}>{actionLoading || reportLoading ? <RefreshCw className="spin" size={16} /> : <Check size={16} />} {pending.status === 'aplicada' ? 'Registros aplicados' : importHasBlockingIssues ? 'Corrija e reimporte' : 'Aplicar lote'}</button><button className="secondary-button" onClick={() => void ignorePending()} disabled={loading || actionLoading || reportLoading}>{pending.status === 'aplicada' ? 'Arquivar alerta' : pending.status === 'ignorada' ? 'Importação ignorada' : 'Ignorar e arquivar'}</button></div></div></SectionCard>}
+    {pending && <SectionCard title="Revisão antes da aplicação" caption={`Importação ${pending.tipo === 'mensal' ? 'mensal' : 'diária'} · ${pending.arquivo_nome}`} className="import-review-card"><div className="import-summary"><div className="import-stat"><span>Linhas lidas</span><strong>{pending.total_linhas}</strong></div><div className="import-stat valid"><span>Pessoas localizadas</span><strong>{pending.linhas_encontradas}</strong></div><div className="import-stat invalid"><span>CPFs sem vínculo</span><strong>{pending.linhas_nao_encontradas}</strong></div><div className="import-stat invalid"><span>Linhas inconsistentes</span><strong>{pending.linhas_com_inconsistencia}</strong></div><div className="import-stat"><span>Importado por</span><strong>{pending.imported_by_name || 'Você'}</strong></div></div><div className="import-review-actions"><div><strong>{importHasBlockingIssues ? 'Aplicação bloqueada: corrija os erros e analise o arquivo novamente.' : 'Nenhuma inconsistência detectada nesta prévia.'}</strong><small>Batidas já existentes nunca serão substituídas. Conflitos são preservados e informados no resultado.</small></div><div className="button-row"><button className="primary-button" onClick={() => void applyPending()} disabled={loading || actionLoading || reportLoading || pending.status !== 'pendente' || importHasBlockingIssues}>{actionLoading || reportLoading ? <RefreshCw className="spin" size={16} /> : <Check size={16} />} {pending.status === 'aplicada' ? 'Registros aplicados' : importHasBlockingIssues ? 'Corrija e reimporte' : 'Aplicar sem substituir'}</button><button className="secondary-button" onClick={() => void ignorePending()} disabled={loading || actionLoading || reportLoading}>{pending.status === 'aplicada' ? 'Arquivar alerta' : pending.status === 'ignorada' ? 'Importação ignorada' : 'Ignorar e arquivar'}</button></div></div></SectionCard>}
     <SectionCard title="Histórico de importações" caption="Consulte resultado, competência, operador e situação de cada arquivo">
       <details className="import-history-help">
         <summary><Info size={15} /><span>Como interpretar este histórico</span></summary>
@@ -1571,6 +1581,11 @@ function PointImportsView({ token }: { token: string }) {
           <p><strong>Pendente:</strong> prévia aguardando decisão. <strong>Aplicada:</strong> linhas vinculadas gravadas. <strong>Ignorada:</strong> arquivada sem aplicar registros.</p>
         </div>
       </details>
+      <div className="import-reconcile-tools">
+        <div className="import-reconcile-heading"><div><strong>Conciliação entre lotes</strong><small>Compare 2–20 importações selecionadas. A conciliação é somente leitura; nenhuma batida é alterada.</small></div><button type="button" className="secondary-button" onClick={() => void runReconciliation()} disabled={reconciling || selectedImportIds.length < 2}>{reconciling ? <RefreshCw size={15} className="spin" /> : <Search size={15} />} Conciliar {selectedImportIds.length || ''}</button></div>
+        <div className="import-reconcile-selection">{imports.map((item) => <label key={item.id}><input type="checkbox" checked={selectedImportIds.includes(item.id)} onChange={(event) => { setSelectedImportIds((current) => event.target.checked ? current.length < 20 ? [...current, item.id] : current : current.filter((id) => id !== item.id)); setReconciliation(null) }} disabled={reconciling || (!selectedImportIds.includes(item.id) && selectedImportIds.length >= 20)} /><span><strong>{item.tipo === 'mensal' ? 'Mensal' : 'Diário'} · {item.competencia}</strong><small>{item.arquivo_nome} · {item.status}</small></span></label>)}</div>
+        {reconciliation && <div className="import-reconcile-results"><strong>{reconciliation.achados?.length || 0} chave(s) com divergência entre lotes ou em relação ao ponto atual</strong>{!reconciliation.achados?.length ? <p>Nenhum conflito encontrado nos lotes selecionados.</p> : <div className="table-wrap"><table><thead><tr><th>Funcionário</th><th>Data</th><th>Tipo de achado</th><th>Valores por lote</th></tr></thead><tbody>{reconciliation.achados.map((finding) => <tr key={`${finding.funcionario_id}-${finding.data}`}><td>{finding.funcionario}</td><td>{formatDate(finding.data)}</td><td>{[finding.divergencia_entre_lotes ? 'Entre lotes' : '', finding.divergencia_registro_atual ? 'Vs. batida atual' : ''].filter(Boolean).join(' · ')}</td><td>{finding.lotes.map((lot, index) => <small className="import-reconcile-value" key={`${String(lot.importacao_id)}-${index}`}>{String(lot.arquivo)} ({String(lot.status_lote)}): {String(lot.entrada_1 || '—')} / {String(lot.saida_1 || '—')} · {String(lot.total_normais || '—')}</small>)}</td></tr>)}</tbody></table></div>}</div>}
+      </div>
       <div className="import-history">
         {imports.length === 0 ? <EmptyState title="Nenhuma importação ainda" description="A primeira análise aparecerá aqui com operador, competência e resultado por CPF." /> : imports.map((item) => <button className={`import-history-row ${pendingId === item.id ? 'is-selected' : ''}`} key={item.id} onClick={() => void loadPreview(item.id, item.tipo)} disabled={loading || actionLoading || reportLoading}>
           <span className="document-icon"><FileSpreadsheet size={18} /></span>

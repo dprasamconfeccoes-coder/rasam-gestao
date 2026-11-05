@@ -224,6 +224,15 @@ export function assignPointSchedule(token: string, funcionarioId: string, jornad
   })
 }
 
+export function assignPointScheduleBulk(token: string, funcionarioIds: string[], jornadaId: string, vigenciaInicio: string) {
+  return rpc<{ sucesso: boolean; erro?: string; quantidade?: number; resultados?: Array<{ funcionario_id: string; atribuicao_id: string; vigencia_fim: string | null }> }>('app_admin_atribuir_jornada_ponto_lote', {
+    p_token: token,
+    p_funcionario_ids: funcionarioIds,
+    p_jornada_id: jornadaId,
+    p_vigencia_inicio: vigenciaInicio,
+  })
+}
+
 export function decidePointInconsistency(token: string, funcionarioId: string, data: string, status: 'aprovada' | 'justificada', justificativa = '') {
   return rpc<{ sucesso: boolean; erro?: string }>('app_decidir_inconsistencia_ponto', {
     p_token: token,
@@ -510,8 +519,12 @@ export function listPointImports(token: string) {
   return rpc<{ sucesso: boolean; erro?: string; importacoes: PointImportSummary[] }>('app_listar_importacoes', { p_token: token })
 }
 
-export function applyPointImport(token: string, importacaoId: string, confirmarSubstituicao = false) {
-  return rpc<{ sucesso: boolean; erro?: string; status?: string; linhas_aplicadas?: number; linhas_com_inconsistencia?: number; confirmacao_substituicao_requerida?: boolean; registros_existentes?: number }>('app_aplicar_importacao_ponto', { p_token: token, p_importacao_id: importacaoId, p_confirmar_substituicao: confirmarSubstituicao })
+export function applyPointImport(token: string, importacaoId: string) {
+  return rpc<{ sucesso: boolean; erro?: string; status?: string; linhas_aplicadas?: number; linhas_inseridas?: number; registros_existentes_preservados?: number; linhas_com_inconsistencia?: number }>('app_aplicar_importacao_ponto', { p_token: token, p_importacao_id: importacaoId, p_confirmar_substituicao: false })
+}
+
+export function reconcilePointImports(token: string, importacaoIds: string[]) {
+  return rpc<{ sucesso: boolean; erro?: string; lotes?: Array<{ id: string; tipo: string; competencia: string; arquivo_nome: string; status: string; created_at: string; applied_at: string | null }>; achados?: Array<{ funcionario_id: string; funcionario: string; data: string; quantidade_lotes: number; lotes: Array<Record<string, unknown>>; divergencia_entre_lotes: boolean; divergencia_registro_atual: boolean }>; achados_retornados?: number; limite?: number; politica?: string }>('app_conciliar_importacoes_ponto', { p_token: token, p_importacao_ids: importacaoIds })
 }
 
 export function ignorePointImport(token: string, importacaoId: string) {

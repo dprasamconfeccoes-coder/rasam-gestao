@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { AlertCircle, CalendarClock, Check, ChevronDown, Clock3, LoaderCircle, Plus, RefreshCw, Save, Search, ShieldCheck, UserRound, X } from 'lucide-react'
 import { ConfirmationModal, EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate } from '../components/ui'
-import { assignPointSchedule, deactivatePointSchedule, listEmployeePointSchedules, listPointSchedules, savePointSchedule, searchEmployees } from '../lib/api'
+import { assignPointSchedule, assignPointScheduleBulk, deactivatePointSchedule, listEmployeePointSchedules, listPointSchedules, savePointSchedule, searchEmployees } from '../lib/api'
 import type { EmployeeRow, PointScheduleAssignment, PointScheduleMode, PointScheduleTemplate } from '../lib/types'
 import { createEmptyScheduleWeek, distributeWeeklyMinutes, formatDuration, periodMinutes, scheduleWeeklyMinutes, validateSchedule, WEEK_DAYS, type WorkPeriod, type WorkScheduleWeek } from '../lib/point-schedules'
 import './point-schedules.css'
@@ -50,6 +50,8 @@ export function PointSchedulesPanel({ token }: { token: string }) {
   const [employeeQuery, setEmployeeQuery] = useState('')
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState('')
   const [employeeResults, setEmployeeResults] = useState<EmployeeRow[]>([])
+  const [bulkEmployeeIds, setBulkEmployeeIds] = useState<string[]>([])
+  const [bulkAssigning, setBulkAssigning] = useState(false)
   const [employeeResultsTotal, setEmployeeResultsTotal] = useState(0)
   const [employeeLoading, setEmployeeLoading] = useState(false)
   const [employeeLoadingMore, setEmployeeLoadingMore] = useState(false)
@@ -294,6 +296,28 @@ export function PointSchedulesPanel({ token }: { token: string }) {
     } finally { setAssigning(false) }
   }
 
+  async function submitBulkAssignment() {
+    if (!bulkEmployeeIds.length) { setAssignmentError('Selecione pelo menos um funcionário para a atribuição em massa.'); return }
+    if (!assignmentId || !effectiveDate) { setAssignmentError('Selecione uma jornada ativa e a data de vigência.'); return }
+    const template = templates.find((item) => item.id === assignmentId)
+    const employeeNames = employeeResults.filter((employee) => bulkEmployeeIds.includes(employee.id)).map((employee) => employee.nome)
+    const detail = employeeNames.length <= 6 ? employeeNames.join(', ') : `${employeeNames.slice(0, 6).join(', ')} e mais ${employeeNames.length - 6}`
+    if (!window.confirm(`Atribuir “${template?.nome || 'jornada selecionada'}” a ${bulkEmployeeIds.length} funcionário(s), com vigência em ${formatDate(effectiveDate)}?
+
+${detail}
+
+A operação será atômica: em caso de conflito, nenhuma atribuição será gravada.`)) return
+    setBulkAssigning(true); setAssignmentError(''); setAssignmentNotice('')
+    try {
+      const result = await assignPointScheduleBulk(token, bulkEmployeeIds, assignmentId, effectiveDate)
+      if (!result.sucesso) throw new Error(result.erro || 'Não foi possível atribuir a jornada em massa.')
+      setAssignmentNotice(`Jornada atribuída com sucesso a ${result.quantidade || bulkEmployeeIds.length} funcionário(s).`)
+      setBulkEmployeeIds([])
+      if (selectedEmployee) await selectEmployee(selectedEmployee)
+    } catch (cause) { setAssignmentError(cause instanceof Error ? cause.message : 'Falha na atribuição em massa.') }
+    finally { setBulkAssigning(false) }
+  }
+
   const weeklyTotal = useMemo(() => scheduleWeeklyMinutes(editor.mode, editor.days), [editor.mode, editor.days])
   const currentAssignment = assignments.find((item) => !item.vigencia_fim || item.vigencia_fim >= localDate())
 
@@ -311,6 +335,7 @@ export function PointSchedulesPanel({ token }: { token: string }) {
       <SectionCard title="Atribuir jornada" caption="Escolha uma pessoa e a data de início; o sistema mantém as vigências anteriores.">
         <form className="schedule-employee-search" onSubmit={(event) => void runEmployeeSearch(event)}><label>Buscar funcionário<input value={employeeQuery} onChange={(event) => setEmployeeQuery(event.target.value)} placeholder="Nome ou CPF" autoComplete="off" disabled={employeeLoading || employeeLoadingMore} /></label><button type="submit" className="secondary-button" disabled={employeeLoading || employeeLoadingMore}>{employeeLoading || employeeLoadingMore ? <LoaderCircle size={15} className="spin" /> : <Search size={15} />} Buscar</button></form>
         {employeeError ? <div className="form-error schedule-inline-error" role="alert"><AlertCircle size={15} />{employeeError}</div> : null}
+        {employeeResults.length > 0 ? <div className="schedule-bulk-panel"><div className="schedule-bulk-title"><strong>Atribuição em massa</strong><small>Selecione pessoas entre os resultados carregados ({bulkEmployeeIds.length} selecionada(s)); máximo 200 por operação.</small></div><div className="schedule-bulk-controls"><label>Jornada ativa<select value={assignmentId} onChange={(event) => setAssignmentId(event.target.value)}><option value="">Selecione um modelo</option>{templates.map((template) => <option key={template.id} value={template.id}>{template.nome} · v{template.versao}</option>)}</select></label><label>Vigência a partir de<input type="date" value={effectiveDate} onChange={(event) => setEffectiveDate(event.target.value)} /></label><button type="button" className="primary-button" onClick={() => void submitBulkAssignment()} disabled={bulkAssigning || bulkEmployeeIds.length === 0 || !assignmentId}>{bulkAssigning ? <RefreshCw size={15} className="spin" /> : <Check size={15} />} Atribuir selecionados</button></div><div className="schedule-bulk-list">{employeeResults.map((employee) => <label key={employee.id}><input type="checkbox" checked={bulkEmployeeIds.includes(employee.id)} onChange={(event) => setBulkEmployeeIds((current) => event.target.checked ? current.length < 200 ? [...current, employee.id] : current : current.filter((id) => id !== employee.id))} disabled={bulkAssigning || (!bulkEmployeeIds.includes(employee.id) && bulkEmployeeIds.length >= 200)} /><span>{employee.nome}</span></label>)}</div></div> : null}
         {employeeResults.length ? <div className="schedule-employee-results" aria-label="Resultados da busca">{employeeResults.map((employee) => <button key={employee.id} type="button" className={`schedule-employee-result${selectedEmployee?.id === employee.id ? ' is-selected' : ''}`} onClick={() => void selectEmployee(employee)} disabled={assigning}><span className="schedule-employee-avatar"><UserRound size={16} /></span><span><strong>{employee.nome}</strong><small>{employeeTypeLabel(employee.tipo_vinculo)} · {maskedCpf(employee.cpf)}</small></span><StatusPill value={employee.situacao} /></button>)}</div> : null}
         {employeeResults.length > 0 && employeeResults.length < employeeResultsTotal ? <button type="button" className="secondary-button schedule-load-more" onClick={() => void loadMoreEmployees()} disabled={employeeLoadingMore || employeeLoading}><ChevronDown size={15} className={employeeLoadingMore ? 'spin' : ''} /> {employeeLoadingMore ? 'Carregando…' : `Carregar mais (${employeeResults.length} de ${employeeResultsTotal})`}</button> : null}
         {selectedEmployee ? <div className="schedule-employee-detail"><div className="schedule-selected-employee"><div><span className="eyebrow">Funcionário selecionado</span><strong>{selectedEmployee.nome}</strong><small>{employeeTypeLabel(selectedEmployee.tipo_vinculo)} · {selectedEmployee.cargo || 'Cargo não informado'}</small></div><button type="button" className="icon-button" onClick={() => { selectionRequestRef.current += 1; setHistoryLoading(false); setSelectedEmployee(null); setAssignments([]); setAssignmentNotice(''); setAssignmentError('') }} disabled={assigning} aria-label="Limpar funcionário selecionado"><X size={15} /></button></div>
