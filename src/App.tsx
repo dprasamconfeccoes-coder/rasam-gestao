@@ -124,7 +124,7 @@ import { EmployeeVacationPortal } from './features/EmployeeVacationPortal'
 import { PayslipImportDashboard } from './features/PayslipImportDashboard'
 import { EmployeeManagementDashboard } from './features/EmployeeManagementDashboard'
 import { EmployeeOwnDossier } from './features/EmployeeOwnDossier'
-import { PayrollBenefitsDiscounts } from './features/PayrollBenefitsDiscounts'
+import { PayrollManagementDashboard } from './features/PayrollManagementDashboard'
 import { durationToMinutes, formatDuration, hasDurationValue, periodMinutes } from './lib/point-schedules'
 import { pointRowsFromFile } from './lib/point-import-parser'
 import {
@@ -156,12 +156,12 @@ const navItems: NavItem[] = [
   { key: 'ordens', label: 'Ordens de serviço', description: 'Cadastro de lotes e financeiro', icon: ClipboardList, group: 'Operação', profiles: adminProfiles },
   { key: 'producao', label: 'Produção', description: 'Lotes e costura', icon: Factory, group: 'Operação', profiles: managerProfiles },
   { key: 'financeiro', label: 'Financeiro', description: 'Fluxo e compromissos', icon: CircleDollarSign, group: 'Controle', profiles: managerProfiles },
+  { key: 'folha', label: 'Folha de pagamento', description: 'Simulação CLT, dados fiscais e lançamentos', icon: Receipt, group: 'Controle', profiles: adminProfiles },
   { key: 'acordos', label: 'Acordos e parcelas', description: 'Pagamentos trabalhistas', icon: Scale, group: 'Controle', profiles: adminProfiles },
   { key: 'dividas', label: 'Dívidas', description: 'Saldos e vencimentos', icon: WalletCards, group: 'Controle', profiles: adminProfiles },
   { key: 'relatorios', label: 'Relatórios', description: 'Leituras da operação', icon: BarChart3, group: 'Controle', profiles: managerProfiles },
   { key: 'importacoes', label: 'Gestão de ponto', description: 'Equipe, importações e jornadas', icon: FileSpreadsheet, group: 'Controle', profiles: managerProfiles },
   { key: 'importar_holerite', label: 'Importar holerite', description: 'PDF por funcionário e competência', icon: Receipt, group: 'Controle', profiles: managerProfiles },
-  { key: 'beneficios_descontos', label: 'Benefícios e descontos', description: 'Lançamentos em folha por competência', icon: CircleDollarSign, group: 'Controle', profiles: adminProfiles },
   { key: 'rh', label: 'Recursos humanos', description: 'Painel e operações de RH', icon: BriefcaseBusiness, group: 'Pessoas', profiles: adminProfiles },
   { key: 'perfil', label: 'Meu perfil', description: 'Dados cadastrais', icon: UserRound, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'ponto', label: 'Meu ponto', description: 'Jornada registrada', icon: Fingerprint, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
@@ -1558,6 +1558,9 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
       : <><PageHeading eyebrow="Acesso restrito" title="Gestão de dívidas" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
     if (active === 'relatorios') return <FinanceReportsDashboard token={token} isAdmin={adminProfiles.includes(user.perfil)} />
     if (active === 'rh') return <AdminCenter token={token} initialTab="painel" />
+    if (active === 'folha') return adminProfiles.includes(user.perfil)
+      ? <PayrollManagementDashboard token={token} onNavigateToHR={() => navigate('rh')} />
+      : <><PageHeading eyebrow="Acesso restrito" title="Folha de pagamento" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
     if (active === 'producao') return <FactoryProductionDashboard token={token} />
     if (active === 'perfil') return <EmployeeProfileView token={token} onProfileUpdated={setProfile} />
     if (active === 'ponto') return <PointView token={token} user={user} />
@@ -1568,7 +1571,9 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'solicitacoes') return <EmployeeHRRequests token={token} />
     if (active === 'importacoes') return <Suspense fallback={<LoadingState label="Carregando gestão de ponto…" />}><PointManagementDashboard team={(refreshSignal) => <PointView token={token} user={user} refreshSignal={refreshSignal} />} imports={<PointImportsView token={token} />} schedules={<PointSchedulesPanel token={token} />} /></Suspense>
     if (active === 'importar_holerite') return <PayslipImportDashboard token={token} />
-    if (active === 'beneficios_descontos') return <PayrollBenefitsDiscounts token={token} onNavigateToReports={() => navigate('relatorios')} />
+    if (active === 'beneficios_descontos') return adminProfiles.includes(user.perfil)
+      ? <PayrollManagementDashboard token={token} initialTab="beneficios" />
+      : <><PageHeading eyebrow="Acesso restrito" title="Folha de pagamento" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
     if (active === 'acordos') return <AgreementsDashboard token={token} />
     if (active === 'documentos') return <InternalDocumentsDashboard token={token} canManage={adminProfiles.includes(user.perfil)} />
     return <ControlModuleView token={token} module={active} />

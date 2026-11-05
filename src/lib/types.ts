@@ -6,6 +6,7 @@ export type ModuleKey =
   | 'ordens'
   | 'producao'
   | 'financeiro'
+  | 'folha'
   | 'dividas'
   | 'rh'
   | 'relatorios'
@@ -1079,6 +1080,71 @@ export interface EmployeeTimelineResponse {
   total: number
   offset: number
   limite: number
+}
+
+export interface PayrollCompetenceEmployee {
+  funcionario_id: string
+  nome: string
+  cargo: string | null
+  tipo_vinculo: string
+  registrado: boolean
+  salario_atual: number | null
+  salario_periodo: string | null
+  salario_base: number | null
+  dependentes_irrf: number | null
+  outros_vinculos: 'nao' | 'sim' | null
+  outras_fontes_rendimento: 'nao' | 'sim' | null
+  pensao_alimenticia: number | null
+  pensao_confirmada: boolean
+  declaracao_confirmada: boolean
+  confirmado_em: string | null
+  dados_confirmados: boolean
+}
+
+export interface PayrollCompetenceResponse {
+  sucesso: boolean
+  erro?: string
+  competencia?: string
+  funcionarios?: PayrollCompetenceEmployee[]
+  regras?: Record<string, unknown>
+}
+
+export interface PayrollSimulationItem {
+  funcionario_id: string
+  nome: string
+  cargo: string | null
+  jornada_nome: string | null
+  carga_semanal_minutos: number | null
+  dsr_desconto: number
+  dsr_semanas_perdidas: number
+  horas_extras_50_valor: number
+  horas_extras_100_valor: number
+  status: 'simulado' | 'pendente' | string
+  bloqueios: string[]
+  remuneracao_tributavel_estimada?: number
+  base_inss_estimada?: number
+  inss_estimado?: number
+  memoria_irrf?: Record<string, number>
+  irrf_estimado?: number
+  liquido_estimado?: number
+}
+
+export interface PayrollSimulationResponse {
+  sucesso: boolean
+  erro?: string
+  competencia?: string
+  status?: string
+  bloqueio_geral?: string
+  versao_regra?: string
+  source_fingerprint?: string
+  quantidade_funcionarios?: number
+  quantidade_prontos?: number
+  quantidade_pendentes?: number
+  itens?: PayrollSimulationItem[]
+  totais?: { inss_estimado: number; irrf_estimado: number; liquido_estimado: number } | null
+  pagamento_gerado?: boolean
+  aviso?: string
+  fontes?: string[]
 }
 
 export interface FechamentoSummary { funcionarios?: number; faltas_injustificadas?: number; faltas_justificadas?: number; horas_extras_50?: number; horas_extras_100?: number; extras_50_valor?: number; extras_100_valor?: number; dsr_desconto?: number; dsr_semanas_perdidas?: number; dsr_pendencias?: number; salarios_pendentes?: number; importacoes_pendentes?: number; pendencias_total?: number }

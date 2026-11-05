@@ -978,6 +978,37 @@ export function adminRelatorioFechamento(token: string, competencia: string, tip
   return rpc<import('./types').FechamentoReport>('app_admin_relatorio_fechamento', { p_token: token, p_competencia: competencia, p_tipo: tipo, p_incluir_informais_vale: incluirInformaisVale })
 }
 
+export function adminFolhaDadosListar(token: string, competencia: string) {
+  return rpc<import('./types').PayrollCompetenceResponse>('app_admin_folha_dados_listar', { p_token: token, p_competencia: competencia })
+}
+
+export function adminFolhaDadosSalvar(token: string, payload: {
+  funcionarioId: string
+  competencia: string
+  salarioBase: number
+  dependentesIrrf: number
+  outrosVinculos: 'nao' | 'sim'
+  outrasFontesRendimento: 'nao' | 'sim'
+  pensaoAlimenticia: number
+}) {
+  return rpc<{ sucesso: boolean; erro?: string; mensagem?: string }>('app_admin_folha_dados_salvar', {
+    p_token: token,
+    p_funcionario_id: payload.funcionarioId,
+    p_competencia: payload.competencia,
+    p_salario_base: payload.salarioBase,
+    p_dependentes_irrf: payload.dependentesIrrf,
+    p_outros_vinculos: payload.outrosVinculos,
+    p_outras_fontes_rendimento: payload.outrasFontesRendimento,
+    p_pensao_alimenticia: payload.pensaoAlimenticia,
+    p_pensao_confirmada: true,
+    p_declaracao_confirmada: true,
+  })
+}
+
+export function adminFolhaSimular(token: string, competencia: string) {
+  return rpc<import('./types').PayrollSimulationResponse>('app_admin_folha_simular_clt', { p_token: token, p_competencia: competencia })
+}
+
 export function adminFinanceiroWorkspace(token: string) {
   return rpc<import('./types').FinanceiroWorkspace>('app_admin_financeiro', { p_token: token })
 }

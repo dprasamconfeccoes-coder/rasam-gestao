@@ -48,3 +48,15 @@
 - [ ] **Jornada 42h:** preparar antes de 16/12/2026 como opção versionada por vigência/empregado, sem sobrescrever histórico nem reduzir salário nominal. A EC 141/2026 prevê dois repousos semanais, um preferencialmente aos domingos; não automatizar desconto de um ou dois repousos por falta até validar a interpretação com contabilidade/jurídico e a norma coletiva aplicável.
 - [ ] **Jornada 40h:** preparar como opção versionada com vigência a partir de 16/12/2027, preservando histórico e remuneração nominal conforme a EC 141/2026.
 - [ ] **Testes automatizados de folha:** criar casos sintéticos para semana parcial, falta justificada/injustificada, duas faltas na mesma semana, importação duplicada/pendente, mudança de jornada, salário ausente e prévia alterada após cálculo. Não usar dados reais para fabricar cenários.
+
+
+## Folha mensal CLT — Fase 1
+
+- [x] **Área administrativa própria:** item “Folha de pagamento” no menu Controle, restrito a administradores, com abas para dados da competência, simulação e gestão existente de benefícios/descontos.
+- [x] **Declarações segregadas por empresa, pessoa e mês:** salvar salário conferido contra a ficha vigente, dependentes de IRRF, pensão alimentícia e confirmação explícita de outros vínculos/rendimentos; tabela com RLS sem acesso direto e alterações auditadas.
+- [x] **Simulação preliminar CLT mensal 2026:** calcular INSS progressivo até o teto e IRRF com tabela mensal/redutor de 2026, usando a prévia 44h validada como fonte de remuneração, horas extras e DSR; exibir por pessoa e totais somente quando a competência estiver apta.
+- [x] **Bloqueios conservadores:** sem valor para admissão/desligamento parcial, remuneração abaixo do piso previdenciário, faltas/atrasos/férias/afastamentos, benefício/desconto não classificado, múltiplas fontes, divergência salarial ou pendência de ponto/DSR. A página não fecha folha nem gera contas a pagar.
+- [x] **Backend Supabase:** migração 0107 aplicada; helpers de cálculo tributário não executáveis pelo cliente e RPCs administrativas exigem sessão/perfil no servidor.
+- [ ] **Homologação contábil:** conferir arredondamento, incidências e exemplos anonimizados contra a contabilidade antes de usar qualquer estimativa para pagamento/transmissão. O relatório legal registra ressalva de consistência nos exemplos públicos de IRRF consultados.
+- [ ] **Próxima fase:** classificar incidência/autorizações de benefícios e descontos no cálculo e, depois, gerar uma conta a pagar por funcionário somente a partir de folha revisada/confirmada, com proteção contra duplicidade e comprovante privado por transação.
+- [ ] **Fases separadas:** 13º, férias, rescisões, encargos patronais, múltiplas fontes/rendimentos, diaristas e jornadas 42h/40h permanecem fora desta primeira versão.
