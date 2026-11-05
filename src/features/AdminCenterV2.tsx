@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Check, Download, FileText, RefreshCw, ShieldCheck, UserPlus, X } from 'lucide-react'
+import { Check, Download, RefreshCw, ShieldCheck, UserPlus, X } from 'lucide-react'
 import { adminCalcularFechamento, adminConfirmarFechamento, adminFinanceiroWorkspace, adminJustifications, adminLeaves, adminMedicalLeaves, adminPoint, adminProntuario, adminRelatorioFechamento, adminRequests, adminVacationHistoricalProgramming, adminVacationManagement, adminVisualizarFechamento, decideJustification, listEmployees } from '../lib/api'
 import type { AdminJustificationRow, AdminLeaveRow, AdminMedicalLeaveRow, AdminPointRow, AdminRequestRow, AdminVacationManagementRow, EmployeeRow, FechamentoPreview, FinanceiroWorkspace, ProntuarioResponse, VacationHistoricalProgrammingRow, VacationImportBatch, VacationReconciliationSummary } from '../lib/types'
 import { EmptyState, ErrorState, PageHeading, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
 import { FinanceHealthDashboard } from './FinanceHealthDashboard'
 import { HRDashboardPanel } from './HRDashboardPanel'
+import { EmployeeTimeline } from './EmployeeTimeline'
 import { HRLeavePanel } from './HRLeavePanel'
 import { HRLifecyclePanel } from './HRLifecyclePanel'
 import { AdminMedicalLeavesDashboard } from './AdminMedicalLeavesDashboard'
@@ -40,9 +41,62 @@ export function AdminCenterV2({token,initialTab='ponto'}:{token:string;initialTa
  {tab==='admissoes'&&<HRLifecyclePanel token={token} employees={employees} onDone={load} />}
  {tab==='solicitacoes'&&<AdminHRRequestsDashboard token={token} employees={employees} onRefresh={load} />}
  {tab==='cadastro'&&<SectionCard title="Cadastrar funcionário" caption="Cadastro centralizado por tipo de vínculo"><div className="form-stack"><p className="employee-form-help">Use o mesmo fluxo para registrar um CLT com a ficha funcional completa ou um diarista com apenas nome e CPF.</p><button className="primary-button" type="button" onClick={()=>setRegistrationOpen(true)}><UserPlus size={16}/> Abrir cadastro de funcionário</button></div>{registrationOpen&&<EmployeeRegistrationWizard open={registrationOpen} token={token} onClose={()=>setRegistrationOpen(false)} onCreated={()=>{setMessage('Funcionário cadastrado.');void load()}}/>}</SectionCard>}
- {tab==='prontuario'&&<div className="admin-prontuario-tab two-column"><SectionCard title="Prontuário por funcionário" caption="Cadastro, documentos, RH, ponto e timeline"><select value={selected} onChange={e=>openRecord(e.target.value)}><option value="">Selecione um funcionário</option>{employees.map(e=><option key={e.id} value={e.id}>{e.nome} · {e.cpf}</option>)}</select>{record?.funcionario?<div className="profile-summary"><strong>{v(record.funcionario.nome)}</strong><small>{v(record.funcionario.cpf)} · {v(record.funcionario.tipo_vinculo)} · {record.funcionario.registrado?'elegível para escritório':'fora da folha oficial'}</small><div className="metric-grid compact"><div><b>{record.ponto.length}</b><small>pontos</small></div><div><b>{record.atestados.length}</b><small>atestados</small></div><div><b>{record.justificativas.length}</b><small>justificativas</small></div></div></div>:<EmptyState title="Selecione um cadastro" description="A visão individual evita misturar dados de pessoas diferentes."/>}</SectionCard>{record&&<SectionCard title="Linha do tempo" caption="Eventos recentes do vínculo"><div className="document-list">{record.timeline.map((x,i)=><div className="document-row" key={String(x.id||i)}><div><strong>{v(x.evento)}</strong><small>{v(x.data_evento)} · {v(x.descricao)}</small></div></div>)}</div><div className="callout"><FileText size={18}/><p>{record.documentos.length} documentos e {record.advertencias.length} advertências neste prontuário.</p></div></SectionCard>}</div>}
+ {tab==='prontuario'&&<div className="admin-prontuario-page">
+  <div className="admin-prontuario-overview">
+    <SectionCard title="Prontuário por funcionário" caption="Selecione uma pessoa para consultar a ficha e o histórico funcional.">
+      <select className="admin-prontuario-select" value={selected} onChange={e=>openRecord(e.target.value)}>
+        <option value="">Selecione um funcionário</option>
+        {employees.map(e=><option key={e.id} value={e.id}>{e.nome} · {e.cpf}</option>)}
+      </select>
+      {record?.funcionario
+        ? <div className="profile-summary admin-prontuario-profile">
+            <strong>{v(record.funcionario.nome)}</strong>
+            <small>{v(record.funcionario.cpf)} · {v(record.funcionario.tipo_vinculo)} · {record.funcionario.registrado?'elegível para escritório':'fora da folha oficial'}</small>
+            <div className="metric-grid compact">
+              <div><b>{record.ponto.length}</b><small>registros de ponto consultados</small></div>
+              <div><b>{record.atestados.length}</b><small>atestados carregados</small></div>
+              <div><b>{record.justificativas.length}</b><small>justificativas carregadas</small></div>
+            </div>
+          </div>
+        : <EmptyState title="Selecione um cadastro" description="A visão individual evita misturar dados de pessoas diferentes."/>}
+    </SectionCard>
+    {record?.funcionario&&<SectionCard title="Resumo do vínculo" caption="Dados principais da relação de trabalho.">
+      <div className="admin-prontuario-facts">
+        <div><span>Data de admissão</span><strong>{record.funcionario.data_admissao?formatDate(String(record.funcionario.data_admissao)):'Não informada'}</strong></div>
+        <div><span>Cargo</span><strong>{v(record.funcionario.cargo)}</strong></div>
+        <div><span>Tipo de vínculo</span><strong>{v(record.funcionario.tipo_vinculo)}</strong></div>
+        <div><span>Situação cadastral</span><strong>{record.funcionario.ativo===false?'Desligado':'Ativo'}</strong></div>
+      </div>
+    </SectionCard>}
+  </div>
+  {record&&<SectionCard title="Férias e afastamentos" caption={`${record.ferias.length} período(s) de férias · ${record.afastamentos.length} afastamento(s) cadastrado(s)`}>
+    <div className="admin-prontuario-periods">
+      <section className="admin-prontuario-period-group">
+        <div className="admin-prontuario-period-heading"><div><h3>Férias</h3><p>Períodos aquisitivos e de gozo registrados.</p></div><span>{record.ferias.length}</span></div>
+        <div className="admin-prontuario-period-list">
+          {record.ferias.map((x,i)=><div className="admin-prontuario-period-item" key={String(x.id||i)}>
+            <div><strong>Férias · {v(x.status)}</strong><small>{x.inicio?formatDate(String(x.inicio)):'Data não informada'} até {x.fim?formatDate(String(x.fim)):'em aberto'}</small>{Boolean(x.periodo_aquisitivo_inicio)&&<small>Período aquisitivo: {formatDate(String(x.periodo_aquisitivo_inicio))}{x.periodo_aquisitivo_fim?` a ${formatDate(String(x.periodo_aquisitivo_fim))}`:''}</small>}</div>
+            <StatusPill value={v(x.status)}/>
+          </div>)}
+          {record.ferias.length===0&&<p className="admin-prontuario-period-empty">Nenhum período de férias cadastrado.</p>}
+        </div>
+      </section>
+      <section className="admin-prontuario-period-group">
+        <div className="admin-prontuario-period-heading"><div><h3>Afastamentos</h3><p>Períodos que impactam a jornada e o fechamento.</p></div><span>{record.afastamentos.length}</span></div>
+        <div className="admin-prontuario-period-list">
+          {record.afastamentos.map((x,i)=><div className="admin-prontuario-period-item" key={String(x.id||`a-${i}`)}>
+            <div><strong>{v(x.tipo)} · {v(x.status)}</strong><small>{x.inicio?formatDate(String(x.inicio)):'Data não informada'} até {x.fim?formatDate(String(x.fim)):'em aberto'}</small>{Boolean(x.motivo)&&<small>{v(x.motivo)}</small>}</div>
+            <StatusPill value={v(x.status)}/>
+          </div>)}
+          {record.afastamentos.length===0&&<p className="admin-prontuario-period-empty">Nenhum afastamento cadastrado.</p>}
+        </div>
+      </section>
+    </div>
+  </SectionCard>}
+  {record&&<div className="admin-prontuario-timeline"><EmployeeTimeline token={token} funcionarioId={selected}/></div>}
+</div>}
  {tab==='fechamento'&&<div className="two-column"><SectionCard title="Prévia do fechamento mensal" caption="Calcule, audite e confirme; calcular não fecha a competência"><label>Competência<input type="month" value={competencia} onChange={e=>{setCompetencia(e.target.value);setClosing(null)}}/></label><label className="check-line"><input type="checkbox" checked={informais} onChange={e=>setInformais(e.target.checked)}/> Incluir informais no relatório do vale</label><button className="primary-button" onClick={calculateClosing}><ShieldCheck size={16}/> Calcular prévia auditável</button><div className="callout"><ShieldCheck size={18}/><p>Regime atual: 44h semanais, divisor 220, DSR principal no domingo e repouso adicional no sábado. Se faltar salário, jornada vigente ou ponto conciliado, a tela bloqueia valores, relatórios e confirmação.</p></div>{closing&&<div className="closing-preview"><div className="closing-status"><StatusPill value={closing.status||'calculado'}/><small>{closing.status==='fechado'?'Confirmado em '+formatDate(closing.confirmado_at||''):closingPendingCount>0?`${closingPendingCount} pendências — fechamento bloqueado`:'Ainda não confirmado'}</small></div>{closingPendingCount>0?<div className="form-error" role="alert"><strong>Prévia bloqueada — não use valores para decisões.</strong><br/>Pendências: {closingPendingCount} · salários sem valor mensal: {v(closing.regras?.salarios_pendentes)} · semanas/jornadas/ponto a revisar: {v(closing.regras?.dsr_pendencias)} · importações pendentes: {v(closing.regras?.importacoes_pendentes)} · desligados ausentes na prévia: {v(closing.regras?.terminados_fora_da_previa)}. Corrija e recalcule.</div>:<div className="metric-grid compact"><div><b>{v(closing.resumo?.funcionarios)}</b><small>funcionários</small></div><div><b>{v(closing.resumo?.faltas_injustificadas)}</b><small>faltas injustificadas</small></div><div><b>{v(closing.resumo?.faltas_justificadas)}</b><small>faltas justificadas</small></div><div><b>{v(closing.linhas?.reduce((sum,row)=>sum+Number(row.dias_afastamento||0),0))}</b><small>dias de afastamento</small></div><div><b>{formatMoney(Number(closing.resumo?.extras_50_valor||0)+Number(closing.resumo?.extras_100_valor||0))}</b><small>valor de extras</small></div><div><b>{v(closing.resumo?.dsr_semanas_perdidas)}</b><small>DSR semanal perdido</small></div><div><b>{formatMoney(Number(closing.resumo?.dsr_desconto||0))}</b><small>desconto DSR</small></div></div>}{closing.status!=='fechado'?<div className="closing-confirm"><strong>Confirmação do gestor</strong><small>Revise a prévia e digite CONFIRMAR para fechar a competência.</small><input value={closingConfirmation} onChange={e=>setClosingConfirmation(e.target.value)} placeholder="CONFIRMAR"/><button className="primary-button" disabled={closingPendingCount>0||closingConfirmation.trim().toUpperCase()!=='CONFIRMAR'} onClick={confirmClosing}><Check size={16}/> Confirmar e fechar competência</button></div>:<div className="form-success"><Check size={16}/> Competência fechada e registrada na auditoria.</div>}</div>}</SectionCard><SectionCard title="Relatórios e auditoria" caption="Os relatórios usam a última prévia calculada"><button className="secondary-button" disabled={closingPendingCount>0} onClick={()=>report('escritorio')}><Download size={16}/> Relatório do escritório</button><button className="secondary-button" disabled={closingPendingCount>0} onClick={()=>report('vale')}><Download size={16}/> Relatório do vale-alimentação</button>{closingPendingCount>0?<EmptyState title="Detalhes financeiros ocultos" description="Corrija salário, atribuição de jornada e importação de ponto para liberar os valores."/>:closing?.linhas?.length?<div className="table-wrap closing-table"><table><thead><tr><th>Funcionário</th><th>Jornada</th><th>Carga semanal</th><th>Divisor</th><th>Extras 50%</th><th>Valor 50%</th><th>Extras 100%</th><th>Valor 100%</th><th>Faltas injust.</th><th>Afastamentos</th><th>DSR perdido / desconto</th></tr></thead><tbody>{closing.linhas.map((row,index)=><tr key={String(row.cpf||index)}><td>{v(row.nome)}</td><td>{v(row.jornada_nome)}</td><td>{Number(row.carga_semanal_minutos||0)>0?`${Number(row.carga_semanal_minutos)/60}h`:'—'}</td><td>{v(row.divisor_horas)}</td><td>{v(row.horas_extras_50)}</td><td>{formatMoney(Number(row.horas_extras_50_valor||0))}</td><td>{v(row.horas_extras_100)}</td><td>{formatMoney(Number(row.horas_extras_100_valor||0))}</td><td>{v(row.faltas_injustificadas)}</td><td>{v(row.dias_afastamento)}</td><td>{v(row.dsr_semanas_perdidas)} ocorrência(s) · {formatMoney(Number(row.dsr_desconto||0))}</td></tr>)}</tbody></table></div>:<EmptyState title="Nenhuma prévia carregada" description="Calcule a competência para visualizar o resumo por funcionário."/>}</SectionCard></div>}
  {tab==='holerites'&&<PayslipImportDashboard token={token} />}
  {tab==='avisos'&&<AdminNoticesDashboard token={token} />}
- {tab==='financeiro'&&<FinanceHealthDashboard token={token}/>} {tab==='prontuario'&&record&&<SectionCard title="Férias e afastamentos" caption="Próximos períodos e situação atual"><div className="document-list">{record.ferias.map((x,i)=><div className="document-row" key={String(x.id||i)}><div><strong>Férias · {v(x.status)}</strong><small>{v(x.inicio)} até {v(x.fim)} · retorno previsto após o fim do período</small></div><StatusPill value={v(x.status)}/></div>)}{record.afastamentos.map((x,i)=><div className="document-row" key={String(x.id||`a-${i}`)}><div><strong>{v(x.tipo)} · {v(x.status)}</strong><small>{v(x.inicio)} até {v(x.fim)} · {v(x.motivo)}</small></div><StatusPill value={v(x.status)}/></div>)}{record.ferias.length===0&&record.afastamentos.length===0&&<EmptyState title="Sem férias ou afastamentos lançados" description="Quando o RH cadastrar um período, ele aparecerá nesta ficha."/>}</div></SectionCard>}<div className="callout"><ShieldCheck size={18}/><p>A interface organiza o trabalho, mas a autorização continua validada por sessão, perfil e tenant nas RPCs do Supabase.</p></div></>
+ {tab==='financeiro'&&<FinanceHealthDashboard token={token}/>}<div className="callout"><ShieldCheck size={18}/><p>A interface organiza o trabalho, mas a autorização continua validada por sessão, perfil e tenant nas RPCs do Supabase.</p></div></>
 }

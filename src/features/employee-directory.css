@@ -113,64 +113,152 @@
 @media (max-width: 640px) { .employee-password-form .primary-button { width: 100%; } }
 
 
-/* Prontuários da Central de RH: conteúdo interno não deve encostar nas bordas do card. */
-.admin-prontuario-tab {
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
-  gap: 18px;
+/* Central de RH: prontuário em blocos separados, com respiro e largura segura. */
+.admin-prontuario-page {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
 }
-.admin-prontuario-tab > .section-card { min-width: 0; }
-.admin-prontuario-tab > .section-card > select {
+.admin-prontuario-page .section-card,
+.admin-prontuario-overview > .section-card { min-width: 0; }
+.admin-prontuario-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(300px, .9fr);
+  align-items: stretch;
+  gap: 20px;
+  min-width: 0;
+}
+.admin-prontuario-select {
   display: block;
   box-sizing: border-box;
   width: calc(100% - 40px);
   min-width: 0;
-  min-height: 42px;
+  min-height: 44px;
   margin: 18px 20px 0;
   padding: 10px 12px;
   border: 1px solid #d9d1c8;
-  border-radius: 9px;
+  border-radius: 10px;
   color: #29252b;
   background: #fff;
+  font: inherit;
 }
-.admin-prontuario-tab > .section-card > .profile-summary {
+.admin-prontuario-profile {
   display: grid;
-  gap: 7px;
+  gap: 8px;
   margin: 14px 20px 20px;
-  padding: 16px;
+  padding: 17px;
   border: 1px solid #e8e1d8;
-  border-radius: 12px;
+  border-radius: 13px;
   color: #29252b;
-  background: #fcfaf7;
+  background: linear-gradient(145deg, #fcfaf7, #fff);
 }
-.admin-prontuario-tab .profile-summary > strong { font-size: 14px; }
-.admin-prontuario-tab .profile-summary > small { color: #746d66; font-size: 10px; line-height: 1.5; }
-.admin-prontuario-tab .profile-summary .metric-grid.compact {
+.admin-prontuario-profile > strong { font-size: 15px; line-height: 1.35; }
+.admin-prontuario-profile > small { color: #746d66; font-size: 11px; line-height: 1.55; }
+.admin-prontuario-profile .metric-grid.compact {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 9px;
   margin: 8px 0 0;
 }
-.admin-prontuario-tab .profile-summary .metric-grid.compact > div {
+.admin-prontuario-profile .metric-grid.compact > div {
   display: grid;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
-  padding: 10px;
+  padding: 11px 10px;
   border: 1px solid #eee8e1;
-  border-radius: 9px;
+  border-radius: 10px;
   background: #fff;
 }
-.admin-prontuario-tab .profile-summary .metric-grid.compact b { color: #29252b; font-size: 15px; }
-.admin-prontuario-tab .profile-summary .metric-grid.compact small { color: #746d66; font-size: 9px; }
-.admin-prontuario-tab > .section-card > .state-card { margin: 16px 20px 20px; }
-.admin-prontuario-tab > .section-card > .callout { margin: 14px 20px 20px; }
+.admin-prontuario-profile .metric-grid.compact b { color: #29252b; font-size: 16px; }
+.admin-prontuario-profile .metric-grid.compact small { color: #746d66; font-size: 10px; line-height: 1.35; }
+.admin-prontuario-overview .state-card { margin: 16px 20px 20px; }
+.admin-prontuario-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 18px 20px 20px;
+}
+.admin-prontuario-facts > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid #eee8e1;
+  border-radius: 11px;
+  background: #fcfaf7;
+}
+.admin-prontuario-facts span { color: #82786f; font-size: 10px; font-weight: 700; }
+.admin-prontuario-facts strong { color: #29252b; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.admin-prontuario-periods {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 20px 20px;
+}
+.admin-prontuario-period-group {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid #eee8e1;
+  border-radius: 13px;
+  background: #fcfaf7;
+}
+.admin-prontuario-period-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eee8e1;
+}
+.admin-prontuario-period-heading h3 { margin: 0; color: #29252b; font-size: 13px; }
+.admin-prontuario-period-heading p { margin: 5px 0 0; color: #746d66; font-size: 10px; line-height: 1.45; }
+.admin-prontuario-period-heading > span {
+  display: grid;
+  place-items: center;
+  flex: none;
+  min-width: 25px;
+  height: 25px;
+  padding: 0 6px;
+  border-radius: 20px;
+  background: #f1ebe4;
+  color: #665d54;
+  font-size: 10px;
+  font-weight: 700;
+}
+.admin-prontuario-period-list { display: grid; gap: 8px; padding-top: 11px; }
+.admin-prontuario-period-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid #eee8e1;
+  border-radius: 10px;
+  background: #fff;
+}
+.admin-prontuario-period-item > div { display: grid; gap: 5px; min-width: 0; }
+.admin-prontuario-period-item strong { color: #29252b; font-size: 11px; line-height: 1.4; }
+.admin-prontuario-period-item small { color: #746d66; font-size: 10px; line-height: 1.45; overflow-wrap: anywhere; }
+.admin-prontuario-period-item .status-pill { flex: none; }
+.admin-prontuario-period-empty { margin: 0; padding: 15px 10px; color: #82786f; font-size: 11px; line-height: 1.5; }
+.admin-prontuario-timeline { min-width: 0; }
+.admin-prontuario-timeline > .section-card { min-width: 0; }
 @media (max-width: 960px) {
-  .admin-prontuario-tab { grid-template-columns: minmax(0, 1fr); }
+  .admin-prontuario-overview { grid-template-columns: minmax(0, 1fr); }
 }
-@media (max-width: 560px) {
-  .admin-prontuario-tab { gap: 14px; }
-  .admin-prontuario-tab > .section-card > select { width: calc(100% - 28px); margin: 14px 14px 0; }
-  .admin-prontuario-tab > .section-card > .profile-summary { margin: 12px 14px 14px; padding: 13px; }
-  .admin-prontuario-tab > .section-card > .state-card { margin: 14px; }
-  .admin-prontuario-tab > .section-card > .callout { margin: 12px 14px 14px; }
-  .admin-prontuario-tab .profile-summary .metric-grid.compact { gap: 6px; }
-  .admin-prontuario-tab .profile-summary .metric-grid.compact > div { padding: 8px 6px; }
+@media (max-width: 700px) {
+  .admin-prontuario-page { gap: 15px; }
+  .admin-prontuario-overview { gap: 15px; }
+  .admin-prontuario-periods { grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 15px 16px 16px; }
+  .admin-prontuario-select { width: calc(100% - 32px); margin: 15px 16px 0; }
+  .admin-prontuario-profile { margin: 12px 16px 16px; padding: 14px; }
+  .admin-prontuario-facts { padding: 15px 16px 16px; }
+  .admin-prontuario-overview .state-card { margin: 14px 16px 16px; }
 }
+@media (max-width: 520px) {
+  .admin-prontuario-profile .metric-grid.compact { grid-template-columns: 1fr; }
+  .admin-prontuario-facts { grid-template-columns: minmax(0, 1fr); }
+  .admin-prontuario-period-item { gap: 8px; padding: 10px; }
+  .admin-prontuario-period-item .status-pill { max-width: 112px; white-space: normal; text-align: center; }
+}
+.admin-prontuario-page + .callout { margin-top: 16px; }

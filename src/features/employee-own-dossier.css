@@ -89,3 +89,36 @@
   .employee-wizard-review { grid-template-columns: 1fr; padding: 12px 14px; }
   .employee-form-wide { grid-column: auto; }
 }
+
+
+/* Timeline compartilhada: destaca exceções sem perder a hierarquia cronológica. */
+.employee-timeline-toolbar { flex-wrap: wrap; }
+.employee-timeline-order-note { margin-left: auto; color: #82786f; font-size: 10px; }
+.employee-timeline-meta { justify-content: flex-start; flex-wrap: wrap; }
+.employee-timeline-category {
+  display: inline-flex;
+  align-items: center;
+  min-height: 21px;
+  padding: 2px 8px;
+  border: 1px solid #eee8e1;
+  border-radius: 20px;
+  background: #fcfaf7;
+  color: #665d54;
+  font-size: 9px;
+  font-weight: 700;
+}
+.employee-timeline-item.is-hora_extra .employee-timeline-marker { border-color: #cfe3d5; background: #f0f8f2; color: #36724e; }
+.employee-timeline-item.is-atraso .employee-timeline-marker { border-color: #ead9c4; background: #fff8ec; color: #9b6915; }
+.employee-timeline-item.is-falta .employee-timeline-marker,
+.employee-timeline-item.is-advertencia .employee-timeline-marker { border-color: #efd4d6; background: #fff4f4; color: #a34850; }
+.employee-timeline-item.is-admissao .employee-timeline-marker { border-color: #cfe3d5; background: #f0f8f2; color: #36724e; }
+.employee-timeline-content { overflow-wrap: anywhere; }
+@media (max-width: 620px) {
+  .employee-timeline-order-note { margin-left: 0; }
+  .employee-timeline-meta { align-items: flex-start; }
+}
+.employee-timeline-toolbar select { max-width: 100%; }
+.employee-timeline-refresh { flex: none; }
+@media (max-width: 620px) {
+  .employee-timeline-refresh { justify-content: center; }
+}

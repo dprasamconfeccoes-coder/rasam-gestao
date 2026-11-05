@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Clock3, RefreshCw } from 'lucide-react'
+import { CalendarDays, ChevronDown, Clock3, FileText, HeartPulse, RefreshCw, UserRound } from 'lucide-react'
 import { getProntuarioTimeline } from '../lib/api'
 import type { EmployeeTimelineEvent } from '../lib/types'
 import { EmptyState, ErrorState, LoadingState, SectionCard, StatusPill, formatDate } from '../components/ui'
+import './employee-own-dossier.css'
 
 type Props = {
   token: string
@@ -19,15 +20,35 @@ const eventTypes: Array<[string, string]> = [
   ['afastamento', 'Afastamentos'],
   ['ferias', 'Férias'],
   ['justificativa', 'Justificativas'],
-  ['ponto', 'Ponto'],
+  ['ponto', 'Marcações de ponto'],
+  ['hora_extra', 'Horas extras'],
+  ['atraso', 'Atrasos'],
+  ['falta', 'Faltas'],
   ['documento', 'Documentos'],
 ]
+
+const eventTypeNames = Object.fromEntries(eventTypes.filter(([value]) => value).map(([value, label]) => [value, label])) as Record<string, string>
+
+function EventMarker({ type }: { type: string }) {
+  const icon = type === 'admissao' || type === 'desligamento' || type === 'cadastro'
+    ? <UserRound size={15} />
+    : type === 'ferias'
+      ? <CalendarDays size={15} />
+      : type === 'atestado' || type === 'afastamento'
+        ? <HeartPulse size={15} />
+        : type === 'advertencia' || type === 'documento'
+          ? <FileText size={15} />
+          : <Clock3 size={15} />
+
+  return <span className={`employee-timeline-marker is-${type}`} aria-hidden="true">{icon}</span>
+}
 
 export function EmployeeTimeline({ token, funcionarioId = null }: Props) {
   const [tipo, setTipo] = useState('')
   const [eventos, setEventos] = useState<EmployeeTimelineEvent[]>([])
   const [offset, setOffset] = useState(0)
   const [total, setTotal] = useState(0)
+  const [refreshVersion, setRefreshVersion] = useState(0)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
@@ -41,6 +62,7 @@ export function EmployeeTimeline({ token, funcionarioId = null }: Props) {
     setError('')
     setEventos([])
     setOffset(0)
+    setTotal(0)
     getProntuarioTimeline(token, funcionarioId, { tipo: tipo || null, offset: 0, limite: 50 })
       .then((result) => {
         if (cancelled || requestId !== requestSequence.current) return
@@ -56,7 +78,7 @@ export function EmployeeTimeline({ token, funcionarioId = null }: Props) {
         if (!cancelled && requestId === requestSequence.current) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [token, funcionarioId, tipo])
+  }, [token, funcionarioId, tipo, refreshVersion])
 
   async function loadMore() {
     if (loadingMore || offset >= total) return
@@ -77,20 +99,24 @@ export function EmployeeTimeline({ token, funcionarioId = null }: Props) {
   }
 
   return (
-    <SectionCard title="Linha do tempo funcional" caption={`${total} evento(s) · mais recentes primeiro · histórico consultado em páginas`}>
+    <SectionCard title="Linha do tempo funcional" caption={`${total} evento(s) · da admissão em diante · histórico completo paginado`}>
       <div className="employee-timeline-toolbar">
         <label htmlFor="employee-timeline-type">Filtrar por tipo</label>
         <select id="employee-timeline-type" value={tipo} onChange={(event) => { requestSequence.current += 1; setTipo(event.target.value) }}>
           {eventTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
+        <span className="employee-timeline-order-note">Mais antigos primeiro</span>
+        <button className="secondary-button employee-timeline-refresh" type="button" onClick={() => { requestSequence.current += 1; setRefreshVersion((value) => value + 1) }} disabled={loading || loadingMore}>
+          <RefreshCw size={14} className={loading ? 'spin' : undefined} /> Atualizar histórico
+        </button>
       </div>
       {error ? <ErrorState message={error} /> : null}
       {loading ? <LoadingState label="Carregando histórico funcional…" /> : eventos.length ? (
         <>
           <ol className="employee-timeline-list">
             {eventos.map((evento) => (
-              <li className="employee-timeline-item" key={`${evento.tipo}-${evento.id}`}>
-                <span className="employee-timeline-marker"><Clock3 size={15} /></span>
+              <li className={`employee-timeline-item is-${evento.tipo}`} key={`${evento.tipo}-${evento.id}`}>
+                <EventMarker type={evento.tipo} />
                 <div className="employee-timeline-content">
                   <div className="employee-timeline-heading">
                     <strong>{evento.titulo}</strong>
@@ -98,6 +124,7 @@ export function EmployeeTimeline({ token, funcionarioId = null }: Props) {
                   </div>
                   <p>{evento.descricao || 'Sem observações adicionais.'}</p>
                   <div className="employee-timeline-meta">
+                    <span className="employee-timeline-category">{eventTypeNames[evento.tipo] || evento.tipo}</span>
                     <span>{evento.origem}</span>
                     {evento.status ? <StatusPill value={evento.status} /> : null}
                   </div>
@@ -107,7 +134,7 @@ export function EmployeeTimeline({ token, funcionarioId = null }: Props) {
           </ol>
           {offset < total ? (
             <button className="secondary-button employee-timeline-more" type="button" onClick={() => void loadMore()} disabled={loadingMore}>
-              {loadingMore ? <><RefreshCw size={15} className="spin" /> Carregando…</> : <><ChevronDown size={15} /> Carregar mais ({total - offset})</>}
+              {loadingMore ? <><RefreshCw size={15} className="spin" /> Carregando…</> : <><ChevronDown size={15} /> Carregar próximos eventos ({total - offset})</>}
             </button>
           ) : null}
         </>
