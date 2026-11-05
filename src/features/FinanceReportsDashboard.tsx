@@ -76,6 +76,11 @@ const reportOptions: ReportDefinition[] = [
   { key: 'dividas_credores', label: 'Contratos por credor cadastrados no período', description: 'Contratos e saldo atual por credor; não representa posição histórica.', area: 'Dívidas', icon: 'table' },
 ]
 
+const adminOnlyOrderProductionReports = new Set<ReportType>([
+  'producao', 'producao_status', 'producao_clientes', 'produtividade',
+  'producao_fluxo_diario', 'controle_tamanhos_lotes',
+])
+
 const columns: Record<ReportType, Array<[string, string]>> = {
   fluxo: [['mes', 'Competência'], ['receitas_recebidas', 'Receitas recebidas'], ['despesas_pagas', 'Despesas pagas'], ['receitas_previstas', 'Receitas previstas'], ['despesas_previstas', 'Despesas previstas']],
   categorias: [['categoria', 'Categoria'], ['quantidade', 'Lançamentos'], ['valor', 'Valor']],
@@ -142,6 +147,11 @@ export function FinanceReportsDashboard({ token, isAdmin = false }: { token: str
 
   async function load(nextType: ReportType = type, openDetail = true) {
     const currentRequest = ++requestId.current
+    if (!isAdmin && adminOnlyOrderProductionReports.has(nextType)) {
+      setError('Relatórios de Ordens e Produção estão disponíveis somente para administradores.')
+      setLoading(false)
+      return
+    }
     if (start > end) {
       setError('A data inicial não pode ser posterior à data final.')
       setData(null)
@@ -196,10 +206,21 @@ export function FinanceReportsDashboard({ token, isAdmin = false }: { token: str
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
-  const option = reportOptions.find((item) => item.key === type)!
+  useEffect(() => {
+    if (!isAdmin && adminOnlyOrderProductionReports.has(type)) {
+      setType('fluxo')
+      setData(null)
+      setShowCatalog(true)
+      setSpecialReport(null)
+    }
+  }, [isAdmin, type])
+
+  const visibleReportOptions = reportOptions.filter((item) => isAdmin || !adminOnlyOrderProductionReports.has(item.key))
+  const visibleAreas = ['Financeiro', ...(isAdmin ? ['Produção'] : []), 'Pessoas', 'Dívidas']
+  const option = visibleReportOptions.find((item) => item.key === type) || reportOptions[0]
   const rows = data?.linhas || []
   const fields = columns[type]
-  const financeOptions = reportOptions.filter((item) => item.area === 'Financeiro')
+  const financeOptions = visibleReportOptions.filter((item) => item.area === 'Financeiro')
   const isFactoryFlow = type === 'producao_fluxo_diario'
   const isSizeControl = type === 'controle_tamanhos_lotes'
   const isDre = type === 'dre'
@@ -310,19 +331,19 @@ export function FinanceReportsDashboard({ token, isAdmin = false }: { token: str
           <label>Período final<input type="date" value={end} onChange={(event) => updatePeriodEnd(event.target.value)} /></label>
           <button className="primary-button" onClick={() => void load(type, false)} disabled={loading}><RefreshCw size={15} /> Atualizar catálogo</button>
         </div>
-        {['Financeiro', 'Produção', 'Pessoas', 'Dívidas'].map((area) => (
+        {visibleAreas.map((area) => (
           <section className="report-catalog-section" key={area}>
             <div className="report-catalog-heading">
               <div><span className="eyebrow">Catálogo</span><h2>{area}</h2></div>
               <small>{area === 'Financeiro' ? 'Indicadores, caixa, compromissos e resultado.' : area === 'Produção' ? 'Ordens, fluxo diário e controle das etapas por tamanho.' : area === 'Pessoas' ? 'Jornada, custos e movimentações de pessoal.' : 'Contratos, credores e comprometimento financeiro.'}</small>
             </div>
             <div className="report-catalog-grid">
-              {reportOptions.filter((item) => item.area === area).map((item) => (
+              {visibleReportOptions.filter((item) => item.area === area).map((item) => (
                 <button className="report-catalog-card" key={item.key} onClick={() => void load(item.key)}>
                   <span>{iconFor(item.icon)}</span><div><strong>{item.label}</strong><small>{item.description}</small></div><b>Consultar</b>
                 </button>
               ))}
-              {!reportOptions.some((item) => item.area === area) && <div className="report-catalog-coming"><Landmark size={18} /><span>Catálogo preparado para receber os próximos relatórios desta área.</span></div>}
+              {!visibleReportOptions.some((item) => item.area === area) && <div className="report-catalog-coming"><Landmark size={18} /><span>Catálogo preparado para receber os próximos relatórios desta área.</span></div>}
             </div>
           </section>
         ))}

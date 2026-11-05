@@ -23,10 +23,10 @@ const tableMap: Record<string, { title: string; detail: string; destination: Mod
   registros_ponto: { title: 'Atualização de ponto', detail: 'Um registro de ponto foi alterado.', destination: 'ponto', priority: 'informacao' },
 }
 
-export function subscribeDashboardRealtime(onEvent: LiveCallback, onStatus: (status: DashboardRealtimeStatus) => void = () => undefined) {
+export function subscribeDashboardRealtime(onEvent: LiveCallback, onStatus: (status: DashboardRealtimeStatus) => void = () => undefined, includeOperationalEvents = false) {
   const channel = supabase.channel(`rasam-dashboard-${Math.random().toString(36).slice(2)}`)
   onStatus('connecting')
-  Object.entries(tableMap).forEach(([table, meta]) => {
+  Object.entries(tableMap).filter(([table]) => includeOperationalEvents || !['ordens_servico', 'producao_lotes'].includes(table)).forEach(([table, meta]) => {
     channel.on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {
       const row = (payload.new || payload.old || {}) as { id?: string }
       onEvent({

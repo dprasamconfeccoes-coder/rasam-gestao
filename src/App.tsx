@@ -150,13 +150,31 @@ const PointSchedulesPanel = lazy(() => import('./features/PointSchedulesPanel').
 const managerProfiles: Profile[] = ['gestor', 'administrador', 'admin']
 const adminProfiles: Profile[] = ['administrador', 'admin']
 
+function redactOperationalDashboard(data: DashboardResponse): DashboardResponse {
+  const isOperationalDestination = (destination: ModuleKey) => destination === 'ordens' || destination === 'producao'
+  return {
+    ...data,
+    indicadores: data.indicadores ? { ...data.indicadores, ordens_ativas: 0, lotes_em_costura: 0 } : data.indicadores,
+    alertas: (data.alertas || []).filter((alert) => !isOperationalDestination(alert.destino)),
+    funil: { recebidas: 0, em_producao: 0, costuradas: 0, entregues: 0, pagas: 0 },
+    comparativos: { ...data.comparativos, ordens_entrada_mes: undefined, ordens_entrada_mes_anterior: undefined },
+    inteligencia: {
+      ...data.inteligencia,
+      operacao: undefined,
+      agenda: (data.inteligencia?.agenda || []).filter((item) => !isOperationalDestination(item.destino)),
+      evolucao: [],
+      pendencias_area: { ...data.inteligencia?.pendencias_area, operacao: undefined, producao: undefined },
+    },
+  }
+}
+
 type NavItem = { key: ModuleKey; label: string; description: string; icon: typeof Gauge; group: string; profiles: Profile[] }
 
 const navItems: NavItem[] = [
   { key: 'dashboard', label: 'Visão geral', description: 'O que precisa de atenção hoje', icon: LayoutDashboard, group: 'Operação', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'funcionarios', label: 'Funcionários', description: 'Gestão da equipe e prontuário próprio', icon: UsersRound, group: 'Operação', profiles: ['funcionario', ...managerProfiles] },
   { key: 'ordens', label: 'Ordens de serviço', description: 'Cadastro de lotes e financeiro', icon: ClipboardList, group: 'Operação', profiles: adminProfiles },
-  { key: 'producao', label: 'Produção', description: 'Lotes e costura', icon: Factory, group: 'Operação', profiles: managerProfiles },
+  { key: 'producao', label: 'Produção', description: 'Lotes e costura', icon: Factory, group: 'Operação', profiles: adminProfiles },
   { key: 'financeiro', label: 'Financeiro', description: 'Fluxo e compromissos', icon: CircleDollarSign, group: 'Controle', profiles: managerProfiles },
   { key: 'folha', label: 'Folha de pagamento', description: 'Simulação CLT, dados fiscais e lançamentos', icon: Receipt, group: 'Controle', profiles: adminProfiles },
   { key: 'acordos', label: 'Acordos e parcelas', description: 'Pagamentos trabalhistas', icon: Scale, group: 'Controle', profiles: adminProfiles },
@@ -405,8 +423,9 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
         partialErrors: [],
       }))
       try {
-        const data = await dashboard(token)
-        if (!data.sucesso) throw new Error(data.erro || 'Não foi possível carregar a visão geral.')
+        const rawData = await dashboard(token)
+        if (!rawData.sucesso) throw new Error(rawData.erro || 'Não foi possível carregar a visão geral.')
+        const data = adminProfiles.includes(user.perfil) ? rawData : redactOperationalDashboard(rawData)
         const enrichment: OverviewReportEnrichment = {}
         const quickDetails: OverviewQuickDetails = {}
         const partialErrors: string[] = []
@@ -414,12 +433,18 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
         let periodError: string | undefined
 
         if (user.perfil !== 'funcionario') {
-          const [productionResult, agreementsResult, debtsResult, employeesResult, ordersResult, financeResult, periodResult] = await Promise.allSettled([
-            getFactoryProduction(token),
+          let productionResult: PromiseSettledResult<Awaited<ReturnType<typeof getFactoryProduction>>> | undefined
+          let ordersResult: PromiseSettledResult<Awaited<ReturnType<typeof listOrders>>> | undefined
+          if (adminProfiles.includes(user.perfil)) {
+            [productionResult, ordersResult] = await Promise.allSettled([
+              getFactoryProduction(token),
+              listOrders(token),
+            ])
+          }
+          const [agreementsResult, debtsResult, employeesResult, financeResult, periodResult] = await Promise.allSettled([
             listAgreements(token),
             managedDebts(token),
             listEmployees(token),
-            listOrders(token),
             adminFinanceiroWorkspace(token),
             dashboardPeriod(token, quickReportWindow.start, quickReportWindow.end),
           ])
@@ -432,11 +457,11 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
             }
             return value
           }
-          const production = accepted('Produção detalhada', productionResult, true) as Awaited<ReturnType<typeof getFactoryProduction>> | undefined
+          const production = productionResult ? accepted('Produção detalhada', productionResult, true) as Awaited<ReturnType<typeof getFactoryProduction>> | undefined : undefined
           const agreements = accepted('Acordos', agreementsResult, true) as Awaited<ReturnType<typeof listAgreements>> | undefined
           const debts = accepted('Dívidas', debtsResult, true) as Awaited<ReturnType<typeof managedDebts>> | undefined
           const employees = accepted('Equipe', employeesResult) as EmployeeRow[] | undefined
-          const orders = accepted('Ordens', ordersResult, true) as Awaited<ReturnType<typeof listOrders>> | undefined
+          const orders = ordersResult ? accepted('Ordens', ordersResult, true) as Awaited<ReturnType<typeof listOrders>> | undefined : undefined
           const finance = accepted('Contas do financeiro', financeResult, true) as Awaited<ReturnType<typeof adminFinanceiroWorkspace>> | undefined
           const period = accepted('Movimento no período', periodResult, true) as DashboardPeriodOverviewResponse | undefined
 
@@ -446,7 +471,10 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
           if (employees) quickDetails.employees = employees
           if (orders?.sucesso) quickDetails.orders = orders.ordens
           if (finance?.sucesso) quickDetails.contas = finance.contas
-          if (period?.sucesso && period.financeiro && period.ordens && period.producao && period.ponto && period.inconsistencias_ponto && period.ausencias) periodData = period
+          if (period?.sucesso && period.financeiro && period.ponto && period.inconsistencias_ponto && period.ausencias
+            && (!adminProfiles.includes(user.perfil) || (period.ordens && period.producao))) {
+            periodData = adminProfiles.includes(user.perfil) ? period : { ...period, ordens: undefined, producao: undefined }
+          }
           else periodError = period?.erro || 'O resumo do período veio incompleto; os números não serão apresentados como zero.'
         }
 
@@ -490,7 +518,7 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
       if (!active) return
       setLiveStatus(status)
       setLiveConnected(status === 'subscribed')
-    })
+    }, adminProfiles.includes(user.perfil))
     return () => {
       active = false
       if (refreshTimer !== undefined) window.clearTimeout(refreshTimer)
@@ -502,17 +530,17 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
     setNotificationPermission(permission)
   }
   function exportCsv() {
-    if (state.periodData) downloadPeriodOverviewCsv(periodRows, user, quickReportLabel)
+    if (state.periodData) downloadPeriodOverviewCsv(reportRows, user, quickReportLabel)
   }
   async function exportPdf() {
     if (!state.periodData) return
     setReportLoading(true)
-    try { await exportPeriodOverviewPdf(periodRows, user, quickReportLabel) } finally { setReportLoading(false) }
+    try { await exportPeriodOverviewPdf(reportRows, user, quickReportLabel) } finally { setReportLoading(false) }
   }
   if (state.loading) return <><PageHeading eyebrow="Centro de comando" title="Visão geral" description={`Bom dia, ${user.nome.split(' ')[0]}.`} /><LoadingState label="Preparando seu painel de atenção…" /></>
   if ((state.error && !state.data) || !state.data?.sucesso) return <><PageHeading eyebrow="Centro de comando" title="Visão geral" /><ErrorState message={state.error || state.data?.erro || 'Sessão inválida'} /><button className="secondary-button" onClick={() => setRefreshKey((value) => value + 1)}><RefreshCw size={15} /> Tentar novamente</button></>
   const data = state.data; const isEmployee = user.perfil === 'funcionario'; const isAdmin = adminProfiles.includes(user.perfil); const indicators = data.indicadores!; const personal = data.pessoal || {}; const alerts = data.alertas || []; const funnel: DashboardResponse['funil'] = data.funil; const comparisons = data.comparativos || {}; const intelligence = data.inteligencia || {}; const agenda = intelligence.agenda || []; const evolution = intelligence.evolucao || []; const maxEvolution = Math.max(1, ...evolution.flatMap((point) => [point.ordens, point.entregues])); const variation = (current = 0, previous = 0) => previous === 0 ? (current > 0 ? 'Novo no período' : 'Sem movimentação') : `${current - previous >= 0 ? '+' : ''}${current - previous} versus mês anterior`;
-  const reportRows = periodRows
+  const reportRows = isAdmin ? periodRows : periodRows.filter((item) => item.grupo !== 'Produção')
   const reportGroups = ['Financeiro', 'Produção', 'Pessoas'].map((group) => ({ group, rows: reportRows.filter((item) => item.grupo === group) })).filter((item) => item.rows.length)
   const reportDestination = (module: string): ModuleKey => module === 'dividas' ? 'dividas' : module === 'acordos' ? 'acordos' : module === 'rh' || module === 'afastamentos' ? 'rh' : module === 'producao' ? 'producao' : module === 'ponto' ? 'ponto' : module === 'ordens' ? 'ordens' : 'financeiro'
   const filteredEvolution = evolution.slice(-Math.min(chartRange, 6))
@@ -526,10 +554,10 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
     {state.error && state.data && <div className="overview-data-warning" role="status"><AlertTriangle size={16} /><span>Não foi possível atualizar o painel principal: {state.error}. Os últimos dados carregados continuam visíveis.</span></div>}
     {!!state.partialErrors?.length && <div className="overview-data-warning" role="status"><AlertTriangle size={16} /><span>Atualização parcial. Não foi possível consultar: {state.partialErrors.join(', ')}. As métricas afetadas não são apresentadas como zero.</span></div>}
     <div className="overview-welcome"><div><span className="eyebrow">{isEmployee ? 'Seu painel pessoal' : 'Prioridade do dia'}</span><h2>{isEmployee ? 'Tudo o que depende de você, em um só lugar.' : 'Decida primeiro. Aprofunde depois.'}</h2><p>{isEmployee ? 'Consulte sua jornada, acompanhe documentos e mantenha suas solicitações em dia.' : 'Indicadores operacionais e alertas priorizados para iniciar o dia com clareza.'}</p></div><div className="overview-welcome-symbol"><Gauge size={32}/></div></div>
-    <div className="metric-grid overview-metrics">{isEmployee ? <><MetricCard label="Ponto a revisar" value={personal.ponto_sem_justificativa || 0} detail="Registros sem justificativa" tone="gold" onClick={() => onNavigate('ponto')} /><MetricCard label="Atestados" value={personal.atestados_em_analise || 0} detail="Em análise pelo RH" tone="pink" onClick={() => onNavigate('atestados')} /><MetricCard label="Solicitações" value={personal.solicitacoes_abertas || 0} detail="Pedidos em aberto" tone="green" onClick={() => onNavigate('solicitacoes')} /><MetricCard label="Avisos novos" value={personal.avisos_nao_lidos || 0} detail="Comunicados não lidos" tone="blue" onClick={() => onNavigate('avisos')} /></> : <><MetricCard label="Equipe ativa" value={indicators.funcionarios_ativos} detail="Pessoas no quadro · abrir detalhes" tone="gold" onClick={() => setQuickModal('equipe')} /><MetricCard label="Ordens ativas" value={indicators.ordens_ativas} detail="Em operação · abrir detalhes" tone="pink" onClick={() => setQuickModal('ordens')} /><MetricCard label="Lotes em costura" value={indicators.lotes_em_costura} detail="Acompanhar produção · abrir detalhes" tone="green" onClick={() => setQuickModal('costura')} /><MetricCard label="Contas pendentes" value={indicators.contas_pendentes} detail="Financeiro exige atenção · abrir detalhes" tone="blue" onClick={() => setQuickModal('contas')} /></>}</div>
+    <div className="metric-grid overview-metrics">{isEmployee ? <><MetricCard label="Ponto a revisar" value={personal.ponto_sem_justificativa || 0} detail="Registros sem justificativa" tone="gold" onClick={() => onNavigate('ponto')} /><MetricCard label="Atestados" value={personal.atestados_em_analise || 0} detail="Em análise pelo RH" tone="pink" onClick={() => onNavigate('atestados')} /><MetricCard label="Solicitações" value={personal.solicitacoes_abertas || 0} detail="Pedidos em aberto" tone="green" onClick={() => onNavigate('solicitacoes')} /><MetricCard label="Avisos novos" value={personal.avisos_nao_lidos || 0} detail="Comunicados não lidos" tone="blue" onClick={() => onNavigate('avisos')} /></> : <><MetricCard label="Equipe ativa" value={indicators.funcionarios_ativos} detail="Pessoas no quadro · abrir detalhes" tone="gold" onClick={() => setQuickModal('equipe')} />{isAdmin && <MetricCard label="Ordens ativas" value={indicators.ordens_ativas} detail="Em operação · abrir detalhes" tone="pink" onClick={() => setQuickModal('ordens')} />}{isAdmin && <MetricCard label="Lotes em costura" value={indicators.lotes_em_costura} detail="Acompanhar produção · abrir detalhes" tone="green" onClick={() => setQuickModal('costura')} />}<MetricCard label="Contas pendentes" value={indicators.contas_pendentes} detail="Financeiro exige atenção · abrir detalhes" tone="blue" onClick={() => setQuickModal('contas')} /></>}</div>
     {!isEmployee && <section className="overview-quick-report" aria-label="Movimentação por período">
       <div className="overview-quick-report-heading">
-        <div><span className="eyebrow">Movimentação · período selecionado</span><h2>Financeiro, produção, ponto e ausências</h2><p>Os cartões acima mostram a posição atual. Este resumo usa os lançamentos e eventos datados no intervalo selecionado.</p></div>
+        <div><span className="eyebrow">Movimentação · período selecionado</span><h2>{isAdmin ? 'Financeiro, produção, ponto e ausências' : 'Financeiro, ponto e ausências'}</h2><p>Os cartões acima mostram a posição atual. Este resumo usa os lançamentos e eventos datados no intervalo selecionado.</p></div>
         <div className="overview-quick-report-controls">
           <select value={quickGranularity} onChange={(event) => { setQuickGranularity(event.target.value as typeof quickGranularity); setQuickAnchor(new Date()) }} aria-label="Granularidade do período"><option value="mes">Por mês</option><option value="semana">Por semana</option></select>
           <div className="overview-quick-report-navigation"><button type="button" onClick={() => shiftQuickWindow(-1)} aria-label="Período anterior"><ChevronLeft size={14} /></button><span>{quickReportWindow.label}</span><button type="button" onClick={() => shiftQuickWindow(1)} aria-label="Próximo período"><ChevronRight size={14} /></button></div>
@@ -540,22 +568,22 @@ function DashboardView({ token, user, onNavigate }: { token: string; user: Sessi
         {state.refreshing && <div className="overview-period-refreshing"><RefreshCw size={14} className="spin" /> Atualizando o período…</div>}
         {state.lastUpdated && <p className="overview-period-updated">Dados completos atualizados em {new Date(state.lastUpdated).toLocaleString('pt-BR')}.</p>}
         <div className="overview-quick-report-grid">{reportGroups.map(({ group, rows }) => <article className="overview-quick-report-card" key={group}><div className="overview-quick-report-card-heading"><strong>{group}</strong><small>{rows.length} indicador(es)</small></div><div className="overview-quick-report-list">{rows.map((item) => <button type="button" key={`${item.grupo}-${item.indicador}`} onClick={() => openReportDetails(item)}><span><strong>{item.indicador}</strong><small>{item.contexto}</small></span><b className={`is-${item.status}`}>{item.valor}</b><ChevronRight size={14} /></button>)}</div></article>)}</div>
-        <p className="overview-period-footnote">Financeiro usa baixa/vencimento no intervalo; ordens usam data de entrada; produção usa eventos fabris (incluindo ajustes); férias e afastamentos contam períodos sobrepostos.</p>
+        <p className="overview-period-footnote">{isAdmin ? 'Financeiro usa baixa/vencimento no intervalo; ordens usam data de entrada; produção usa eventos fabris (incluindo ajustes); férias e afastamentos contam períodos sobrepostos.' : 'Financeiro usa baixa/vencimento no intervalo; férias e afastamentos contam períodos sobrepostos.'}</p>
       </>}
     </section>}
     <div className="overview-main-grid"><SectionCard title={isEmployee ? 'Pendências pessoais' : 'Alertas prioritários'} caption={isEmployee ? 'Resolva o que pode bloquear sua rotina' : `${alerts.length} ponto(s) selecionado(s) por urgência`}><div className="overview-alert-list">{isEmployee ? <><button className="overview-alert-item is-attention" onClick={() => onNavigate('ponto')}><span><Fingerprint size={18}/></span><div><strong>{personal.ponto_sem_justificativa || 0} registro(s) de ponto precisam de revisão</strong><small>Confira sua jornada e envie justificativa quando necessário.</small></div><ChevronRight size={16}/></button><button className="overview-alert-item is-info" onClick={() => onNavigate('atestados')}><span><HeartPulse size={18}/></span><div><strong>{personal.atestados_em_analise || 0} atestado(s) em análise</strong><small>Acompanhe o status dos documentos enviados ao RH.</small></div><ChevronRight size={16}/></button><button className="overview-alert-item is-success" onClick={() => onNavigate('solicitacoes')}><span><FileCheck2 size={18}/></span><div><strong>{personal.solicitacoes_abertas || 0} solicitação(ões) em aberto</strong><small>Veja respostas ou complemente seus pedidos.</small></div><ChevronRight size={16}/></button></> : alerts.length === 0 ? <EmptyState title="Operação sob controle" description="Não há alertas prioritários para este momento." /> : alerts.map((alert) => <button className={`overview-alert-item is-${alert.prioridade}`} key={alert.id} onClick={() => onNavigate(alertDestination(alert.destino))}><span>{alert.prioridade === 'urgente' ? <AlertCircle size={18}/> : alert.destino === 'producao' ? <Factory size={18}/> : alert.destino === 'financeiro' ? <CircleDollarSign size={18}/> : <ShieldCheck size={18}/>}</span><div><strong>{alert.titulo} <b>{alert.valor}</b></strong><small>{alert.detalhe}</small></div><ChevronRight size={16}/></button>)}</div></SectionCard><SectionCard title={isEmployee ? 'Acesso rápido' : 'Resumo executivo'} caption={isEmployee ? 'Atalhos para sua rotina' : 'Contexto para a primeira decisão do dia'}><div className="overview-summary-list">{isEmployee ? <><button onClick={() => onNavigate('ponto')}><Fingerprint size={17}/><span><strong>Minha jornada</strong><small>Registros, atrasos e justificativas</small></span><ChevronRight size={15}/></button><button onClick={() => onNavigate('avisos')}><Bell size={17}/><span><strong>Avisos da empresa</strong><small>{personal.avisos_nao_lidos || 0} comunicado(s) aguardando leitura</small></span><ChevronRight size={15}/></button><button onClick={() => onNavigate('holerites')}><Receipt size={17}/><span><strong>Comprovantes</strong><small>{personal.holerites_disponiveis || 0} holerite(s) disponíveis</small></span><ChevronRight size={15}/></button></> : <><div><span>Saldo de dívidas ativo</span><strong>{isAdmin ? formatMoney(indicators.saldo_dividas) : 'Disponível para administradores'}</strong></div><div><span>Pessoas ausentes hoje</span><strong>{indicators.em_ferias + indicators.em_afastamento}</strong></div><div><span>Compromissos financeiros</span><strong>{indicators.contas_pendentes}</strong></div><div><span>Próximo passo recomendado</span><strong>{alerts[0]?.titulo || 'Revisar o fechamento do dia'}</strong></div></>}</div></SectionCard></div>
-    <SectionCard title="Alertas em tempo real" caption={liveEvents.length ? `${liveEvents.length} atualização(ões) recebida(s) nesta sessão` : 'As próximas alterações importantes aparecerão aqui'}><div className="overview-live-events">{liveEvents.length === 0 ? <div className="overview-live-empty"><Radio size={17} /><span><strong>Monitoramento ativo</strong><small>Novas movimentações de financeiro, ordens, produção, RH e ponto serão sinalizadas sem recarregar a página.</small></span></div> : liveEvents.map((event) => <button key={event.id} onClick={() => onNavigate(event.destination)}><span className={`overview-live-event-icon is-${event.priority}`}><BellRing size={15} /></span><span><strong>{event.title}</strong><small>{event.detail}</small></span><time>{new Date(event.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</time><ChevronRight size={15} /></button>)}</div></SectionCard>
-    {!isEmployee && <>
+    <SectionCard title="Alertas em tempo real" caption={liveEvents.length ? `${liveEvents.length} atualização(ões) recebida(s) nesta sessão` : 'As próximas alterações importantes aparecerão aqui'}><div className="overview-live-events">{liveEvents.length === 0 ? <div className="overview-live-empty"><Radio size={17} /><span><strong>Monitoramento ativo</strong><small>{isAdmin ? 'Novas movimentações de financeiro, ordens, produção, RH e ponto serão sinalizadas sem recarregar a página.' : 'Novas movimentações de financeiro, RH e ponto serão sinalizadas sem recarregar a página.'}</small></span></div> : liveEvents.map((event) => <button key={event.id} onClick={() => onNavigate(event.destination)}><span className={`overview-live-event-icon is-${event.priority}`}><BellRing size={15} /></span><span><strong>{event.title}</strong><small>{event.detail}</small></span><time>{new Date(event.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</time><ChevronRight size={15} /></button>)}</div></SectionCard>
+    {isAdmin && <>
       <div className="overview-stage2-grid"><SectionCard title="Leitura operacional" caption="Riscos que podem afetar prazo, produção e caixa"><div className="overview-risk-grid"><button onClick={() => onNavigate('ordens')}><span className="overview-risk-icon is-red"><AlertTriangle size={17}/></span><span><small>Ordens atrasadas</small><strong>{intelligence.operacao?.ordens_atrasadas || 0}</strong><em>Exigem ação imediata</em></span><ChevronRight size={15}/></button><button onClick={() => onNavigate('producao')}><span className="overview-risk-icon is-gold"><PauseCircle size={17}/></span><span><small>Lotes sem movimentação</small><strong>{intelligence.operacao?.lotes_parados || 0}</strong><em>Mais de 3 dias sem atualização</em></span><ChevronRight size={15}/></button><button onClick={() => onNavigate('financeiro')}><span className="overview-risk-icon is-blue"><CircleDollarSign size={17}/></span><span><small>Contas vencidas</small><strong>{intelligence.financeiro?.vencidas_qtd || 0}</strong><em>{formatMoney(intelligence.financeiro?.vencidas_valor || 0)} em aberto</em></span><ChevronRight size={15}/></button><button onClick={() => onNavigate('financeiro')}><span className="overview-risk-icon is-green"><CalendarClock size={17}/></span><span><small>Contas em 7 dias</small><strong>{intelligence.financeiro?.proximas_qtd || 0}</strong><em>{formatMoney(intelligence.financeiro?.proximas_valor || 0)} previstos</em></span><ChevronRight size={15}/></button></div></SectionCard><SectionCard title="Evolução dos últimos meses" caption="Explore o volume por métrica e período"><div className="overview-chart-controls"><div className="overview-segmented"><button className={chartMetric === 'ordens' ? 'is-active' : ''} onClick={() => setChartMetric('ordens')}>Recebidas</button><button className={chartMetric === 'entregues' ? 'is-active' : ''} onClick={() => setChartMetric('entregues')}>Entregues</button></div><div className="overview-segmented overview-segmented-small"><button className={chartRange === 3 ? 'is-active' : ''} onClick={() => setChartRange(3)}>3M</button><button className={chartRange === 6 ? 'is-active' : ''} onClick={() => setChartRange(6)}>6M</button></div></div><div className="overview-interactive-chart">{filteredEvolution.map((point) => { const value = point[chartMetric]; const maxVisible = Math.max(1, ...filteredEvolution.map((item) => item[chartMetric])); return <button className="overview-chart-column" key={point.periodo} title={`${point.periodo}: ${value} ${chartMetric === 'ordens' ? 'recebidas' : 'entregues'}`}><span className="overview-chart-value">{value}</span><span className={`overview-chart-bar is-${chartMetric}`} style={{ height: `${Math.max(5, value / maxVisible * 100)}%` }} /><small>{point.periodo}</small></button> })}</div><div className="overview-trend-legend"><span><i className={`is-${chartMetric}`} /> {chartMetric === 'ordens' ? 'Ordens recebidas' : 'Ordens entregues'}</span><span className="overview-chart-help">Passe o cursor para ver detalhes</span></div></SectionCard></div>
       <div className="overview-stage2-lower"><SectionCard title="Agenda dos próximos 7 dias" caption="Prazos e compromissos que merecem planejamento"><div className="overview-agenda">{agenda.length === 0 ? <EmptyState title="Agenda livre" description="Não há prazos críticos registrados para os próximos 7 dias." /> : agenda.map((item) => <button key={item.id} onClick={() => onNavigate(item.destino)}><span className={`overview-agenda-dot is-${item.prioridade}`} /><span><strong>{item.titulo}</strong><small>{item.detalhe}</small></span><b>{item.valor}</b><ChevronRight size={15}/></button>)}</div></SectionCard><SectionCard title="Pendências por área" caption="Concentração de itens que pedem acompanhamento"><div className="overview-area-list">{([['financeiro','Financeiro','financeiro'],['operacao','Operação','ordens'],['producao','Produção','producao'],['rh','Pessoas','funcionarios']] as const).map(([key, label, destination]) => <button key={key} onClick={() => onNavigate(destination as ModuleKey)}><span><strong>{label}</strong><small>{intelligence.pendencias_area?.[key] || 0} pendência(s)</small></span><div><i style={{ width: `${Math.min(100, ((intelligence.pendencias_area?.[key] || 0) / Math.max(1, ...Object.values(intelligence.pendencias_area || {}))) * 100)}%` }} /></div><ChevronRight size={15}/></button>)}</div></SectionCard></div>
     </>}
-    {!isEmployee && <>
+    {isAdmin && <>
       <SectionCard title="Funil operacional" caption="Acompanhe onde as ordens estão concentradas hoje">
         <div className="overview-funnel">{([['recebidas','Recebidas','recebidas'],['em_producao','Em produção','producao'],['costuradas','Costuradas','costuradas'],['entregues','Entregues','entregues'],['pagas','Pagas','pagas']] as const).map(([key, label, modal], index) => <button key={key} className="overview-funnel-step" onClick={() => setQuickModal(modal)}><span className="overview-funnel-index">0{index + 1}</span><span className="overview-funnel-copy"><small>{label}</small><strong>{funnel?.[key] || 0}</strong></span>{index < 4 && <ChevronRight className="overview-funnel-arrow" size={16} />}</button>)}</div>
       </SectionCard>
       <div className="overview-comparison-strip"><article><span>Ordens recebidas no mês</span><strong>{comparisons.ordens_entrada_mes || 0}</strong><small>{variation(comparisons.ordens_entrada_mes, comparisons.ordens_entrada_mes_anterior)}</small></article><article><span>Inconsistências de ponto</span><strong>{comparisons.ponto_inconsistencias_mes || 0}</strong><small>{variation(comparisons.ponto_inconsistencias_mes, comparisons.ponto_inconsistencias_mes_anterior)}</small></article><article><span>Ausências hoje</span><strong>{indicators.em_ferias + indicators.em_afastamento}</strong><small>{indicators.em_ferias} em férias · {indicators.em_afastamento} afastado(s)</small></article></div>
     </>}
-    {!isEmployee && <SectionCard title="Radar de atenção" caption="Indicadores que ajudam a decidir onde investir tempo agora"><div className="overview-radar"><button onClick={() => setQuickModal('equipe')}><UsersRound size={18}/><span><strong>{indicators.funcionarios_ativos} ativos</strong><small>Equipe disponível no quadro</small></span></button><button onClick={() => setQuickModal('costura')}><Factory size={18}/><span><strong>{indicators.lotes_em_costura} em costura</strong><small>Lotes que precisam de acompanhamento</small></span></button><button onClick={() => setQuickModal('contas')}><CircleDollarSign size={18}/><span><strong>{indicators.contas_pendentes} pendentes</strong><small>Obrigações sem baixa financeira</small></span></button><button onClick={() => onNavigate('relatorios')}><BarChart3 size={18}/><span><strong>Relatórios gerenciais</strong><small>Aprofundar a análise por período</small></span></button></div></SectionCard>}
+    {isAdmin && <SectionCard title="Radar de atenção" caption="Indicadores que ajudam a decidir onde investir tempo agora"><div className="overview-radar"><button onClick={() => setQuickModal('equipe')}><UsersRound size={18}/><span><strong>{indicators.funcionarios_ativos} ativos</strong><small>Equipe disponível no quadro</small></span></button><button onClick={() => setQuickModal('costura')}><Factory size={18}/><span><strong>{indicators.lotes_em_costura} em costura</strong><small>Lotes que precisam de acompanhamento</small></span></button><button onClick={() => setQuickModal('contas')}><CircleDollarSign size={18}/><span><strong>{indicators.contas_pendentes} pendentes</strong><small>Obrigações sem baixa financeira</small></span></button><button onClick={() => onNavigate('relatorios')}><BarChart3 size={18}/><span><strong>Relatórios gerenciais</strong><small>Aprofundar a análise por período</small></span></button></div></SectionCard>}
     {quickModal ? <OverviewQuickModal kind={quickModal} details={state.quickDetails} count={quickModalCounts[quickModal]} warning={state.error ? `Falha na atualização principal: ${state.error}. A lista pode estar desatualizada.` : state.partialErrors?.length ? `Atualização parcial: ${state.partialErrors.join(", ")}. A lista pode estar incompleta.` : undefined} onClose={() => setQuickModal(null)} /> : null}
   </div>
 }
@@ -1594,7 +1622,12 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
   const activeItem = navItems.find((item) => item.key === active) || navItems[0]
   const activeLabel = active === 'funcionarios' && user.perfil === 'funcionario' ? 'Meu prontuário' : activeItem.label
   const groups = Array.from(new Set(allowedItems.map((item) => item.group)))
-  function navigate(key: ModuleKey) { setActive(key); setMobileMenu(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  function navigate(key: ModuleKey) {
+    if (!allowedItems.some((item) => item.key === key)) return
+    setActive(key)
+    setMobileMenu(false)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
   function renderPage() {
     if (active === 'dashboard') return <DashboardView token={token} user={user} onNavigate={navigate} />
     if (active === 'funcionarios') {
@@ -1614,7 +1647,9 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'folha') return adminProfiles.includes(user.perfil)
       ? <PayrollManagementDashboard token={token} onNavigateToHR={() => navigate('rh')} />
       : <><PageHeading eyebrow="Acesso restrito" title="Folha de pagamento" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
-    if (active === 'producao') return <FactoryProductionDashboard token={token} />
+    if (active === 'producao') return adminProfiles.includes(user.perfil)
+      ? <FactoryProductionDashboard token={token} />
+      : <><PageHeading eyebrow="Acesso restrito" title="Produção" /><ErrorState message="Ordens e produção estão disponíveis somente para perfis administradores." /></>
     if (active === 'perfil') return <EmployeeProfileView token={token} onProfileUpdated={setProfile} />
     if (active === 'ponto') return <PointView token={token} user={user} />
     if (active === 'ferias') return <EmployeeVacationPortal token={token} isAdministrative={adminProfiles.includes(user.perfil)} />
