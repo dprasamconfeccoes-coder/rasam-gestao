@@ -4,7 +4,6 @@ import {
   BarChart3,
   ChevronRight,
   CheckCircle2,
-  CircleDollarSign,
   Clock3,
   Download,
   FileText,
@@ -15,8 +14,8 @@ import {
 import { adminFinanceiroExecutivo } from '../lib/api'
 import { saoPauloToday } from '../lib/business-date'
 import { FinanceHealthDashboard } from './FinanceHealthDashboard'
-import type { FinanceiroExecutivoDashboard, FinanceiroExecutivoEvolucao, FinanceiroExecutivoKpis } from '../lib/types'
-import { EmptyState, ErrorState, LoadingState, MetricCard, PageHeading, SectionCard, formatDate, formatMoney } from '../components/ui'
+import type { FinanceiroExecutivoAlerta, FinanceiroExecutivoDashboard, FinanceiroExecutivoEvolucao, FinanceiroExecutivoKpis } from '../lib/types'
+import { EmptyState, ErrorState, LoadingState, MetricCard, SectionCard, formatMoney } from '../components/ui'
 import {
   downloadFinanceDashboardImage,
   downloadFinanceDashboardPdf,
@@ -111,7 +110,6 @@ export function FinanceExecutiveDashboard({ token, onNavigateToReports }: { toke
   const [data, setData] = useState<FinanceiroExecutivoDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [loadedRange, setLoadedRange] = useState<RangeKey | null>(null)
   const requestId = useRef(0)
   const dates = useMemo(() => rangeDates(range), [range])
@@ -126,7 +124,6 @@ export function FinanceExecutiveDashboard({ token, onNavigateToReports }: { toke
       if (!result.sucesso) throw new Error(result.erro || 'Não foi possível carregar a visão financeira')
       setData(result)
       setLoadedRange(range)
-      setUpdatedAt(new Date())
     } catch (cause) {
       if (request === requestId.current) setError(cause instanceof Error ? cause.message : 'Falha ao carregar o dashboard financeiro')
     } finally {
@@ -138,21 +135,19 @@ export function FinanceExecutiveDashboard({ token, onNavigateToReports }: { toke
 
   const kpis = data?.kpis || {} as FinanceiroExecutivoKpis
   const rows = data?.evolucao || []
-  const alerts = (data?.alertas || []).filter((alert) => alert && alert.nivel !== 'informativo')
+  const alerts = (data?.alertas || []).filter((alert): alert is FinanceiroExecutivoAlerta => alert !== null && alert.nivel !== 'informativo')
   const categories = data?.categorias || []
   const aging = data?.aging || {}
   const result = num(kpis.resultado_realizado)
   const maxCategory = Math.max(1, ...categories.map((item) => num(item.valor)))
   const projected = num(kpis.saldo_projetado)
   const dataReady = Boolean(data && loadedRange === range)
-  const periodLabel = useMemo(() => `${formatDate(dataReady ? data?.periodo?.inicio || dates.start : dates.start)} a ${formatDate(dataReady ? data?.periodo?.fim || dates.end : dates.end)}`, [data, dataReady, dates.start, dates.end])
-  const topAlert = alerts[0]
+  const periodLabel = useMemo(() => `${dataReady ? data?.periodo?.inicio || dates.start : dates.start} a ${dataReady ? data?.periodo?.fim || dates.end : dates.end}`, [data, dataReady, dates.start, dates.end])
 
   const openOperations = (filter: FinanceFilter) => { setOperationsFilter(filter); setShowOperations(true) }
   if (showOperations) return <FinanceHealthDashboard token={token} initialFilter={operationsFilter} onBack={() => setShowOperations(false)} />
 
-  const header = <PageHeading eyebrow="CONTROLE" title="Financeiro" description={`${periodLabel}${dataReady && updatedAt ? ` · atualizado ${updatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}`} action={
-    <div className="finance-workspace-toolbar">
+  const toolbar = <div className="finance-workspace-toolbar" aria-label="Ações e período do financeiro">
       <div className="overview-segmented finance-range-switch" role="group" aria-label="Período financeiro">
         {(Object.entries(ranges) as [RangeKey, { label: string }][]).map(([key, item]) => <button type="button" key={key} className={range === key ? 'is-active' : ''} onClick={() => setRange(key)} aria-pressed={range === key}>{item.label}</button>)}
       </div>
@@ -161,26 +156,14 @@ export function FinanceExecutiveDashboard({ token, onNavigateToReports }: { toke
       <button type="button" className="secondary-button finance-toolbar-button" onClick={() => void load()} disabled={loading} aria-label="Atualizar dados"><RefreshCw size={15} className={loading ? 'spin' : ''} /><span>Atualizar</span></button>
       <ExportMenu data={dataReady ? data : null} periodLabel={periodLabel} disabled={!dataReady || loading} onError={setError} />
     </div>
-  } />
 
-  if (loading && !dataReady) return <div className="overview-page finance-executive-page">{header}<LoadingState label="Carregando financeiro…" /></div>
-  if (error && !dataReady) return <div className="overview-page finance-executive-page">{header}<ErrorState message={error} /><button className="secondary-button" onClick={() => void load()}><RefreshCw size={15} /> Tentar novamente</button></div>
+  if (loading && !dataReady) return <div className="overview-page finance-executive-page"><LoadingState label="Carregando financeiro…" /></div>
+  if (error && !dataReady) return <div className="overview-page finance-executive-page"><ErrorState message={error} /><button className="secondary-button" onClick={() => void load()}><RefreshCw size={15} /> Tentar novamente</button></div>
 
   return (
     <div className="overview-page finance-executive-page">
-      {header}
       {error && <div className="overview-data-warning" role="alert"><AlertTriangle size={16} /><span>{error}</span><button type="button" onClick={() => setError('')} aria-label="Fechar erro">×</button></div>}
-      {topAlert ? (
-        <div className="overview-alert-list finance-priority-list" aria-label="Alertas financeiros prioritários">
-          <button type="button" className={`overview-alert-item ${topAlert.nivel === 'critico' ? 'is-urgente' : 'is-atencao'}`} onClick={() => openOperations(alertFilter(topAlert))}>
-            <span>{topAlert.nivel === 'critico' ? <AlertTriangle size={18} /> : <Clock3 size={18} />}</span>
-            <div><strong>{topAlert.titulo || 'Atenção financeira'}{alerts.length > 1 && <b>{alerts.length} alertas</b>}</strong><small>{topAlert.detalhe || 'Há um item que requer acompanhamento.'}</small></div>
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      ) : (
-        <div className="overview-alert-list finance-priority-list" aria-label="Situação financeira"><div className="overview-alert-item is-success" role="status"><span><CheckCircle2 size={18} /></span><div><strong>Sem alertas de atenção</strong><small>Competências consideradas: {periodLabel}</small></div></div></div>
-      )}
+      {alerts.length > 0 && <div className="overview-alert-list finance-priority-list" aria-label="Alertas financeiros prioritários">{alerts.map((alert, index) => <button type="button" className={`overview-alert-item ${alert.nivel === 'critico' ? 'is-urgente' : 'is-atencao'}`} key={`${alert.titulo || 'alerta'}-${index}`} onClick={() => openOperations(alertFilter(alert))}><span>{alert.nivel === 'critico' ? <AlertTriangle size={18} /> : <Clock3 size={18} />}</span><div><strong>{alert.titulo || 'Atenção financeira'}</strong><small>{alert.detalhe || 'Há um item que requer acompanhamento.'}</small></div><ChevronRight size={16} /></button>)}</div>}
 
       <div className="metric-grid overview-metrics finance-executive-kpis" aria-label="Indicadores financeiros">
         <MetricCard label="Saldo projetado" value={formatMoney(projected)} detail="Realizado + compromissos futuros" tone={projected >= 0 ? 'green' : 'pink'} onClick={() => openOperations('todos')} />
@@ -188,6 +171,8 @@ export function FinanceExecutiveDashboard({ token, onNavigateToReports }: { toke
         <MetricCard label="Despesas realizadas" value={formatMoney(num(kpis.despesas_realizadas))} detail={`${formatMoney(num(kpis.despesas_vencidas))} vencidas`} tone="pink" onClick={() => openOperations('pagar')} />
         <MetricCard label="Resultado operacional" value={formatMoney(result)} detail="Receitas menos despesas realizadas" tone={result >= 0 ? 'green' : 'pink'} onClick={() => openOperations('todos')} />
       </div>
+
+      {toolbar}
 
       <div className="overview-main-grid finance-executive-grid">
         <SectionCard title="Movimentação por competência" caption="Valores realizados e previstos" className="finance-visual-card finance-evolution-card">
@@ -208,10 +193,6 @@ export function FinanceExecutiveDashboard({ token, onNavigateToReports }: { toke
           <div className="overview-summary-list finance-aging-list">{[['Vencido', 'vencido', 'is-urgente'], ['Hoje', 'hoje', 'is-atencao'], ['Próximos 7 dias', 'sete_dias', 'is-atencao'], ['8 a 30 dias', 'trinta_dias', 'is-informacao']].map(([label, key, tone]) => { const bucket = aging[key as keyof typeof aging] || {}; return <button type="button" className={tone} key={key} onClick={() => openOperations(key === 'vencido' ? 'atrasados' : 'pagar')}><span><strong>{label}</strong><small>{num(bucket.quantidade)} conta(s)</small></span><b>{formatMoney(num(bucket.valor))}</b><ChevronRight size={14} /></button> })}</div>
         </SectionCard>
       </div>
-
-      <SectionCard title="Acompanhamento" caption={`${alerts.length} alerta(s) relevante(s) para o período`} className="finance-visual-card finance-alerts-card">
-        <div className="overview-alert-list">{alerts.length ? alerts.map((alert, index) => <button type="button" className={`overview-alert-item ${alert?.nivel === 'critico' ? 'is-urgente' : 'is-atencao'}`} key={`${alert?.titulo || 'alerta'}-${index}`} onClick={() => alert && openOperations(alertFilter(alert))}><span>{alert?.nivel === 'critico' ? <AlertTriangle size={18} /> : <Clock3 size={18} />}</span><div><strong>{alert?.titulo || 'Atenção financeira'}</strong><small>{alert?.detalhe || 'Verifique este indicador.'}</small></div><ChevronRight size={16} /></button>) : <EmptyState title="Nenhum alerta de atenção" description="Não há sinais críticos ou de atenção no período informado." />}</div>
-      </SectionCard>
 
       <SectionCard title="Compromissos e recorrências" caption="Valores e cadastros que compõem o acompanhamento financeiro"><div className="overview-summary-list finance-commitments-list">
         <button type="button" onClick={() => openOperations('todos')}><span><strong>Recorrências ativas</strong><small>Compromissos cadastrados</small></span><b>{num(kpis.recorrencias_ativas).toLocaleString('pt-BR')}</b><ChevronRight size={14} /></button>
