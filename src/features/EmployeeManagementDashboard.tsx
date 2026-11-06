@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { BriefcaseBusiness, CalendarDays, ChevronLeft, ChevronRight, FileText, Plus, RefreshCw, Search, ShieldCheck, UserPlus, UserRound, X } from 'lucide-react'
+import { BriefcaseBusiness, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, FileText, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, UserPlus, UserRound, X } from 'lucide-react'
 import { adminCadastrarFuncionario, adminFichaCompleta, adminProntuario, searchEmployees } from '../lib/api'
 import type { EmployeeRow, EmployeeSearchPage, ProntuarioResponse, Profile } from '../lib/types'
 import { displayValue, EmployeeFichaPanel, fieldGroups, type FieldDefinition } from './EmployeeFichaPanel'
@@ -40,6 +40,12 @@ function parseMoney(value: string) {
 function maskedCpf(value: string) {
   const digits = value.replace(/\D/g, '')
   return digits.length === 11 ? `***.***.***-${digits.slice(-2)}` : value
+}
+
+function employeeCompensation(employee: EmployeeRow) {
+  if (employee.tipo_vinculo === 'diarista') return employee.valor_diaria == null ? 'Diária não informada' : `${formatMoney(Number(employee.valor_diaria))} / diária`
+  const monthly = employee.valor_mensal ?? employee.salario
+  return monthly == null ? 'Remuneração não informada' : `${formatMoney(Number(monthly))} / mês`
 }
 
 function readText(item: Record<string, unknown>, keys: string[]) {
@@ -204,6 +210,7 @@ export function EmployeeRegistrationWizard({ open, token, onClose, onCreated }: 
 export function EmployeeManagementDashboard({ token, profile }: { token: string; profile: Profile }) {
   const [filters, setFilters] = useState<FilterState>(emptyFilters)
   const [activeFilters, setActiveFilters] = useState<FilterState>(emptyFilters)
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false)
   const [page, setPage] = useState<EmployeeSearchPage | null>(null)
   const [pageNumber, setPageNumber] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -265,8 +272,9 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
   const closeRecord = () => { recordSequence.current += 1; setSelected(null); setRecord(null); setRecordError('') }
   function resetSearch() {
     searchSequence.current += 1
-    setLoading(false); setFilters(emptyFilters); setActiveFilters(emptyFilters); setPage(null); setError(''); setNotice('')
+    setLoading(false); setFilters(emptyFilters); setActiveFilters(emptyFilters); setPage(null); setError(''); setNotice(''); setSuggestionsOpen(false); setAdvancedFiltersOpen(false)
   }
+  const advancedFilterCount = [filters.situacao, filters.tipoVinculo, filters.cargo, filters.salarioMin, filters.salarioMax].filter((value) => value.trim() !== '').length
   const totalPages = page ? Math.max(1, Math.ceil(page.total / 20)) : 0
   const recordData = record as unknown as Record<string, unknown> | null
   const employeeFicha = record?.funcionario as import('../lib/types').EmployeeFichaRecord | undefined
@@ -277,33 +285,40 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
   if (!['admin', 'administrador', 'gestor'].includes(profile)) return <><PageHeading eyebrow="Acesso restrito" title="Gestão de funcionários" /><ErrorState message="A lista geral e os prontuários da equipe estão disponíveis somente para perfis administrativos." /></>
 
   return <div className="employee-directory-page">
-    <PageHeading eyebrow="Pessoas · gestão de equipe" title="Funcionários" description="Localize cadastros com filtros, consulte prontuários e registre novas pessoas em etapas." action={<button className="primary-button" type="button" onClick={() => setCreateOpen(true)}><UserPlus size={16} /> Novo funcionário</button>} />
-    <div className="employee-access-note"><ShieldCheck size={16} /><span>Busca e prontuário geral restritos a perfis administrativos autorizados; consultas são paginadas e verificadas no Supabase.</span></div>
+    <PageHeading eyebrow="Pessoas · gestão de equipe" title="Funcionários" description="Encontre um cadastro e abra o prontuário individual." action={<button className="primary-button" type="button" onClick={() => setCreateOpen(true)}><UserPlus size={16} /> Novo funcionário</button>} />
     {notice ? <div className="form-success employee-directory-notice" role="status">{notice}</div> : null}
-    <SectionCard title="Busca inteligente" caption="Pesquise por nome, CPF ou cargo e combine com os filtros de situação, vínculo e remuneração">
+    <SectionCard className="employee-search-card" title="Encontrar funcionário" caption="Busque por nome, CPF ou cargo. Use filtros avançados quando necessário.">
       <form className="employee-directory-search" onSubmit={(event) => { event.preventDefault(); setSuggestionsOpen(false); void runSearch(filters, 0) }}>
-        <label className="employee-search-wide employee-search-autocomplete">Nome, CPF ou cargo
-          <input value={filters.busca} onFocus={() => setSuggestionsOpen(true)} onBlur={() => window.setTimeout(() => setSuggestionsOpen(false), 160)} onChange={(event) => { setFilters({ ...filters, busca: event.target.value }); setSuggestionsOpen(true) }} placeholder="Digite ao menos 2 caracteres para sugestões" />
-          {suggestionsOpen && filters.busca.trim().length >= 2 ? <div className="employee-suggestions" role="listbox">{suggestionsLoading ? <div className="employee-suggestion-status"><RefreshCw size={14} className="spin" /> Buscando…</div> : suggestions.length ? suggestions.map((employee) => <button type="button" key={employee.id} onMouseDown={(event) => event.preventDefault()} onClick={() => { setSuggestionsOpen(false); void openRecord(employee) }}><span className="employee-suggestion-avatar">{employee.avatar_url ? <img src={employee.avatar_url} alt="" /> : <UserRound size={15} />}</span><span><strong>{employee.nome}</strong><small>{employee.cargo || 'Cargo não informado'} · CPF {maskedCpf(employee.cpf)}</small></span><ChevronRight size={14} /></button>) : <div className="employee-suggestion-status">Nenhuma pessoa encontrada.</div>}</div> : null}
-        </label>
-        <label>Situação<select value={filters.situacao} onChange={(event) => setFilters({ ...filters, situacao: event.target.value })}><option value="">Todas</option><option value="Trabalhando">Trabalhando</option><option value="Em férias">Em férias</option><option value="Afastado">Afastado</option><option value="Inativo">Inativo</option></select></label>
-        <label>Vínculo<select value={filters.tipoVinculo} onChange={(event) => setFilters({ ...filters, tipoVinculo: event.target.value })}><option value="">Todos</option><option value="formal">Formal / CLT</option><option value="informal">Informal</option><option value="experiencia">Experiência</option></select></label>
-        <label>Cargo<input value={filters.cargo} onChange={(event) => setFilters({ ...filters, cargo: event.target.value })} placeholder="Ex.: costureira" /></label>
-        <label>Remuneração mínima<input inputMode="decimal" value={filters.salarioMin} onChange={(event) => setFilters({ ...filters, salarioMin: event.target.value.replace(/[^0-9,.]/g, '') })} placeholder="R$ 0,00" /></label>
-        <label>Remuneração máxima<input inputMode="decimal" value={filters.salarioMax} onChange={(event) => setFilters({ ...filters, salarioMax: event.target.value.replace(/[^0-9,.]/g, '') })} placeholder="Sem limite" /></label>
-        <div className="employee-search-actions"><button className="secondary-button" type="button" onClick={resetSearch}><X size={16} /> Limpar filtros</button><button className="primary-button" type="submit" disabled={loading}>{loading ? <><RefreshCw size={16} className="spin" /> Buscando…</> : <><Search size={16} /> Buscar equipe</>}</button></div>
+        <div className="employee-directory-search-main">
+          <label className="employee-search-autocomplete">Nome, CPF ou cargo
+            <input value={filters.busca} onFocus={() => setSuggestionsOpen(true)} onBlur={() => window.setTimeout(() => setSuggestionsOpen(false), 160)} onChange={(event) => { setFilters({ ...filters, busca: event.target.value }); setSuggestionsOpen(true) }} placeholder="Digite um nome, CPF ou cargo" />
+            {suggestionsOpen && filters.busca.trim().length >= 2 ? <div className="employee-suggestions" role="listbox">{suggestionsLoading ? <div className="employee-suggestion-status"><RefreshCw size={14} className="spin" /> Buscando…</div> : suggestions.length ? suggestions.map((employee) => <button type="button" key={employee.id} onMouseDown={(event) => event.preventDefault()} onClick={() => { setSuggestionsOpen(false); void openRecord(employee) }}><span className="employee-suggestion-avatar">{employee.avatar_url ? <img src={employee.avatar_url} alt="" /> : <UserRound size={15} />}</span><span><strong>{employee.nome}</strong><small>{employee.cargo || 'Cargo não informado'} · CPF {maskedCpf(employee.cpf)}</small></span><ChevronRight size={14} /></button>) : <div className="employee-suggestion-status">Nenhuma pessoa encontrada.</div>}</div> : null}
+          </label>
+          <button className="primary-button employee-search-submit" type="submit" disabled={loading}>{loading ? <><RefreshCw size={16} className="spin" /> Buscando…</> : <><Search size={16} /> Buscar</>}</button>
+          <button className={`employee-filter-toggle${advancedFiltersOpen ? ' is-open' : ''}`} type="button" aria-expanded={advancedFiltersOpen} onClick={() => setAdvancedFiltersOpen((value) => !value)}><SlidersHorizontal size={16} /> Filtros avançados {advancedFilterCount > 0 ? <b>{advancedFilterCount}</b> : null}<ChevronDown size={15} /></button>
+        </div>
+        {advancedFiltersOpen ? <div className="employee-directory-advanced" role="region" aria-label="Filtros avançados">
+          <div className="employee-directory-advanced-grid">
+            <label>Situação<select value={filters.situacao} onChange={(event) => setFilters({ ...filters, situacao: event.target.value })}><option value="">Todas</option><option value="Trabalhando">Trabalhando</option><option value="Em férias">Em férias</option><option value="Afastado">Afastado</option><option value="Inativo">Inativo</option></select></label>
+            <label>Vínculo<select value={filters.tipoVinculo} onChange={(event) => setFilters({ ...filters, tipoVinculo: event.target.value })}><option value="">Todos</option><option value="formal">Formal / CLT</option><option value="informal">Informal</option><option value="experiencia">Experiência</option><option value="diarista">Diarista</option></select></label>
+            <label>Cargo<input value={filters.cargo} onChange={(event) => setFilters({ ...filters, cargo: event.target.value })} placeholder="Ex.: costureira" /></label>
+            <label>Remuneração mínima<input inputMode="decimal" value={filters.salarioMin} onChange={(event) => setFilters({ ...filters, salarioMin: event.target.value.replace(/[^0-9,.]/g, '') })} placeholder="R$ 0,00" /></label>
+            <label>Remuneração máxima<input inputMode="decimal" value={filters.salarioMax} onChange={(event) => setFilters({ ...filters, salarioMax: event.target.value.replace(/[^0-9,.]/g, '') })} placeholder="Sem limite" /></label>
+          </div>
+          <div className="employee-directory-advanced-footer"><small>Os filtros são aplicados ao iniciar a busca.</small><button className="secondary-button compact-button" type="button" onClick={resetSearch} disabled={advancedFilterCount === 0 && !filters.busca}><X size={14} /> Limpar</button></div>
+        </div> : null}
       </form>
     </SectionCard>
     {error ? <ErrorState message={error} /> : null}
     {loading ? <LoadingState label="Consultando cadastros com segurança…" /> : null}
-    {!page && !loading && !error ? <SectionCard title="Diretório da equipe" caption="A busca é intencional: nenhum cadastro é carregado automaticamente"><div className="employee-directory-empty"><Search size={30} /><strong>Pesquise para abrir um prontuário</strong><p>Use um nome, CPF, cargo ou filtro. O resultado é paginado para facilitar a navegação em equipes maiores.</p></div></SectionCard> : null}
-    {page && !loading ? <SectionCard title={`${page.total} funcionário(s) encontrado(s)`} caption={`Página ${pageNumber + 1} de ${totalPages} · CPF parcialmente oculto na lista; abra o prontuário para ver dados autorizados`}>
+    {!page && !loading && !error ? <SectionCard title="Diretório da equipe" caption="A lista é consultada somente quando você inicia uma busca"><div className="employee-directory-empty"><Search size={30} /><strong>Pesquise para abrir um prontuário</strong><p>Digite um nome, CPF ou cargo, ou abra os filtros avançados para reduzir os resultados.</p></div></SectionCard> : null}
+    {page && !loading ? <SectionCard title={`${page.total} funcionário(s)`} caption={`Página ${pageNumber + 1} de ${totalPages} · CPF oculto na lista; selecione uma pessoa para abrir o prontuário`}>
       <div className="employee-directory-results">{page.registros.length ? page.registros.map((employee) => <button className="employee-directory-result" type="button" key={employee.id} onClick={() => void openRecord(employee)}>
         <span className="employee-directory-avatar">{employee.avatar_url ? <img src={employee.avatar_url} alt="" /> : <UserRound size={20} />}</span>
-        <span className="employee-directory-main"><strong>{employee.nome}</strong><small>{employee.cargo || 'Cargo não informado'} · CPF {maskedCpf(employee.cpf)}</small><small>{employee.tipo_vinculo || 'Vínculo não informado'} · admissão {formatDate(employee.data_admissao)}</small></span>
-        <span className="employee-directory-meta"><b>{employee.tipo_vinculo === 'diarista' ? (employee.valor_diaria == null ? 'Diária não informada' : `${formatMoney(employee.valor_diaria)} / diária`) : (employee.valor_mensal ?? employee.salario) === null ? 'Remuneração não informada' : `${formatMoney((employee.valor_mensal ?? employee.salario) as number)} / mês`}</b><StatusPill value={employee.situacao} /></span><ChevronRight size={17} />
+        <span className="employee-directory-main"><strong>{employee.nome}</strong><small>{employee.cargo || 'Cargo não informado'} · {employee.tipo_vinculo || 'Vínculo não informado'}</small><small>CPF {maskedCpf(employee.cpf)} · admissão {formatDate(employee.data_admissao)}</small><span className="employee-directory-mobile-meta"><StatusPill value={employee.situacao} /><small>{employeeCompensation(employee)}</small></span></span>
+        <span className="employee-directory-meta"><b>{employeeCompensation(employee)}</b><StatusPill value={employee.situacao} /></span><ChevronRight size={17} />
       </button>) : <EmptyState title="Nenhum funcionário encontrado" description="Ajuste os filtros e faça uma nova busca." />}</div>
-      {page.total > 20 ? <div className="employee-directory-pagination"><button className="secondary-button compact-button" type="button" disabled={pageNumber === 0} onClick={() => void runSearch(activeFilters, pageNumber - 1)}><ChevronLeft size={15} /> Anterior</button><span>{pageNumber + 1} / {totalPages}</span><button className="secondary-button compact-button" type="button" disabled={pageNumber + 1 >= totalPages} onClick={() => void runSearch(activeFilters, pageNumber + 1)}>Próxima <ChevronRight size={15} /></button></div> : null}
+      {page.total > 20 ? <div className="employee-directory-pagination"><button className="secondary-button compact-button" type="button" disabled={pageNumber === 0} onClick={() => void runSearch(activeFilters, pageNumber - 1)}><ChevronLeft size={15} /> Anterior</button><span>Página {pageNumber + 1} de {totalPages}</span><button className="secondary-button compact-button" type="button" disabled={pageNumber + 1 >= totalPages} onClick={() => void runSearch(activeFilters, pageNumber + 1)}>Próxima <ChevronRight size={15} /></button></div> : null}
     </SectionCard> : null}
 
     {selected ? <div className="employee-record-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeRecord() }}><div className="employee-record-modal"><div className="employee-record-shell">
