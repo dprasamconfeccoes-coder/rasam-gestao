@@ -35,3 +35,29 @@
 .payroll-history-value b { color:#29252b; font-size:11px; }
 @media (max-width:900px) { .payroll-management-layout { grid-template-columns:1fr; } }
 @media (max-width:600px) { .payroll-entry-form { grid-template-columns:1fr; } .payroll-wide-field, .payroll-submit { grid-column:auto; } .payroll-history-item { grid-template-columns:34px minmax(0,1fr); } .payroll-history-value { grid-column:2; justify-items:start; } }
+
+/* Cores semânticas da área de benefícios e descontos, em continuidade aos indicadores globais. */
+.payroll-kind-switch button { transition:border-color .15s,background .15s,color .15s; }
+.payroll-kind-switch button.active.benefit { border-color:#b8dec5; background:#eff9f2; color:#24613b; }
+.payroll-kind-switch button.active.discount { border-color:#efb6b6; background:#fff2f2; color:#8b2424; }
+.payroll-kind-switch button:hover { border-color:#cdb58a; background:#fffcf6; }
+.payroll-management-layout .section-card { min-width:0; }
+.simulation-summary > div:nth-child(1) { border-color:#b8dec5; background:#f5fbf7; }
+.simulation-summary > div:nth-child(1) b { color:#24613b; }
+.simulation-summary > div:nth-child(2) { border-color:#efcf8c; background:#fffaf0; }
+.simulation-summary > div:nth-child(2) b { color:#765914; }
+.simulation-summary > div:nth-child(3) { border-color:#d9e7f0; background:#f7fbfe; }
+.report-columns > div:first-child h3, .report-columns > div:first-child .report-row b { color:#24613b; }
+.report-columns > div:nth-child(2) h3, .report-columns > div:nth-child(2) .report-row b { color:#a33b38; }
+
+.simulation-summary > div:nth-child(2) { border-color:#efb6b6; background:#fff6f6; }
+.simulation-summary > div:nth-child(2) b { color:#a33b38; }
+.simulation-summary > div.is-positive { border-color:#b8dec5; background:#f4fbf7; }
+.simulation-summary > div.is-positive b { color:#24613b; }
+.simulation-summary > div.is-negative { border-color:#efb6b6; background:#fff6f6; }
+.simulation-summary > div.is-negative b { color:#a33b38; }
+
+.payroll-history-person { display:flex; align-items:center; gap:7px; min-width:0; }
+.payroll-history-person small { flex:1; min-width:0; }
+.payroll-history-avatar { display:grid; place-items:center; flex:0 0 22px; width:22px; height:22px; overflow:hidden; border:1px solid #eee2c9; border-radius:50%; background:#f8ecd2; color:#8c6717; font-size:9px; font-weight:800; }
+.payroll-history-avatar img { display:block; width:100%; height:100%; object-fit:cover; }

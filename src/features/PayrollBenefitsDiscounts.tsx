@@ -233,6 +233,7 @@ export function PayrollBenefitsDiscounts({ token, onNavigateToReports, embedded 
   }
 
   const employeeName = (id: unknown) => employees.find((employee) => employee.id === String(id))?.nome || 'Funcionário não localizado'
+  const employeeAvatar = (id: unknown) => employees.find((employee) => employee.id === String(id))?.avatar_url || null
   const historyItems: HistoryItem[] = historyTab === 'beneficios'
     ? benefits.map((item) => ({ ...item, _kind: 'Benefício', _title: item.beneficio_nome }))
     : discounts.map((item) => ({ ...item, _kind: 'Desconto', _title: item.tipo }))
@@ -249,8 +250,8 @@ export function PayrollBenefitsDiscounts({ token, onNavigateToReports, embedded 
       <div className="payroll-management-layout">
         <SectionCard title="Novo lançamento" caption="Escolha o tipo e preencha os dados da competência">
           <div className="payroll-kind-switch">
-            <button type="button" className={kind === 'beneficio' ? 'active' : ''} onClick={() => { setKind('beneficio'); setStatus('liberado'); setError('') }}><BadgeDollarSign size={16} /> Benefício</button>
-            <button type="button" className={kind === 'desconto' ? 'active' : ''} onClick={() => { setKind('desconto'); setStatus('lancado'); setError('') }}><FileMinus2 size={16} /> Desconto</button>
+            <button type="button" className={kind === 'beneficio' ? 'active benefit' : ''} aria-pressed={kind === 'beneficio'} onClick={() => { setKind('beneficio'); setStatus('liberado'); setError('') }}><BadgeDollarSign size={16} /> Benefício</button>
+            <button type="button" className={kind === 'desconto' ? 'active discount' : ''} aria-pressed={kind === 'desconto'} onClick={() => { setKind('desconto'); setStatus('lancado'); setError('') }}><FileMinus2 size={16} /> Desconto</button>
           </div>
           <form className="payroll-entry-form" onSubmit={submit}>
             <label>Funcionário *
@@ -316,7 +317,7 @@ export function PayrollBenefitsDiscounts({ token, onNavigateToReports, embedded 
             <div className="payroll-history-list">
               {historyItems.sort((a, b) => String(b.competencia).localeCompare(String(a.competencia))).map((item, index) => <div className={`payroll-history-item ${historyTab === 'beneficios' ? 'benefit' : 'discount'}`} key={String(item.id || index)}>
                 <div className="payroll-history-icon">{item._kind === 'Benefício' ? <BadgeDollarSign size={16} /> : <FileMinus2 size={16} />}</div>
-                <div className="payroll-history-copy"><strong>{String(item._title || 'Lançamento')}{item._kind === 'Desconto' && item.fornecedor ? ` · ${String(item.fornecedor)}` : ''}</strong><small>{String(item._kind)} · {employeeName(item.funcionario_id)} · competência {entryDate(item.competencia)}{item._kind === 'Desconto' && item.descricao ? ` · ${String(item.descricao)}` : ''}{item.financeiro_lancamento_id ? ' · Conta a pagar vinculada' : ''}</small></div>
+                <div className="payroll-history-copy"><strong>{String(item._title || 'Lançamento')}{item._kind === 'Desconto' && item.fornecedor ? ` · ${String(item.fornecedor)}` : ''}</strong><div className="payroll-history-person"><span className="payroll-history-avatar">{employeeAvatar(item.funcionario_id) ? <img src={employeeAvatar(item.funcionario_id) || undefined} alt="" /> : employeeName(item.funcionario_id).trim().charAt(0).toUpperCase()}</span><small>{String(item._kind)} · {employeeName(item.funcionario_id)} · competência {entryDate(item.competencia)}{item._kind === 'Desconto' && item.descricao ? ` · ${String(item.descricao)}` : ''}{item.financeiro_lancamento_id ? ' · Conta a pagar vinculada' : ''}</small></div></div>
                 <div className="payroll-history-value"><b>{item.valor === null || item.valor === undefined ? 'Sem valor' : formatMoney(Number(item.valor))}</b><StatusPill value={String(item.status || 'lancado')} /></div>
               </div>)}
             </div>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, ArrowRight, Calculator, Check, ChevronDown, ChevronRight, ExternalLink, RefreshCw, Save, ShieldCheck } from 'lucide-react'
 import { ErrorState, LoadingState, MetricCard, SectionCard, formatMoney } from '../components/ui'
 import './payroll-management.css'
-import { adminFolhaDadosListar, adminFolhaDadosSalvar, adminFolhaOficialListar, adminFolhaSimular } from '../lib/api'
+import { adminFolhaDadosListar, adminFolhaDadosSalvar, adminFolhaOficialListar, adminFolhaSimular, listEmployees } from '../lib/api'
 import type { PayrollCompetenceEmployee, PayrollOfficialCompetenceResponse, PayrollSimulationResponse } from '../lib/types'
 import { PayrollBenefitsDiscounts } from './PayrollBenefitsDiscounts'
 import { PayrollOfficialDashboard } from './PayrollOfficialDashboard'
@@ -73,6 +73,7 @@ export function PayrollManagementDashboard({
   const [tab, setTab] = useState<PayrollTab>(initialTab)
   const [competencia, setCompetencia] = useState(currentMonth)
   const [employees, setEmployees] = useState<PayrollCompetenceEmployee[]>([])
+  const [employeePhotos, setEmployeePhotos] = useState<Record<string, string>>({})
   const [drafts, setDrafts] = useState<Record<string, PayrollDraft>>({})
   const [simulation, setSimulation] = useState<PayrollSimulationResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -139,6 +140,14 @@ export function PayrollManagementDashboard({
     void loadOfficial()
     return () => { loadRequestRef.current += 1; simulationRequestRef.current += 1; saveRequestRef.current += 1; officialRequestRef.current += 1 }
   }, [token, competencia])
+
+  useEffect(() => {
+    let active = true
+    void listEmployees(token).then((rows) => {
+      if (active) setEmployeePhotos(Object.fromEntries(rows.filter((row) => row.avatar_url).map((row) => [row.id, row.avatar_url as string])))
+    }).catch(() => { if (active) setEmployeePhotos({}) })
+    return () => { active = false }
+  }, [token])
 
   function updateDraft(id: string, patch: Partial<PayrollDraft>) {
     setDrafts((current) => ({ ...current, [id]: { ...(current[id] || emptyDraft()), ...patch } }))
@@ -226,9 +235,11 @@ export function PayrollManagementDashboard({
     { id: 'beneficios', label: 'Benefícios e descontos' },
   ]
 
-  if (loading && employees.length === 0 && tab !== 'beneficios' && tab !== 'oficial') return <div className="payroll-management-page"><LoadingState label="Carregando dados da folha…" /></div>
-
   return <div className="payroll-management-page">
+    <nav className="overview-segmented payroll-management-tabs" aria-label="Áreas da folha">
+      {tabs.map((item) => <button key={item.id} type="button" className={tab === item.id ? 'is-active' : ''} aria-pressed={tab === item.id} onClick={() => { setTab(item.id); setError(''); setMessage('') }}>{item.label}</button>)}
+    </nav>
+
     {error && <div className="payroll-inline-error" role="alert"><AlertTriangle size={17} />{error}</div>}
     {message && <div className="payroll-inline-success" role="status"><Check size={17} />{message}</div>}
 
@@ -237,27 +248,26 @@ export function PayrollManagementDashboard({
         <summary className="overview-alert-item is-atencao"><span><AlertTriangle size={18} /></span><div><strong>Prévia interna — não usar para pagar, declarar ou recolher</strong><small>Estimativa restrita a cenários cobertos; outras situações ficam bloqueadas, não estimadas.</small></div><ChevronDown size={16} /></summary>
         <div className="payroll-safety-copy">Inclui INSS progressivo e IRRF 2026 apenas para vínculo formal mensal, salário cadastrado sem alteração no mês, jornada CLT 44h válida e prévia atualizada, sem falta, atraso, férias, afastamento, outro vínculo/rendimento ou lançamentos de benefícios/descontos. Parcelas de acordos/dívidas e outras rubricas não integradas também não entram no valor; situações não cobertas ficam bloqueadas, não estimadas.</div>
       </details>
-      <div className="metric-grid overview-metrics payroll-overview-metrics" aria-label="Resumo da folha na competência">
+      {loading && employees.length === 0 ? <LoadingState label="Carregando dados da folha…" /> : <div className="metric-grid overview-metrics payroll-overview-metrics" aria-label="Resumo da folha na competência">
         <MetricCard label="Vínculos CLT elegíveis" value={employees.length} detail={`Competência ${monthLabel(competencia)}`} tone="blue" onClick={() => setTab('dados')} />
         <MetricCard label="Dados fiscais conferidos" value={`${confirmedCount} / ${employees.length}`} detail={unconfirmedCount ? `${unconfirmedCount} aguardando conferência` : 'Declarações completas'} tone={employees.length > 0 && unconfirmedCount === 0 ? 'green' : unconfirmedCount > 0 ? 'gold' : 'blue'} onClick={() => setTab('dados')} />
         <MetricCard label="Folha oficial confirmada" value={officialLoading ? '—' : `${officialRows.length} / ${officialData?.funcionarios_elegiveis ?? 0}`} detail={officialLoading ? 'Consultando escritório' : officialComplete ? 'Cobertura completa' : officialData?.status_competencia === 'parcial' ? `${officialData.pendentes} pendente(s)` : 'Sem valores oficiais confirmados'} tone={officialComplete ? 'green' : officialData?.status_competencia === 'parcial' ? 'pink' : 'blue'} onClick={() => setTab('oficial')} />
         <MetricCard label="Prévia calculada" value={simulation ? `${readyItems} / ${simulation.quantidade_funcionarios ?? 0}` : 'Não gerada'} detail={simulation ? `${pendingItems} pendente(s) ou bloqueado(s)` : 'Execute após conferir os dados fiscais'} tone={simulation && pendingItems === 0 ? 'green' : simulation ? 'gold' : 'blue'} />
+      </div>}
+      <div className="payroll-period-toolbar">
+        <label className="payroll-competence-picker">Competência<input type="month" min="2026-01" max="2026-12" value={competencia} onChange={(event) => setCompetencia(event.target.value)} /></label>
+        <div className="payroll-action-buttons">{onNavigateToHR && <button type="button" className="secondary-button" onClick={onNavigateToHR}>Abrir Recursos humanos <ArrowRight size={15} /></button>}<button type="button" className="primary-button" onClick={() => void simulate()} disabled={simulating || loading}>{simulating ? 'Calculando…' : <><Calculator size={16} /> Simular INSS / IRRF</>}</button></div>
       </div>
     </>}
 
-    {tab !== 'beneficios' && <div className="payroll-period-toolbar">
+    {tab !== 'beneficios' && tab !== 'simulacao' && <div className="payroll-period-toolbar">
       <label className="payroll-competence-picker">Competência<input type="month" min="2026-01" max="2026-12" value={competencia} onChange={(event) => setCompetencia(event.target.value)} /></label>
-      {tab === 'simulacao' && <div className="payroll-action-buttons">{onNavigateToHR && <button type="button" className="secondary-button" onClick={onNavigateToHR}>Abrir Recursos humanos <ArrowRight size={15} /></button>}<button type="button" className="primary-button" onClick={() => void simulate()} disabled={simulating || loading}>{simulating ? 'Calculando…' : <><Calculator size={16} /> Simular INSS / IRRF</>}</button></div>}
     </div>}
-
-    <nav className="overview-segmented payroll-management-tabs" aria-label="Áreas da folha">
-      {tabs.map((item) => <button key={item.id} type="button" className={tab === item.id ? 'is-active' : ''} aria-pressed={tab === item.id} onClick={() => { setTab(item.id); setError(''); setMessage('') }}>{item.label}</button>)}
-    </nav>
 
     {tab === 'beneficios' && <PayrollBenefitsDiscounts token={token} embedded />}
     {tab === 'oficial' && <>
       {officialError && <ErrorState message={officialError} />}
-      <PayrollOfficialDashboard token={token} competencia={competencia} data={officialData} loading={officialLoading} onRefresh={loadOfficial} />
+      <PayrollOfficialDashboard token={token} competencia={competencia} data={officialData} loading={officialLoading} onRefresh={loadOfficial} employeePhotos={employeePhotos} />
     </>}
 
     {tab === 'dados' && <>
@@ -266,7 +276,7 @@ export function PayrollManagementDashboard({
         <div className="payroll-declaration-copy">Confirme salário, dependentes, vínculos/rendimentos e pensão para cada pessoa. O sistema não presume zero dependentes nem ausência de outras fontes.</div>
       </details>
       {loading ? <LoadingState label="Atualizando declarações…" /> : employees.length === 0 ? <SectionCard title="Nenhum CLT elegível" caption="A competência selecionada não retornou vínculos formais ativos."><p>Verifique a competência e a situação cadastral dos vínculos.</p></SectionCard> : <>
-        <div className="payroll-readiness-strip"><strong>{confirmedCount} de {employees.length}</strong><span>declarações salvas para {monthLabel(competencia)}</span><button type="button" className="secondary-button" onClick={() => void loadData()} disabled={loading}><RefreshCw size={15} className={loading ? 'spin' : ''} /> Atualizar</button></div>
+        <div className={`payroll-readiness-strip ${unconfirmedCount === 0 ? 'is-complete' : 'is-pending'}`}><strong>{confirmedCount} de {employees.length}</strong><span>declarações salvas para {monthLabel(competencia)}</span><button type="button" className="secondary-button" onClick={() => void loadData()} disabled={loading}><RefreshCw size={15} className={loading ? 'spin' : ''} /> Atualizar</button></div>
         <div className="payroll-employee-input-list">
           {employees.map((employee) => {
             const draft = drafts[employee.funcionario_id] || emptyDraft()
@@ -275,7 +285,7 @@ export function PayrollManagementDashboard({
             const saving = savingId === employee.funcionario_id
             return <details className="payroll-employee-input-card" key={employee.funcionario_id}>
               <summary>
-                <span className="payroll-employee-summary"><strong>{employee.nome}</strong><small>{employee.cargo || 'Cargo não informado'}</small></span>
+                <span className="payroll-employee-summary"><span className="payroll-employee-avatar">{employeePhotos[employee.funcionario_id] ? <img src={employeePhotos[employee.funcionario_id]} alt="" /> : employee.nome.trim().charAt(0).toUpperCase()}</span><span className="payroll-employee-identity"><strong>{employee.nome}</strong><small>{employee.cargo || 'Cargo não informado'}</small></span></span>
                 <span className="payroll-employee-salary">Salário cadastrado: <strong>{formatMoney(employee.salario_atual)}</strong></span>
                 <span className={`payroll-input-status ${hasUnsavedChanges ? 'is-unsaved' : complete ? 'is-complete' : 'is-pending'}`}>{hasUnsavedChanges ? 'Alterações não salvas' : complete ? 'Conferido' : 'Pendente'}</span>
               </summary>

@@ -543,3 +543,20 @@
   .payroll-period-toolbar .payroll-competence-picker { width: 100%; }
   .payroll-management-tabs { width: 100%; }
 }
+
+/* Avatars e continuidade visual entre o menu fixo e o conteúdo por aba. */
+.payroll-management-tabs { margin-bottom:2px; }
+.payroll-employee-summary { display:flex; align-items:center; gap:10px; min-width:220px; }
+.payroll-employee-identity { display:grid; gap:3px; min-width:0; }
+.payroll-employee-avatar { display:grid; place-items:center; flex:0 0 36px; width:36px; height:36px; overflow:hidden; border:1px solid #eee2c9; border-radius:50%; background:#f8ecd2; color:#8c6717; font-size:13px; font-weight:800; }
+.payroll-employee-avatar img { display:block; width:100%; height:100%; object-fit:cover; }
+.payroll-employee-input-card summary:hover { background:#fffcf6; }
+@media (max-width:760px) { .payroll-employee-summary { min-width:180px; } }
+
+.payroll-readiness-strip.is-complete { border-color:#b8dec5; background:#f4fbf7; }
+.payroll-readiness-strip.is-complete strong { color:#24613b; }
+.payroll-readiness-strip.is-pending { border-color:#efcf8c; background:#fffaf0; }
+.payroll-readiness-strip.is-pending strong { color:#765914; }
+.payroll-employee-input-card { transition:border-color .15s,box-shadow .15s; }
+.payroll-employee-input-card:hover, .payroll-employee-input-card[open] { border-color:#cdb58a; box-shadow:0 3px 10px rgba(91,65,29,.06); }
+.payroll-employee-input-card summary:focus-visible { outline:3px solid rgba(198,160,75,.35); outline-offset:-3px; }

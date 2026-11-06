@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { AlertTriangle, Check, Download, FileText, LockKeyhole, Plus, RefreshCw, Save, ShieldCheck, Trash2, Upload, Users } from 'lucide-react'
+import { AlertTriangle, Check, Download, FileText, LockKeyhole, Plus, RefreshCw, Save, ShieldCheck, Trash2, Upload } from 'lucide-react'
 import { adminFolhaOficialReabrir, adminFolhaOficialSalvar, getPayslipDocumentUrl, uploadPayslip } from '../lib/api'
 import type { PayrollOfficialCompetenceResponse, PayrollOfficialEmployee, PayrollOfficialPayload, PayrollOfficialRubric } from '../lib/types'
-import { EmptyState, ErrorState, LoadingState, SectionCard, formatMoney } from '../components/ui'
+import { EmptyState, ErrorState, LoadingState, MetricCard, SectionCard, formatMoney } from '../components/ui'
 import './payroll-official.css'
 
-type Props = { token: string; competencia: string; data: PayrollOfficialCompetenceResponse | null; loading: boolean; onRefresh: () => Promise<void> }
+type Props = { token: string; competencia: string; data: PayrollOfficialCompetenceResponse | null; loading: boolean; onRefresh: () => Promise<void>; employeePhotos?: Record<string, string> }
 type FormData = Omit<PayrollOfficialPayload, 'itens'> & { itens: PayrollOfficialRubric[] }
 const blankItem = (): PayrollOfficialRubric => ({ ordem: 1, codigo: '', descricao: '', referencia: '', tipo: 'provento', valor: 0 })
 const currency = (value: number | null | undefined) => formatMoney(value ?? 0)
@@ -24,7 +24,7 @@ function Status({ status }: { status: PayrollOfficialEmployee['status'] }) {
   return <span className={`po-status is-${status}`}>{status === 'confirmado' ? 'Confirmado' : status === 'rascunho' ? 'Rascunho' : 'Pendente'}</span>
 }
 
-export function PayrollOfficialDashboard({ token, competencia, data, loading, onRefresh }: Props) {
+export function PayrollOfficialDashboard({ token, competencia, data, loading, onRefresh, employeePhotos = {} }: Props) {
   const [selectedId, setSelectedId] = useState('')
   const [form, setForm] = useState<FormData | null>(null)
   const [file, setFile] = useState<File | null>(null)
@@ -116,16 +116,27 @@ export function PayrollOfficialDashboard({ token, competencia, data, loading, on
     {error && <ErrorState message={error} />}{message && <div className="po-message is-success" role="status"><Check size={16} />{message}</div>}
     <div className="po-privacy-note"><LockKeyhole size={19} /><div><strong>Documento individual e privado</strong><p>O recibo anexado fica privado e é disponibilizado imediatamente ao funcionário no portal existente. Anexar um arquivo, por si só, não confirma os valores oficiais.</p></div></div>
     <SectionCard title={`Resumo oficial · ${monthLabel(competencia)}`} caption="Totais consideram somente registros confirmados; rascunhos e pendências não entram nos valores oficiais.">
+      <div className="po-summary-body">
       {loading && !data ? <LoadingState label="Carregando situação da competência…" /> : data ? <>
         <div className="po-summary-head"><span className={`po-competence-state is-${data.status_competencia}`}><span />{statusLabel[data.status_competencia] || data.status_competencia}</span><span>{data.confirmados} de {data.funcionarios_elegiveis} confirmados</span><button className="secondary-button" type="button" onClick={() => void onRefresh()} disabled={loading || !!busy}><RefreshCw size={14} className={loading ? 'spin' : ''} /> Atualizar</button></div>
-        <div className="po-summary-grid"><article><Users size={17} /><span>Elegíveis</span><strong>{data.funcionarios_elegiveis}</strong></article><article><Check size={17} /><span>Confirmados</span><strong>{data.confirmados}</strong></article><article><Save size={17} /><span>Rascunhos</span><strong>{data.rascunhos}</strong></article><article><AlertTriangle size={17} /><span>Pendentes</span><strong>{data.pendentes}</strong></article></div>
-        <div className="po-totals"><div><small>Vencimentos oficiais</small><strong>{currency(data.total_vencimentos_oficiais)}</strong></div><div><small>Descontos oficiais</small><strong>{currency(data.total_descontos_oficiais)}</strong></div><div><small>Líquido oficial</small><strong>{currency(data.valor_liquido_oficial)}</strong></div></div>
+        <div className="metric-grid overview-metrics po-official-kpis">
+          <MetricCard label="Elegíveis" value={data.funcionarios_elegiveis} detail="Vínculos na competência" tone="blue" />
+          <MetricCard label="Confirmados" value={data.confirmados} detail="Valores oficiais registrados" tone={data.confirmados > 0 ? 'green' : 'blue'} />
+          <MetricCard label="Rascunhos" value={data.rascunhos} detail="Ainda não entram nos totais" tone={data.rascunhos > 0 ? 'gold' : 'blue'} />
+          <MetricCard label="Pendentes" value={data.pendentes} detail={data.pendentes > 0 ? 'Aguardam conclusão' : 'Sem pendências'} tone={data.pendentes > 0 ? 'pink' : 'green'} />
+        </div>
+        <div className="metric-grid overview-metrics po-official-amounts">
+          <MetricCard label="Vencimentos oficiais" value={currency(data.total_vencimentos_oficiais)} detail="Somente registros confirmados" tone="blue" />
+          <MetricCard label="Descontos oficiais" value={currency(data.total_descontos_oficiais)} detail="Somente registros confirmados" tone="pink" />
+          <MetricCard label="Líquido oficial" value={currency(data.valor_liquido_oficial)} detail="Somente registros confirmados" tone={data.valor_liquido_oficial >= 0 ? 'green' : 'pink'} />
+        </div>
         {data.status_competencia === 'parcial' && <p className="po-partial-note"><AlertTriangle size={15} />A competência segue parcial/mista até que todos os funcionários elegíveis tenham registros confirmados.</p>}
       </> : <EmptyState title="Resumo indisponível" description="Atualize a tela para consultar os valores oficiais da competência." />}
+      </div>
     </SectionCard>
     <div className="po-workspace">
       <SectionCard title="Funcionários" caption="Selecione uma pessoa para cadastrar ou revisar os valores recebidos.">
-        {loading && !data ? <LoadingState label="Carregando funcionários…" /> : people.length === 0 ? <EmptyState title="Nenhum funcionário elegível" description="Não há vínculos elegíveis nesta competência." /> : <div className="po-employee-list">{people.map((person) => <button type="button" key={person.funcionario_id} className={`po-employee ${selectedId === person.funcionario_id ? 'is-selected' : ''}`} onClick={() => select(person)}><span className="po-avatar">{person.nome.trim().charAt(0).toUpperCase()}</span><span className="po-employee-info"><strong>{person.nome}</strong><small>{person.cargo || 'Cargo não informado'}</small></span><Status status={person.status} />{person.status === 'confirmado' && <span className="po-net">{currency(person.valor_liquido)}</span>}</button>)}</div>}
+      {loading && !data ? <LoadingState label="Carregando funcionários…" /> : people.length === 0 ? <EmptyState title="Nenhum funcionário elegível" description="Não há vínculos elegíveis nesta competência." /> : <div className="po-employee-list">{people.map((person) => <button type="button" key={person.funcionario_id} className={`po-employee ${selectedId === person.funcionario_id ? 'is-selected' : ''}`} onClick={() => select(person)}><span className="po-avatar">{employeePhotos[person.funcionario_id] ? <img src={employeePhotos[person.funcionario_id]} alt="" /> : person.nome.trim().charAt(0).toUpperCase()}</span><span className="po-employee-info"><strong>{person.nome}</strong><small>{person.cargo || 'Cargo não informado'}</small></span><Status status={person.status} />{person.status === 'confirmado' && <span className="po-net">{currency(person.valor_liquido)}</span>}</button>)}</div>}
       </SectionCard>
       <SectionCard title={employee ? `Valores oficiais · ${employee.nome}` : 'Cadastro manual'} caption={employee ? `${monthLabel(competencia)} · valores transcritos do documento do escritório` : 'Escolha um funcionário na lista para começar.'}>
         {!employee || !form ? <div className="po-placeholder"><FileText size={24} /><span>O formulário individual aparecerá aqui após selecionar um funcionário.</span></div> : <form className="po-form" onSubmit={(event) => void save(event, false)}>
