@@ -447,3 +447,117 @@
   .employee-record-inline .employee-record-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 14px; }
   .employee-record-inline .employee-record-tabs { top: 58px; }
 }
+
+
+/* Prontuário: identidade visual e leitura orientada à gestão. */
+.employee-record-inline .employee-record-heading {
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 18px;
+}
+.employee-record-identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.employee-record-photo {
+  display: grid;
+  place-items: center;
+  flex: 0 0 76px;
+  width: 76px;
+  height: 76px;
+  overflow: hidden;
+  border: 1px solid #eadfcf;
+  border-radius: 18px;
+  color: #84651d;
+  background: linear-gradient(145deg, #f9ecd1, #fff7eb);
+}
+.employee-record-photo img { width: 100%; height: 100%; object-fit: cover; }
+.employee-record-heading-copy { display: grid; gap: 4px; min-width: 0; }
+.employee-record-heading-copy .eyebrow { color: #9b741c; font-size: 9px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.employee-record-inline .employee-record-heading h2 { margin: 0; color: #29252b; font-size: clamp(19px, 2vw, 24px); line-height: 1.2; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.employee-record-inline .employee-record-heading-copy p { margin: 0; color: #514941; font-size: 12px; font-weight: 650; }
+.employee-record-heading-copy > small { color: #82786f; font-size: 10px; line-height: 1.4; }
+.employee-record-profile-actions { display: flex; align-items: center; justify-content: flex-end; gap: 14px; flex: none; }
+.employee-record-current-status { display: grid; justify-items: end; gap: 5px; }
+.employee-record-current-status > span { color: #82786f; font-size: 9px; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; }
+.employee-record-inline .employee-record-summary { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.employee-record-inline .employee-record-summary > .section-card { border-color: #ebe4df; border-radius: 13px; }
+.employee-record-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 11px;
+  padding: 17px 18px 19px;
+}
+.employee-record-facts > div {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  min-height: 94px;
+  padding: 13px 14px;
+  border: 1px solid #eee8e1;
+  border-radius: 11px;
+  background: #fcfaf7;
+}
+.employee-record-facts span { color: #82786f; font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.employee-record-facts strong { color: #29252b; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+.employee-record-facts small { color: #746d66; font-size: 10px; line-height: 1.4; }
+.employee-record-followup-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 16px 18px 19px;
+}
+.employee-record-followup-card {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  min-height: 91px;
+  padding: 12px;
+  border: 1px solid #ebe4df;
+  border-radius: 12px;
+  color: #29252b;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.employee-record-followup-card:hover { border-color: #cdb58a; background: #fffcf6; box-shadow: 0 5px 14px rgba(91,65,29,.07); transform: translateY(-1px); }
+.employee-record-followup-card:focus-visible { outline: 3px solid rgba(198,160,75,.35); outline-offset: 2px; }
+.employee-record-followup-count {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #eee2c9;
+  border-radius: 12px;
+  color: #76581b;
+  background: #fbf3e4;
+  font-size: 17px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.employee-record-followup-copy { display: grid; gap: 4px; min-width: 0; }
+.employee-record-followup-copy strong { color: #342b30; font-size: 11px; line-height: 1.3; }
+.employee-record-followup-copy small { color: #746d66; font-size: 9px; line-height: 1.4; }
+.employee-record-followup-copy em { color: #8a681c; font-size: 9px; font-style: normal; font-weight: 750; }
+.employee-record-followup-card > svg { color: #96876d; }
+@media (max-width: 900px) {
+  .employee-record-followup-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .employee-record-inline .employee-record-heading { align-items: stretch; gap: 14px; }
+  .employee-record-identity { align-items: flex-start; gap: 12px; }
+  .employee-record-photo { flex-basis: 58px; width: 58px; height: 58px; border-radius: 15px; }
+  .employee-record-profile-actions { justify-content: space-between; }
+  .employee-record-current-status { justify-items: start; }
+  .employee-record-profile-actions .secondary-button { min-height: 36px; }
+  .employee-record-facts { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 13px; }
+  .employee-record-facts > div { min-height: 0; padding: 11px 12px; }
+  .employee-record-followup-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 12px; }
+  .employee-record-followup-card { min-height: 78px; }
+}

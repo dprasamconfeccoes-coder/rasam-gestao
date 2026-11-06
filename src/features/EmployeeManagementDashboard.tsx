@@ -48,6 +48,12 @@ function employeeCompensation(employee: EmployeeRow) {
   return monthly == null ? 'Remuneração não informada' : `${formatMoney(Number(monthly))} / mês`
 }
 
+function employeeContractLabel(value: string | null | undefined) {
+  const labels: Record<string, string> = { formal: 'Formal / CLT', informal: 'Informal', experiencia: 'Experiência', diarista: 'Diarista' }
+  const key = (value || '').trim().toLowerCase()
+  return labels[key] || value || 'Vínculo não informado'
+}
+
 function readText(item: Record<string, unknown>, keys: string[]) {
   for (const key of keys) {
     const value = item[key]
@@ -282,6 +288,40 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
   const collection = (key: string) => Array.isArray(recordData?.[key]) ? recordData[key] as Array<Record<string, unknown>> : []
   const items = tab === 'resumo' || tab === 'timeline' ? [] : collection(tab)
   const title = tabs.find(([key]) => key === tab)?.[1] || 'Registros'
+  const summaryLinks: Array<{ key: TabKey; label: string; total: number; context: string; empty: string }> = [
+    { key: 'ponto', label: 'Ponto', total: collection('ponto').length, context: 'Marcações e eventos de jornada', empty: 'Nenhuma marcação vinculada' },
+    { key: 'atestados', label: 'Atestados', total: collection('atestados').length, context: 'Documentos médicos vinculados', empty: 'Nenhum atestado cadastrado' },
+    { key: 'afastamentos', label: 'Afastamentos', total: collection('afastamentos').length, context: 'Períodos de afastamento registrados', empty: 'Nenhum afastamento cadastrado' },
+    { key: 'ferias', label: 'Férias', total: collection('ferias').length, context: 'Períodos de férias registrados', empty: 'Nenhum período cadastrado' },
+    { key: 'documentos', label: 'Documentos', total: collection('documentos').length, context: 'Arquivos anexados ao prontuário', empty: 'Nenhum documento anexado' },
+    { key: 'holerites', label: 'Holerites', total: collection('holerites').length, context: 'Comprovantes de pagamento disponíveis', empty: 'Nenhum holerite disponível' },
+  ]
+  const recordPanel = selected ? <section className="employee-record-inline" ref={recordPanelRef} role="region" aria-labelledby="employee-record-title" tabIndex={-1}><div className="employee-record-shell">
+    <div className="employee-record-heading">
+      <div className="employee-record-identity">
+        <div className="employee-record-photo">{selected.avatar_url ? <img src={selected.avatar_url} alt={`Foto de ${selected.nome}`} /> : <UserRound size={30} aria-hidden="true" />}</div>
+        <div className="employee-record-heading-copy"><span className="eyebrow">Prontuário individual</span><h2 id="employee-record-title">{selected.nome}</h2><p>{selected.cargo || 'Cargo não informado'}</p><small>{employeeContractLabel(selected.tipo_vinculo)} · CPF {maskedCpf(selected.cpf)}</small></div>
+      </div>
+      <div className="employee-record-profile-actions"><div className="employee-record-current-status"><span>Situação atual</span><StatusPill value={selected.situacao} /></div><button className="secondary-button" type="button" onClick={closeRecord}><X size={16} /> Fechar prontuário</button></div>
+    </div>
+    {recordLoading ? <LoadingState label="Montando prontuário…" /> : recordError ? <ErrorState message={recordError} /> : record ? <>
+      <div className="employee-record-tabs">{tabs.map(([key, label]) => { const count = key === 'resumo' || key === 'ficha' || key === 'timeline' ? null : collection(key).length; return <button type="button" key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}{count !== null ? <small>{count}</small> : null}</button> })}</div>
+      {tab === 'resumo' ? <div className="employee-record-summary">
+        <SectionCard title="Vínculo e remuneração" caption="Dados cadastrais essenciais para uma leitura rápida da situação profissional."><div className="employee-record-facts">
+          <div><span>Tipo de vínculo</span><strong>{employeeContractLabel(selected.tipo_vinculo)}</strong><small>Modalidade registrada no cadastro</small></div>
+          <div><span>Remuneração cadastrada</span><strong>{employeeCompensation(selected)}</strong><small>{selected.tipo_vinculo === 'diarista' ? 'Valor informado por diária' : 'Valor informado por mês'}</small></div>
+          <div><span>Data de admissão</span><strong>{formatDate(selected.data_admissao)}</strong><small>Data registrada para início do vínculo</small></div>
+        </div></SectionCard>
+        <SectionCard title="Acompanhamento do prontuário" caption="Os totais mostram os registros vinculados; selecione uma categoria para abrir sua lista de origem."><div className="employee-record-followup-grid">
+          {summaryLinks.map((link) => <button className="employee-record-followup-card" type="button" key={link.key} onClick={() => setTab(link.key)} aria-label={`${link.label}: ${link.total} registros. Abrir detalhes.`}>
+            <span className="employee-record-followup-count">{link.total}</span><span className="employee-record-followup-copy"><strong>{link.label}</strong><small>{link.total ? link.context : link.empty}</small><em>Ver registros</em></span><ChevronRight size={16} aria-hidden="true" />
+          </button>)}
+        </div></SectionCard>
+      </div> : tab === 'ficha' ? <SectionCard title="Ficha completa do funcionário" caption="Dados cadastrais e trabalhistas vinculados a este funcionário.">
+        {employeeFicha ? <><div className="employee-ficha-groups">{fieldGroups.map((group) => <details className="employee-ficha-group" key={group.title} open={group.title.includes('Identificação') || group.title.includes('Vínculo')}><summary>{group.title}</summary><div className="employee-ficha-grid">{group.fields.filter((field) => field.key !== 'valor_diaria' || selected.tipo_vinculo === 'diarista').map((field) => <div className={`employee-ficha-value${field.kind === 'textarea' ? ' is-wide' : ''}`} key={field.key}><span>{field.label}</span><strong>{displayValue(field, employeeFicha[field.key])}</strong></div>)}</div></details>)}</div><div className="employee-create-actions"><button className="primary-button" type="button" onClick={() => setEditFichaOpen(true)}>Editar ficha completa</button></div></> : <EmptyState title="Ficha indisponível" description="Não foi possível obter os dados completos deste cadastro." />}
+      </SectionCard> : tab === 'timeline' ? <EmployeeTimeline token={token} funcionarioId={selected.id} /> : <SectionCard title={title} caption={`${items.length} registro(s) carregado(s) · a linha do tempo tem paginação independente`}><RecordList items={items} /></SectionCard>}
+    </> : null}
+  </div></section> : null
 
   useEffect(() => {
     if (!selected) return
@@ -318,28 +358,16 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
     </SectionCard>
     {error ? <ErrorState message={error} /> : null}
     {loading ? <LoadingState label="Consultando cadastros com segurança…" /> : null}
-    {!page && !loading && !error ? <SectionCard title="Diretório da equipe" caption="A lista é consultada somente quando você inicia uma busca"><div className="employee-directory-empty"><Search size={30} /><strong>Pesquise para abrir um prontuário</strong><p>Digite um nome, CPF ou cargo, ou abra os filtros avançados para reduzir os resultados.</p></div></SectionCard> : null}
-    {page && !loading ? <SectionCard title={`${page.total} funcionário(s)`} caption={`Página ${pageNumber + 1} de ${totalPages} · CPF oculto na lista; selecione uma pessoa para ver o prontuário abaixo`}>
+    {!page && !loading && !error ? <SectionCard title="Diretório da equipe" caption={selected ? 'Prontuário individual selecionado · use os atalhos para consultar os registros de origem.' : 'A lista é consultada quando você inicia uma busca.'}>{!selected ? <div className="employee-directory-empty"><Search size={30} /><strong>Pesquise para abrir um prontuário</strong><p>Digite um nome, CPF ou cargo, ou abra os filtros avançados para reduzir os resultados.</p></div> : null}{recordPanel}</SectionCard> : null}
+    {page && !loading ? <SectionCard title={`Diretório da equipe · ${page.total} funcionário(s)`} caption={`Página ${pageNumber + 1} de ${totalPages} · CPF oculto nos resultados; selecione uma pessoa para abrir o prontuário nesta área.`}>
       <div className="employee-directory-results">{page.registros.length ? page.registros.map((employee) => <button className="employee-directory-result" type="button" key={employee.id} onClick={() => void openRecord(employee)}>
         <span className="employee-directory-avatar">{employee.avatar_url ? <img src={employee.avatar_url} alt="" /> : <UserRound size={20} />}</span>
         <span className="employee-directory-main"><strong>{employee.nome}</strong><small>{employee.cargo || 'Cargo não informado'} · {employee.tipo_vinculo || 'Vínculo não informado'}</small><small>CPF {maskedCpf(employee.cpf)} · admissão {formatDate(employee.data_admissao)}</small><span className="employee-directory-mobile-meta"><StatusPill value={employee.situacao} /><small>{employeeCompensation(employee)}</small></span></span>
         <span className="employee-directory-meta"><b>{employeeCompensation(employee)}</b><StatusPill value={employee.situacao} /></span><ChevronRight size={17} />
       </button>) : <EmptyState title="Nenhum funcionário encontrado" description="Ajuste os filtros e faça uma nova busca." />}</div>
       {page.total > 20 ? <div className="employee-directory-pagination"><button className="secondary-button compact-button" type="button" disabled={pageNumber === 0} onClick={() => void runSearch(activeFilters, pageNumber - 1)}><ChevronLeft size={15} /> Anterior</button><span>Página {pageNumber + 1} de {totalPages}</span><button className="secondary-button compact-button" type="button" disabled={pageNumber + 1 >= totalPages} onClick={() => void runSearch(activeFilters, pageNumber + 1)}>Próxima <ChevronRight size={15} /></button></div> : null}
+      {recordPanel}
     </SectionCard> : null}
-
-    {selected ? <section className="employee-record-inline" ref={recordPanelRef} role="region" aria-labelledby="employee-record-title" tabIndex={-1}><div className="employee-record-shell">
-      <div className="employee-record-heading"><div><span className="eyebrow">Prontuário individual</span><h2 id="employee-record-title">{selected.nome}</h2><p>{selected.cargo || 'Cargo não informado'} · {selected.tipo_vinculo || 'Vínculo não informado'} · CPF {selected.cpf}</p></div><button className="secondary-button" type="button" onClick={closeRecord}><X size={16} /> Fechar prontuário</button></div>
-      {recordLoading ? <LoadingState label="Montando prontuário…" /> : recordError ? <ErrorState message={recordError} /> : record ? <>
-        <div className="employee-record-tabs">{tabs.map(([key, label]) => { const count = key === 'resumo' || key === 'ficha' || key === 'timeline' ? null : collection(key).length; return <button type="button" key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}{count !== null ? <small>{count}</small> : null}</button> })}</div>
-        {tab === 'resumo' ? <div className="employee-record-summary">
-          <SectionCard title="Resumo funcional" caption="Dados principais do vínculo"><div className="employee-record-metrics"><div><span>Situação</span><StatusPill value={selected.situacao} /></div><div><span>Remuneração cadastrada</span><strong>{selected.tipo_vinculo === 'diarista' ? (selected.valor_diaria == null ? 'Não informada' : `${formatMoney(Number(selected.valor_diaria))} / diária`) : (selected.valor_mensal ?? selected.salario) === null ? 'Não informada' : `${formatMoney(Number(selected.valor_mensal ?? selected.salario))} / mês`}</strong></div><div><span>Admissão</span><strong>{formatDate(selected.data_admissao)}</strong></div><div><span>Vínculo</span><strong>{selected.tipo_vinculo || 'Não informado'}</strong></div><div><span>Atestados</span><strong>{collection('atestados').length}</strong></div><div><span>Afastamentos</span><strong>{collection('afastamentos').length}</strong></div></div></SectionCard>
-          <SectionCard title="Movimentos recentes" caption="O histórico completo fica na linha do tempo"><div className="employee-record-attention"><p><BriefcaseBusiness size={17} /> {collection('advertencias').length} advertência(s) e {collection('justificativas').length} justificativa(s).</p><p><CalendarDays size={17} /> {collection('ferias').length} período(s) de férias e {collection('ponto').length} registros recentes de ponto.</p><p><FileText size={17} /> {collection('documentos').length} documento(s) e {collection('holerites').length} holerite(s).</p></div></SectionCard>
-        </div> : tab === 'ficha' ? <SectionCard title="Ficha completa do funcionário" caption="Dados cadastrais e trabalhistas vinculados a este funcionário.">
-          {employeeFicha ? <><div className="employee-ficha-groups">{fieldGroups.map((group) => <details className="employee-ficha-group" key={group.title} open={group.title.includes('Identificação') || group.title.includes('Vínculo')}><summary>{group.title}</summary><div className="employee-ficha-grid">{group.fields.filter((field) => field.key !== 'valor_diaria' || selected.tipo_vinculo === 'diarista').map((field) => <div className={`employee-ficha-value${field.kind === 'textarea' ? ' is-wide' : ''}`} key={field.key}><span>{field.label}</span><strong>{displayValue(field, employeeFicha[field.key])}</strong></div>)}</div></details>)}</div><div className="employee-create-actions"><button className="primary-button" type="button" onClick={() => setEditFichaOpen(true)}>Editar ficha completa</button></div></> : <EmptyState title="Ficha indisponível" description="Não foi possível obter os dados completos deste cadastro." />}
-        </SectionCard> : tab === 'timeline' ? <EmployeeTimeline token={token} funcionarioId={selected.id} /> : <SectionCard title={title} caption={`${items.length} registro(s) carregado(s) · a linha do tempo tem paginação independente`}><RecordList items={items} /></SectionCard>}
-      </> : null}
-    </div></section> : null}
     {editFichaOpen && employeeFicha ? <EmployeeFichaPanel token={token} employee={employeeFicha} onClose={() => setEditFichaOpen(false)} onSaved={(updated) => { setRecord((current) => current ? { ...current, funcionario: updated } : current); setEditFichaOpen(false); void runSearch(activeFilters, pageNumber) }} /> : null}
     <EmployeeRegistrationWizard open={createOpen} token={token} onClose={() => setCreateOpen(false)} onCreated={(_id, cpf) => { const next = { ...filters, busca: cpf }; setFilters(next); void runSearch(next, 0).then(() => setNotice('Funcionário cadastrado e disponível para consulta.')) }} />
   </div>
