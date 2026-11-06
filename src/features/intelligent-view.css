@@ -77,3 +77,18 @@
 @media (max-width: 1060px) { .intelligent-layout { grid-template-columns: minmax(0,1fr) 300px; } }
 @media (max-width: 820px) { .intelligent-layout { grid-template-columns: 1fr; } .intelligent-chat-card { min-height: 570px; } .intelligent-sidebar { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (max-width: 560px) { .intelligent-chat-header { align-items: flex-start; flex-direction: column; } .intelligent-chat-card { min-height: 520px; } .intelligent-messages { min-height: 270px; max-height: 420px; padding: 13px; } .intelligent-composer { align-items: stretch; flex-direction: column; } .intelligent-composer .primary-button { align-self: flex-end; } .intelligent-sidebar { grid-template-columns: 1fr; } .intelligent-message { max-width: 100%; } .intelligent-result-list li { align-items: flex-start; flex-direction: column; } }
+
+.intelligent-metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 11px; }
+.intelligent-metric { min-width: 0; display: grid; gap: 7px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.intelligent-metric span { color: var(--muted); font-size: 10px; line-height: 1.4; }
+.intelligent-metric strong { color: #332a2f; font-size: 15px; font-weight: 800; overflow-wrap: anywhere; }
+.intelligent-source-note { margin: 0 11px 10px; padding-top: 9px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; line-height: 1.5; }
+.intelligent-source-note strong { color: #51464c; }
+.intelligent-limit-note { display: flex; align-items: flex-start; gap: 6px; margin: 0 11px 9px !important; padding: 8px 9px !important; border: 0 !important; border-radius: 8px !important; color: #6b5e54 !important; background: #fbf7ef !important; font-size: 10px !important; line-height: 1.45 !important; }
+.intelligent-limit-note svg { flex: 0 0 auto; margin-top: 1px; color: var(--gold); }
+.intelligent-coverage-card { min-width: 0; }
+.intelligent-module-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.intelligent-module-grid span { display: inline-flex; align-items: center; padding: 5px 8px; border: 1px solid var(--line); border-radius: 999px; color: #55454d; background: #fff; font-size: 9px; font-weight: 700; }
+.intelligent-coverage-caption { margin: 11px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.intelligent-quick-questions button { line-height: 1.4; }
+@media (max-width: 560px) { .intelligent-metric-grid { grid-template-columns: 1fr; } }
