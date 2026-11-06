@@ -1,26 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
-  ArrowDownRight,
-  ArrowUpRight,
   BarChart3,
-  CalendarDays,
   ChevronRight,
   CheckCircle2,
+  CircleDollarSign,
   Clock3,
   Download,
   FileText,
   Image,
   RefreshCw,
-  TrendingDown,
-  TrendingUp,
   WalletCards,
 } from 'lucide-react'
 import { adminFinanceiroExecutivo } from '../lib/api'
 import { saoPauloToday } from '../lib/business-date'
 import { FinanceHealthDashboard } from './FinanceHealthDashboard'
 import type { FinanceiroExecutivoDashboard, FinanceiroExecutivoEvolucao, FinanceiroExecutivoKpis } from '../lib/types'
-import { EmptyState, ErrorState, LoadingState, formatDate, formatMoney } from '../components/ui'
+import { EmptyState, ErrorState, LoadingState, MetricCard, PageHeading, SectionCard, formatDate, formatMoney } from '../components/ui'
 import {
   downloadFinanceDashboardImage,
   downloadFinanceDashboardPdf,
@@ -54,17 +50,6 @@ function rangeDates(key: RangeKey) {
   const start = key === 'ano' ? new Date(Date.UTC(year, 0, 1)) : new Date(Date.UTC(year, month - 1 - (ranges[key].months - 1), 1))
   const iso = (date: Date) => date.toISOString().slice(0, 10)
   return { start: iso(start), end: iso(end) }
-}
-
-function KpiCard({ label, value, detail, tone, trend, icon: Icon }: { label: string; value: string; detail: string; tone: string; trend?: string; icon: typeof TrendingUp }) {
-  return (
-    <article className={`finance-executive-kpi ${tone}`}>
-      <div className="finance-kpi-top"><span>{label}</span><Icon size={17} /></div>
-      <strong>{value}</strong>
-      <small>{detail}</small>
-      {trend && <em>{trend}</em>}
-    </article>
-  )
 }
 
 function EvolutionChart({ rows }: { rows: FinanceiroExecutivoEvolucao[] }) {
@@ -108,12 +93,12 @@ function ExportMenu({ data, periodLabel, disabled, onError }: { data: Financeiro
   }
   return (
     <details className="finance-export-dropdown">
-      <summary><Download size={15} /> Exportar</summary>
+      <summary className="secondary-button finance-toolbar-button"><Download size={15} /> Exportar</summary>
       <div className="finance-export-options" role="group" aria-label="Exportar resumo financeiro">
-        <button type="button" onClick={() => data && void exportFile(() => downloadFinanceDashboardPdf(data, periodLabel))} disabled={disabled}><FileText size={15} /> PDF gerencial</button>
-        <button type="button" onClick={() => data && void exportFile(() => downloadFinanceDashboardXlsx(data, periodLabel))} disabled={disabled}><BarChart3 size={15} /> Excel (.xlsx)</button>
-        <button type="button" onClick={() => data && void exportFile(() => downloadFinanceDashboardImage(data, periodLabel, 'png'))} disabled={disabled}><Image size={15} /> Imagem (.png)</button>
-        <button type="button" onClick={() => data && void exportFile(() => downloadFinanceDashboardImage(data, periodLabel, 'jpg'))} disabled={disabled}><Image size={15} /> Imagem (.jpg)</button>
+        <button type="button" className="secondary-button" onClick={() => data && void exportFile(() => downloadFinanceDashboardPdf(data, periodLabel))} disabled={disabled}><FileText size={15} /> PDF gerencial</button>
+        <button type="button" className="secondary-button" onClick={() => data && void exportFile(() => downloadFinanceDashboardXlsx(data, periodLabel))} disabled={disabled}><BarChart3 size={15} /> Excel (.xlsx)</button>
+        <button type="button" className="secondary-button" onClick={() => data && void exportFile(() => downloadFinanceDashboardImage(data, periodLabel, 'png'))} disabled={disabled}><Image size={15} /> Imagem (.png)</button>
+        <button type="button" className="secondary-button" onClick={() => data && void exportFile(() => downloadFinanceDashboardImage(data, periodLabel, 'jpg'))} disabled={disabled}><Image size={15} /> Imagem (.jpg)</button>
       </div>
     </details>
   )
@@ -166,79 +151,74 @@ export function FinanceExecutiveDashboard({ token, onNavigateToReports }: { toke
   const openOperations = (filter: FinanceFilter) => { setOperationsFilter(filter); setShowOperations(true) }
   if (showOperations) return <FinanceHealthDashboard token={token} initialFilter={operationsFilter} onBack={() => setShowOperations(false)} />
 
-  const header = (
-    <header className="finance-workspace-header">
-      <div className="finance-workspace-title">
-        <span className="finance-workspace-icon"><WalletCards size={21} /></span>
-        <div><h1>Financeiro</h1><span>{periodLabel}{dataReady && updatedAt ? ` · atualizado ${updatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}</span></div>
+  const header = <PageHeading eyebrow="CONTROLE" title="Financeiro" description={`${periodLabel}${dataReady && updatedAt ? ` · atualizado ${updatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}`} action={
+    <div className="finance-workspace-toolbar">
+      <div className="overview-segmented finance-range-switch" role="group" aria-label="Período financeiro">
+        {(Object.entries(ranges) as [RangeKey, { label: string }][]).map(([key, item]) => <button type="button" key={key} className={range === key ? 'is-active' : ''} onClick={() => setRange(key)} aria-pressed={range === key}>{item.label}</button>)}
       </div>
-      <div className="finance-workspace-toolbar">
-        <div className="finance-range-switch" role="group" aria-label="Período financeiro">
-          {(Object.entries(ranges) as [RangeKey, { label: string }][]).map(([key, item]) => <button key={key} className={range === key ? 'active' : ''} onClick={() => setRange(key)} aria-pressed={range === key}>{item.label}</button>)}
-        </div>
-        <button className="secondary-button finance-toolbar-button" onClick={() => setShowOperations(true)}><WalletCards size={15} /> Movimentações</button>
-        {onNavigateToReports && <button className="secondary-button finance-toolbar-button" onClick={onNavigateToReports}><BarChart3 size={15} /> Relatórios</button>}
-        <button className="secondary-button finance-toolbar-button finance-refresh-button" onClick={() => void load()} disabled={loading} aria-label="Atualizar dados"><RefreshCw size={15} className={loading ? 'spin' : ''} /><span>Atualizar</span></button>
-        <ExportMenu data={dataReady ? data : null} periodLabel={periodLabel} disabled={!dataReady || loading} onError={setError} />
-      </div>
-    </header>
-  )
+      <button type="button" className="secondary-button finance-toolbar-button" onClick={() => openOperations('todos')}><WalletCards size={15} /> Movimentações</button>
+      {onNavigateToReports && <button type="button" className="secondary-button finance-toolbar-button" onClick={onNavigateToReports}><BarChart3 size={15} /> Relatórios</button>}
+      <button type="button" className="secondary-button finance-toolbar-button" onClick={() => void load()} disabled={loading} aria-label="Atualizar dados"><RefreshCw size={15} className={loading ? 'spin' : ''} /><span>Atualizar</span></button>
+      <ExportMenu data={dataReady ? data : null} periodLabel={periodLabel} disabled={!dataReady || loading} onError={setError} />
+    </div>
+  } />
 
-  if (loading && !dataReady) return <div className="debt-management-page finance-executive-page">{header}<LoadingState label="Carregando financeiro…" /></div>
-  if (error && !dataReady) return <div className="debt-management-page finance-executive-page">{header}<ErrorState message={error} /><button className="secondary-button" onClick={() => void load()}><RefreshCw size={15} /> Tentar novamente</button></div>
+  if (loading && !dataReady) return <div className="overview-page finance-executive-page">{header}<LoadingState label="Carregando financeiro…" /></div>
+  if (error && !dataReady) return <div className="overview-page finance-executive-page">{header}<ErrorState message={error} /><button className="secondary-button" onClick={() => void load()}><RefreshCw size={15} /> Tentar novamente</button></div>
 
   return (
-    <div className="debt-management-page finance-executive-page">
+    <div className="overview-page finance-executive-page">
       {header}
-      {error && <div className="finance-inline-error" role="alert">{error}<button type="button" onClick={() => setError('')} aria-label="Fechar erro">×</button></div>}
+      {error && <div className="overview-data-warning" role="alert"><AlertTriangle size={16} /><span>{error}</span><button type="button" onClick={() => setError('')} aria-label="Fechar erro">×</button></div>}
       {topAlert ? (
-        <button type="button" className={`finance-priority-alert ${topAlert.nivel === 'critico' ? 'is-critical' : 'is-attention'}`} onClick={() => openOperations(alertFilter(topAlert))}>
-          <span className="finance-priority-icon">{topAlert.nivel === 'critico' ? <AlertTriangle size={17} /> : <Clock3 size={17} />}</span>
-          <span className="finance-priority-copy"><strong>{topAlert.titulo || 'Atenção financeira'}</strong><small>{topAlert.detalhe || 'Há um item que requer acompanhamento.'}</small></span>
-          {alerts.length > 1 && <b>{alerts.length} alertas</b>}
-          <ChevronRight size={16} className="finance-priority-arrow" />
-        </button>
+        <div className="overview-alert-list finance-priority-list" aria-label="Alertas financeiros prioritários">
+          <button type="button" className={`overview-alert-item ${topAlert.nivel === 'critico' ? 'is-urgente' : 'is-atencao'}`} onClick={() => openOperations(alertFilter(topAlert))}>
+            <span>{topAlert.nivel === 'critico' ? <AlertTriangle size={18} /> : <Clock3 size={18} />}</span>
+            <div><strong>{topAlert.titulo || 'Atenção financeira'}{alerts.length > 1 && <b>{alerts.length} alertas</b>}</strong><small>{topAlert.detalhe || 'Há um item que requer acompanhamento.'}</small></div>
+            <ChevronRight size={16} />
+          </button>
+        </div>
       ) : (
-        <div className="finance-period-context"><CalendarDays size={14} /><span>Competências consideradas: <strong>{periodLabel}</strong></span><span className="finance-context-status"><CheckCircle2 size={14} /> Sem alertas de atenção</span></div>
+        <div className="overview-alert-list finance-priority-list" aria-label="Situação financeira"><div className="overview-alert-item is-success" role="status"><span><CheckCircle2 size={18} /></span><div><strong>Sem alertas de atenção</strong><small>Competências consideradas: {periodLabel}</small></div></div></div>
       )}
 
-      <section className="finance-executive-kpis" aria-label="Indicadores financeiros">
-        <KpiCard label="Saldo projetado" value={formatMoney(projected)} detail="Realizado + compromissos futuros" tone={projected >= 0 ? 'is-positive' : 'is-negative'} trend={projected >= 0 ? 'Projeção positiva' : 'Projeção negativa'} icon={projected >= 0 ? TrendingUp : TrendingDown} />
-        <KpiCard label="Receitas realizadas" value={formatMoney(num(kpis.receitas_realizadas))} detail={`${formatMoney(num(kpis.receitas_a_receber))} a receber`} tone="is-green" icon={ArrowUpRight} />
-        <KpiCard label="Despesas realizadas" value={formatMoney(num(kpis.despesas_realizadas))} detail={`${formatMoney(num(kpis.despesas_vencidas))} vencidas`} tone="is-red" icon={ArrowDownRight} />
-        <KpiCard label="Resultado operacional" value={formatMoney(result)} detail="Receitas menos despesas realizadas" tone={result >= 0 ? 'is-positive' : 'is-negative'} icon={WalletCards} />
-      </section>
+      <div className="metric-grid overview-metrics finance-executive-kpis" aria-label="Indicadores financeiros">
+        <MetricCard label="Saldo projetado" value={formatMoney(projected)} detail="Realizado + compromissos futuros" tone={projected >= 0 ? 'green' : 'pink'} onClick={() => openOperations('todos')} />
+        <MetricCard label="Receitas realizadas" value={formatMoney(num(kpis.receitas_realizadas))} detail={`${formatMoney(num(kpis.receitas_a_receber))} a receber`} tone="green" onClick={() => openOperations('receber')} />
+        <MetricCard label="Despesas realizadas" value={formatMoney(num(kpis.despesas_realizadas))} detail={`${formatMoney(num(kpis.despesas_vencidas))} vencidas`} tone="pink" onClick={() => openOperations('pagar')} />
+        <MetricCard label="Resultado operacional" value={formatMoney(result)} detail="Receitas menos despesas realizadas" tone={result >= 0 ? 'green' : 'pink'} onClick={() => openOperations('todos')} />
+      </div>
 
-      <div className="finance-executive-grid">
-        <section className="finance-visual-card finance-evolution-card">
-          <div className="finance-card-heading"><div><h2>Movimentação por competência</h2><span>Valores realizados e previstos</span></div><BarChart3 size={18} /></div>
+      <div className="overview-main-grid finance-executive-grid">
+        <SectionCard title="Movimentação por competência" caption="Valores realizados e previstos" className="finance-visual-card finance-evolution-card">
           <div className="finance-chart-legend"><span><i className="is-income" />Receita realizada</span><span><i className="is-expense" />Despesa realizada</span><span><i className="is-income-soft" />A receber</span><span><i className="is-expense-soft" />A pagar</span></div>
           {rows.length ? <EvolutionChart rows={rows} /> : <EmptyState title="Sem histórico neste período" description="A evolução será exibida quando houver movimentações financeiras registradas." />}
-        </section>
-        <section className="finance-visual-card finance-projection-card">
-          <div className="finance-card-heading"><div><h2>Fluxo de caixa</h2><span>Saldo operacional por competência</span></div><WalletCards size={18} /></div>
+        </SectionCard>
+        <SectionCard title="Fluxo de caixa" caption="Saldo operacional por competência" className="finance-visual-card finance-projection-card">
           <div className="finance-projection-highlight"><div><small>Saldo projetado</small><strong className={projected >= 0 ? 'positive-value' : 'negative-value'}>{formatMoney(projected)}</strong></div><span>{projected >= 0 ? 'Compatível com os compromissos modelados.' : 'O caixa projetado requer priorização.'}</span></div>
           {rows.length ? <CashflowChart rows={rows} /> : <EmptyState title="Sem projeção disponível" description="Cadastre receitas e despesas para visualizar o fluxo por competência." />}
-        </section>
+        </SectionCard>
       </div>
 
-      <div className="finance-executive-grid finance-secondary-grid">
-        <section className="finance-visual-card">
-          <div className="finance-card-heading"><div><h2>Despesas por categoria</h2><span>Composição no período selecionado</span></div><TrendingDown size={18} /></div>
+      <div className="overview-stage2-grid finance-secondary-grid">
+        <SectionCard title="Despesas por categoria" caption="Composição no período selecionado" className="finance-visual-card">
           {categories.length ? <div className="finance-category-list">{categories.slice(0, 8).map((item) => <div className="finance-category-row" key={item.categoria}><div><span>{item.categoria}</span><strong>{formatMoney(num(item.valor))}</strong></div><div className="finance-category-track"><i style={{ width: `${Math.max(3, num(item.valor) / maxCategory * 100)}%` }} /></div><small>{num(item.quantidade)} lançamento(s)</small></div>)}</div> : <EmptyState title="Sem despesas categorizadas" description="Não há composição por categoria disponível neste período." />}
-        </section>
-        <section className="finance-visual-card">
-          <div className="finance-card-heading"><div><h2>Agenda de vencimentos</h2><span>Contas a pagar por faixa de risco</span></div><CalendarDays size={18} /></div>
-          <div className="finance-aging-list">{[['Vencido', 'vencido', 'is-critical'], ['Hoje', 'hoje', 'is-today'], ['Próximos 7 dias', 'sete_dias', 'is-warning'], ['8 a 30 dias', 'trinta_dias', 'is-normal']].map(([label, key, tone]) => { const bucket = aging[key as keyof typeof aging] || {}; return <button type="button" className={`finance-aging-row ${tone}`} key={key} onClick={() => openOperations(key === 'vencido' ? 'atrasados' : 'pagar')}><span>{label}</span><strong>{formatMoney(num(bucket.valor))}</strong><small>{num(bucket.quantidade)} conta(s)</small><ChevronRight size={14} /></button> })}</div>
-        </section>
+        </SectionCard>
+        <SectionCard title="Agenda de vencimentos" caption="Contas a pagar por faixa de risco" className="finance-visual-card">
+          <div className="overview-summary-list finance-aging-list">{[['Vencido', 'vencido', 'is-urgente'], ['Hoje', 'hoje', 'is-atencao'], ['Próximos 7 dias', 'sete_dias', 'is-atencao'], ['8 a 30 dias', 'trinta_dias', 'is-informacao']].map(([label, key, tone]) => { const bucket = aging[key as keyof typeof aging] || {}; return <button type="button" className={tone} key={key} onClick={() => openOperations(key === 'vencido' ? 'atrasados' : 'pagar')}><span><strong>{label}</strong><small>{num(bucket.quantidade)} conta(s)</small></span><b>{formatMoney(num(bucket.valor))}</b><ChevronRight size={14} /></button> })}</div>
+        </SectionCard>
       </div>
 
-      <section className="finance-visual-card finance-alerts-card">
-        <div className="finance-card-heading"><div><h2>Acompanhamento</h2><span>Alertas relevantes para o período</span></div>{alerts.length ? <span className="finance-alert-count">{alerts.length} sinal(is)</span> : <CheckCircle2 size={18} />}</div>
-        <div className="finance-alert-list">{alerts.length ? alerts.map((alert, index) => <button type="button" className={`finance-alert ${alert?.nivel === 'critico' ? 'critico' : 'atencao'}`} key={`${alert?.titulo || 'alerta'}-${index}`} onClick={() => alert && openOperations(alertFilter(alert))}><span>{alert?.nivel === 'critico' ? <AlertTriangle size={17} /> : <Clock3 size={17} />}</span><span className="finance-alert-copy"><strong>{alert?.titulo || 'Atenção financeira'}</strong><small>{alert?.detalhe || 'Verifique este indicador.'}</small></span><ChevronRight size={15} /></button>) : <div className="finance-no-alert"><CheckCircle2 size={18} /><span><strong>Nenhum alerta de atenção</strong><small>Não há sinais críticos ou de atenção no período informado.</small></span></div>}</div>
-      </section>
+      <SectionCard title="Acompanhamento" caption={`${alerts.length} alerta(s) relevante(s) para o período`} className="finance-visual-card finance-alerts-card">
+        <div className="overview-alert-list">{alerts.length ? alerts.map((alert, index) => <button type="button" className={`overview-alert-item ${alert?.nivel === 'critico' ? 'is-urgente' : 'is-atencao'}`} key={`${alert?.titulo || 'alerta'}-${index}`} onClick={() => alert && openOperations(alertFilter(alert))}><span>{alert?.nivel === 'critico' ? <AlertTriangle size={18} /> : <Clock3 size={18} />}</span><div><strong>{alert?.titulo || 'Atenção financeira'}</strong><small>{alert?.detalhe || 'Verifique este indicador.'}</small></div><ChevronRight size={16} /></button>) : <EmptyState title="Nenhum alerta de atenção" description="Não há sinais críticos ou de atenção no período informado." />}</div>
+      </SectionCard>
 
-      <footer className="finance-executive-foot"><span><strong>{num(kpis.recorrencias_ativas)}</strong> recorrências ativas</span><span><strong>{formatMoney(num(kpis.compromissos_recorrentes))}</strong> compromissos recorrentes</span><span><strong>{formatMoney(num(kpis.receitas_a_receber))}</strong> receitas a receber</span><span><strong>{formatMoney(num(kpis.despesas_a_pagar))}</strong> despesas a pagar</span></footer>
+      <SectionCard title="Compromissos e recorrências" caption="Valores e cadastros que compõem o acompanhamento financeiro"><div className="overview-summary-list finance-commitments-list">
+        <button type="button" onClick={() => openOperations('todos')}><span><strong>Recorrências ativas</strong><small>Compromissos cadastrados</small></span><b>{num(kpis.recorrencias_ativas).toLocaleString('pt-BR')}</b><ChevronRight size={14} /></button>
+        <button type="button" onClick={() => openOperations('pagar')}><span><strong>Compromissos recorrentes</strong><small>Valor previsto</small></span><b>{formatMoney(num(kpis.compromissos_recorrentes))}</b><ChevronRight size={14} /></button>
+        <button type="button" onClick={() => openOperations('receber')}><span><strong>Receitas a receber</strong><small>Valores em aberto</small></span><b>{formatMoney(num(kpis.receitas_a_receber))}</b><ChevronRight size={14} /></button>
+        <button type="button" onClick={() => openOperations('pagar')}><span><strong>Despesas a pagar</strong><small>Valores em aberto</small></span><b>{formatMoney(num(kpis.despesas_a_pagar))}</b><ChevronRight size={14} /></button>
+      </div></SectionCard>
     </div>
   )
 }
