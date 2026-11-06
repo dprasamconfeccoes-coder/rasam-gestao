@@ -5,6 +5,7 @@ import {
   ArrowUpRight,
   BarChart3,
   CalendarDays,
+  ChevronRight,
   CheckCircle2,
   Clock3,
   Download,
@@ -38,6 +39,14 @@ const ranges: Record<RangeKey, { label: string; months: number }> = {
   mes: { label: 'Este mês', months: 1 },
   trimestre: { label: '3 meses', months: 3 },
   ano: { label: 'Este ano', months: 12 },
+}
+type FinanceFilter = 'todos' | 'pagar' | 'receber' | 'atrasados'
+function alertFilter(alert: { titulo?: string; detalhe?: string }): FinanceFilter {
+  const text = `${alert.titulo || ''} ${alert.detalhe || ''}`.toLocaleLowerCase('pt-BR')
+  if (/receber|receita|cliente|entrada/.test(text)) return 'receber'
+  if (/atras|vencid|vencimento|hoje|prazo/.test(text)) return 'atrasados'
+  if (/despesa|pagar|conta|compromisso|saída/.test(text)) return 'pagar'
+  return 'todos'
 }
 function rangeDates(key: RangeKey) {
   const [year, month] = saoPauloToday().split('-').map(Number)
@@ -113,6 +122,7 @@ function ExportMenu({ data, periodLabel, disabled, onError }: { data: Financeiro
 export function FinanceExecutiveDashboard({ token, onNavigateToReports }: { token: string; onNavigateToReports?: () => void }) {
   const [range, setRange] = useState<RangeKey>('trimestre')
   const [showOperations, setShowOperations] = useState(false)
+  const [operationsFilter, setOperationsFilter] = useState<FinanceFilter>('todos')
   const [data, setData] = useState<FinanceiroExecutivoDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -153,7 +163,8 @@ export function FinanceExecutiveDashboard({ token, onNavigateToReports }: { toke
   const periodLabel = useMemo(() => `${formatDate(dataReady ? data?.periodo?.inicio || dates.start : dates.start)} a ${formatDate(dataReady ? data?.periodo?.fim || dates.end : dates.end)}`, [data, dataReady, dates.start, dates.end])
   const topAlert = alerts[0]
 
-  if (showOperations) return <FinanceHealthDashboard token={token} onBack={() => setShowOperations(false)} />
+  const openOperations = (filter: FinanceFilter) => { setOperationsFilter(filter); setShowOperations(true) }
+  if (showOperations) return <FinanceHealthDashboard token={token} initialFilter={operationsFilter} onBack={() => setShowOperations(false)} />
 
   const header = (
     <header className="finance-workspace-header">
@@ -181,11 +192,12 @@ export function FinanceExecutiveDashboard({ token, onNavigateToReports }: { toke
       {header}
       {error && <div className="finance-inline-error" role="alert">{error}<button type="button" onClick={() => setError('')} aria-label="Fechar erro">×</button></div>}
       {topAlert ? (
-        <div className={`finance-priority-alert ${topAlert.nivel === 'critico' ? 'is-critical' : 'is-attention'}`} role="status">
+        <button type="button" className={`finance-priority-alert ${topAlert.nivel === 'critico' ? 'is-critical' : 'is-attention'}`} onClick={() => openOperations(alertFilter(topAlert))}>
           <span className="finance-priority-icon">{topAlert.nivel === 'critico' ? <AlertTriangle size={17} /> : <Clock3 size={17} />}</span>
-          <div><strong>{topAlert.titulo || 'Atenção financeira'}</strong><span>{topAlert.detalhe || 'Há um item que requer acompanhamento.'}</span></div>
+          <span className="finance-priority-copy"><strong>{topAlert.titulo || 'Atenção financeira'}</strong><small>{topAlert.detalhe || 'Há um item que requer acompanhamento.'}</small></span>
           {alerts.length > 1 && <b>{alerts.length} alertas</b>}
-        </div>
+          <ChevronRight size={16} className="finance-priority-arrow" />
+        </button>
       ) : (
         <div className="finance-period-context"><CalendarDays size={14} /><span>Competências consideradas: <strong>{periodLabel}</strong></span><span className="finance-context-status"><CheckCircle2 size={14} /> Sem alertas de atenção</span></div>
       )}
@@ -217,13 +229,13 @@ export function FinanceExecutiveDashboard({ token, onNavigateToReports }: { toke
         </section>
         <section className="finance-visual-card">
           <div className="finance-card-heading"><div><h2>Agenda de vencimentos</h2><span>Contas a pagar por faixa de risco</span></div><CalendarDays size={18} /></div>
-          <div className="finance-aging-list">{[['Vencido', 'vencido', 'is-critical'], ['Hoje', 'hoje', 'is-today'], ['Próximos 7 dias', 'sete_dias', 'is-warning'], ['8 a 30 dias', 'trinta_dias', 'is-normal']].map(([label, key, tone]) => { const bucket = aging[key as keyof typeof aging] || {}; return <div className={`finance-aging-row ${tone}`} key={key}><span>{label}</span><strong>{formatMoney(num(bucket.valor))}</strong><small>{num(bucket.quantidade)} conta(s)</small></div> })}</div>
+          <div className="finance-aging-list">{[['Vencido', 'vencido', 'is-critical'], ['Hoje', 'hoje', 'is-today'], ['Próximos 7 dias', 'sete_dias', 'is-warning'], ['8 a 30 dias', 'trinta_dias', 'is-normal']].map(([label, key, tone]) => { const bucket = aging[key as keyof typeof aging] || {}; return <button type="button" className={`finance-aging-row ${tone}`} key={key} onClick={() => openOperations(key === 'vencido' ? 'atrasados' : 'pagar')}><span>{label}</span><strong>{formatMoney(num(bucket.valor))}</strong><small>{num(bucket.quantidade)} conta(s)</small><ChevronRight size={14} /></button> })}</div>
         </section>
       </div>
 
       <section className="finance-visual-card finance-alerts-card">
         <div className="finance-card-heading"><div><h2>Acompanhamento</h2><span>Alertas relevantes para o período</span></div>{alerts.length ? <span className="finance-alert-count">{alerts.length} sinal(is)</span> : <CheckCircle2 size={18} />}</div>
-        <div className="finance-alert-list">{alerts.length ? alerts.map((alert, index) => <div className={`finance-alert ${alert?.nivel === 'critico' ? 'critico' : 'atencao'}`} key={`${alert?.titulo || 'alerta'}-${index}`}><span>{alert?.nivel === 'critico' ? <AlertTriangle size={17} /> : <Clock3 size={17} />}</span><div><strong>{alert?.titulo || 'Atenção financeira'}</strong><small>{alert?.detalhe || 'Verifique este indicador.'}</small></div></div>) : <div className="finance-no-alert"><CheckCircle2 size={18} /><span><strong>Nenhum alerta de atenção</strong><small>Não há sinais críticos ou de atenção no período informado.</small></span></div>}</div>
+        <div className="finance-alert-list">{alerts.length ? alerts.map((alert, index) => <button type="button" className={`finance-alert ${alert?.nivel === 'critico' ? 'critico' : 'atencao'}`} key={`${alert?.titulo || 'alerta'}-${index}`} onClick={() => alert && openOperations(alertFilter(alert))}><span>{alert?.nivel === 'critico' ? <AlertTriangle size={17} /> : <Clock3 size={17} />}</span><span className="finance-alert-copy"><strong>{alert?.titulo || 'Atenção financeira'}</strong><small>{alert?.detalhe || 'Verifique este indicador.'}</small></span><ChevronRight size={15} /></button>) : <div className="finance-no-alert"><CheckCircle2 size={18} /><span><strong>Nenhum alerta de atenção</strong><small>Não há sinais críticos ou de atenção no período informado.</small></span></div>}</div>
       </section>
 
       <footer className="finance-executive-foot"><span><strong>{num(kpis.recorrencias_ativas)}</strong> recorrências ativas</span><span><strong>{formatMoney(num(kpis.compromissos_recorrentes))}</strong> compromissos recorrentes</span><span><strong>{formatMoney(num(kpis.receitas_a_receber))}</strong> receitas a receber</span><span><strong>{formatMoney(num(kpis.despesas_a_pagar))}</strong> despesas a pagar</span></footer>

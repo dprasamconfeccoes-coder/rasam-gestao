@@ -77,13 +77,13 @@ function dateForSeries(start: string, index: number, periodicidade: Periodicidad
   return [targetYear, String(targetMonth + 1).padStart(2, '0'), String(Math.min(day, lastDay)).padStart(2, '0')].join('-')
 }
 
-export function FinanceHealthDashboard({ token, onBack }: { token: string; onBack?: () => void }) {
+export function FinanceHealthDashboard({ token, onBack, initialFilter = 'todos' }: { token: string; onBack?: () => void; initialFilter?: 'todos' | 'pagar' | 'receber' | 'atrasados' }) {
   const [workspace, setWorkspace] = useState<FinanceiroWorkspace | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [draft, setDraft] = useState<Draft>(emptyDraft)
   const [showForm, setShowForm] = useState(false)
-  const [filter, setFilter] = useState<'todos' | 'pagar' | 'receber' | 'atrasados'>('todos')
+  const [filter, setFilter] = useState<'todos' | 'pagar' | 'receber' | 'atrasados'>(initialFilter)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
