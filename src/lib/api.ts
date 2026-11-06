@@ -654,6 +654,14 @@ export function adminMedicalLeavesPage(token: string, mes: string, status: strin
   })
 }
 
+export function adminMedicalLeavesReport(token: string, inicio?: string | null, fim?: string | null) {
+  return rpc<{ sucesso: boolean; erro?: string; inicio?: string | null; fim?: string | null; resumo?: { total: number; pendentes: number; aceitos: number; recusados: number }; linhas?: Array<Record<string, unknown>> }>('app_admin_relatorio_atestados', {
+    p_token: token,
+    p_inicio: inicio || null,
+    p_fim: fim || null,
+  })
+}
+
 export function adminVacations(token: string) {
   return rpc<{ sucesso: boolean; erro?: string; ferias: AdminVacationRow[] }>('app_admin_listar_ferias', { p_token: token })
 }
@@ -756,6 +764,14 @@ export function adminRequestsPage(token: string, mes: string | null, status: str
     p_tipo: tipo,
     p_offset: offset,
     p_limite: limite,
+  })
+}
+
+export function adminRequestsReport(token: string, inicio?: string | null, fim?: string | null) {
+  return rpc<{ sucesso: boolean; erro?: string; inicio?: string | null; fim?: string | null; resumo?: { total: number; abertas: number; em_analise: number; atendidas: number; recusadas: number }; linhas?: Array<Record<string, unknown>> }>('app_admin_relatorio_solicitacoes', {
+    p_token: token,
+    p_inicio: inicio || null,
+    p_fim: fim || null,
   })
 }
 
