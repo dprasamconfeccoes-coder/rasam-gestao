@@ -987,3 +987,15 @@
   .overview-live-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; margin-left: 0; }
   .overview-live-actions button { width: 100%; min-width: 0; justify-content: center; padding-inline: 5px; white-space: nowrap; }
 }
+
+
+/* Refined overview catalog: active alerts, upcoming agenda, and source-drilldown actions. */
+.overview-stage2-single { grid-template-columns: 1fr; }
+.overview-detail-actions { display: flex; gap: 7px; }
+.overview-detail-actions .secondary-button { display: inline-flex; align-items: center; gap: 5px; padding: 8px 10px; color: #66585f; border-color: #e1d8d0; background: #fff; font-size: 9px; font-weight: 700; }
+.overview-detail-actions .secondary-button:hover { border-color: #c9a14d; color: #76581b; background: #fff8ed; }
+@media (max-width: 640px) {
+  .overview-detail-foot { align-items: flex-start; flex-direction: column; }
+  .overview-detail-actions { width: 100%; }
+  .overview-detail-actions button { flex: 1; justify-content: center; }
+}
