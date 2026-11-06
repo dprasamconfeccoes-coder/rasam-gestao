@@ -968,3 +968,22 @@
   .overview-page.is-executive .page-heading h1 { font-size: 27px; }
   .overview-page.is-executive .page-heading p { max-width: 190px; line-height: 1.3; }
 }
+
+
+/* Start the dashboard on its decision metrics; keep live controls in context. */
+.overview-page.is-executive { padding-top: 4px; }
+.overview-page.is-executive > .page-heading,
+.overview-page.is-executive > .overview-live-toolbar { display: none; }
+.overview-live-events-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 7px 10px; padding: 0 0 10px; margin-bottom: 4px; border-bottom: 1px solid #eee6ea; }
+.overview-live-events-controls .overview-live-status { font-size: 9px; }
+.overview-live-events-controls .overview-updated-at { flex: 1; font-size: 8px; }
+.overview-live-actions { display: flex; gap: 6px; margin-left: auto; }
+.overview-live-actions .overview-refresh-button,
+.overview-live-actions .overview-notification-button { min-height: 30px; padding: 6px 8px; border-radius: 8px; font-size: 8px; }
+@media (max-width: 620px) {
+  .overview-page.is-executive { padding-top: 3px; }
+  .overview-live-events-controls { display: grid; grid-template-columns: 1fr; gap: 7px; }
+  .overview-live-events-controls .overview-updated-at { width: auto; }
+  .overview-live-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; margin-left: 0; }
+  .overview-live-actions button { width: 100%; min-width: 0; justify-content: center; padding-inline: 5px; white-space: nowrap; }
+}
