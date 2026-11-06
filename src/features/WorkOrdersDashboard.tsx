@@ -176,6 +176,14 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
     })
   }, [orders, query, filter])
 
+  const quickFilters: Array<{ key: FilterKey; label: string; count: number; tone: string }> = [
+    { key: 'todas', label: 'Todas', count: orders.length, tone: 'all' },
+    { key: 'em_producao', label: 'Em produção', count: summary.em_producao, tone: 'production' },
+    { key: 'pagamento_pendente', label: 'Pagamento pendente', count: pendingPayment.length, tone: 'payment' },
+    { key: 'sem_nf', label: 'Nota fiscal pendente', count: ordersWithoutInvoice, tone: 'invoice' },
+    { key: 'vencida', label: 'Prazo vencido', count: summary.vencidas, tone: 'late' },
+  ]
+
   async function submitOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(''); setFormError(''); setNotice('')
     const rejectForm = (message: string) => { setError(message); setFormError(message) }
@@ -282,8 +290,8 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
     {summary.vencidas > 0 || summary.vencem_em_7_dias > 0 || pendingPayment.length > 0 || ordersWithoutInvoice > 0 ? <section className="work-orders-alerts" aria-label="Alertas de ordens e financeiro">
       {summary.vencidas > 0 && <button className="work-orders-alert is-danger" onClick={() => setFilter('vencida')}><Clock3 size={18} /><span><strong>{summary.vencidas} ordem(ns) com prazo vencido</strong><small>Consulte o andamento no módulo Produção.</small></span><ChevronDown size={16} /></button>}
       {summary.vencem_em_7_dias > 0 && <button className="work-orders-alert is-warning" onClick={() => setFilter('vence_7_dias')}><Clock3 size={18} /><span><strong>{summary.vencem_em_7_dias} vencem nos próximos 7 dias</strong><small>Confira capacidade e andamento.</small></span><ChevronDown size={16} /></button>}
-      {pendingPayment.length > 0 && <button className="work-orders-alert is-neutral" onClick={() => setFilter('pagamento_pendente')}><CircleDollarSign size={18} /><span><strong>{pendingPayment.length} aguardando pagamento</strong><small>{formatMoney(pendingValue)} em lotes liberados pela Produção.</small></span><ChevronDown size={16} /></button>}
-      {ordersWithoutInvoice > 0 && <button className="work-orders-alert is-neutral" onClick={() => setFilter('sem_nf')}><FileText size={18} /><span><strong>{ordersWithoutInvoice} ordem(ns) sem NF anexada</strong><small>Anexe o arquivo depois que a Produção liberar o lote.</small></span><ChevronDown size={16} /></button>}
+      {pendingPayment.length > 0 && <button className="work-orders-alert is-payment" onClick={() => setFilter('pagamento_pendente')}><CircleDollarSign size={18} /><span><strong>{pendingPayment.length} aguardando pagamento</strong><small>{formatMoney(pendingValue)} em lotes liberados pela Produção.</small></span><ChevronDown size={16} /></button>}
+      {ordersWithoutInvoice > 0 && <button className="work-orders-alert is-invoice" onClick={() => setFilter('sem_nf')}><FileText size={18} /><span><strong>{ordersWithoutInvoice} ordem(ns) com nota fiscal pendente</strong><small>Estes lotes já foram liberados pela Produção; anexe a nota fiscal à ordem.</small></span><ChevronDown size={16} /></button>}
     </section> : null}
 
     <section className="work-orders-metrics financial-metrics" aria-label="Indicadores financeiros das ordens">
@@ -327,15 +335,21 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
     </SectionCard></div>}
 
     <SectionCard title="Ordens e lotes" caption="Consulta comercial e financeira; quantidades operacionais são somente leitura nesta tela.">
-      <div className="work-orders-toolbar"><label className="work-orders-search"><Search size={17} /><input aria-label="Buscar ordens por número, cliente ou produto" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por ordem, cliente ou produto" /></label><label className="work-orders-filter"><span>Exibir</span><select value={filter} onChange={(event) => setFilter(event.target.value as FilterKey)}>{Object.entries(filterLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></div>
+      <div className="work-orders-toolbar"><label className="work-orders-search"><Search size={17} /><input aria-label="Buscar ordens por número, cliente ou produto" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por ordem, cliente ou produto" /></label><label className="work-orders-filter"><span>Exibir</span><select value={filter} onChange={(event) => setFilter(event.target.value as FilterKey)}>{Object.entries(filterLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>{(query || filter !== 'todas') && <button type="button" className="work-orders-clear-filters" onClick={() => { setQuery(''); setFilter('todas') }}><X size={14} /> Limpar filtros</button>}</div>
+      <div className="work-orders-quick-filters" role="group" aria-label="Filtros rápidos">
+        {quickFilters.map((item) => <button type="button" key={item.key} className={`work-orders-quick-filter tone-${item.tone} ${filter === item.key ? 'is-active' : ''}`} aria-pressed={filter === item.key} onClick={() => setFilter(item.key)}><span>{item.label}</span><strong>{item.count.toLocaleString('pt-BR')}</strong></button>)}
+      </div>
       {loading ? <LoadingState /> : filteredOrders.length === 0 ? <EmptyState title={orders.length ? 'Nenhuma ordem corresponde aos filtros' : 'Nenhuma ordem cadastrada'} description={orders.length ? 'Ajuste a busca ou o filtro para visualizar outros lotes.' : 'Cadastre o primeiro lote para iniciar o acompanhamento.'} /> : <div className="work-orders-list">
         {filteredOrders.map((order) => {
           const progress = orderProgress(order)
           const ready = isFinanceReady(order)
           const documents = order.documentos || []
+          const hasInvoice = documents.some((document) => document.tipo === 'nota_fiscal')
+          const paymentState = order.status_pagamento === 'pago' ? 'paid' : ready ? 'pending' : order.status === 'entregue' ? 'release' : 'not-ready'
+          const paymentLabel = paymentState === 'paid' ? 'Pago' : paymentState === 'pending' ? 'Aguardando pagamento' : paymentState === 'release' ? 'Aguardando liberação' : 'Sem baixa financeira'
           const financialSaving = saving === 'confirmation' || confirmationBusy
-          return <article className={`work-order-card ${isOverdue(order) ? 'is-overdue' : ''}`} key={order.id}>
-            <header className="work-order-card-header"><div className="work-order-title-block"><div className="work-order-identity"><span className="work-order-number">{order.numero}</span><StatusPill value={orderStatusLabels[order.status] || order.status.replaceAll('_', ' ')} />{order.status !== 'cancelada' && <StatusPill value={order.status_pagamento === 'pago' ? 'Pago' : ready ? 'Aguardando pagamento' : order.status === 'entregue' ? 'Aguardando liberação' : 'Sem baixa financeira'} />}</div><h3>{order.cliente || 'Cliente não informado'}</h3><p>{order.descricao}{order.prioridade ? ` · prioridade ${order.prioridade}` : ''}</p></div><div className="work-order-value"><small>Valor do lote</small><strong>{formatMoney(Number(order.valor_total || 0))}</strong><span className={`work-order-deadline ${isOverdue(order) ? 'is-late' : ''}`}>{order.prazo ? `Prazo ${formatDate(order.prazo)}` : 'Sem prazo'}</span></div></header>
+          return <article className={`work-order-card ${isOverdue(order) ? 'is-overdue' : ''}`} data-status={order.status} data-payment-state={paymentState} key={order.id}>
+            <header className="work-order-card-header"><div className="work-order-title-block"><div className="work-order-identity"><span className="work-order-number">{order.numero}</span><StatusPill value={orderStatusLabels[order.status] || order.status.replaceAll('_', ' ')} />{order.status !== 'cancelada' && <span className={`work-order-state-badge payment-${paymentState}`}>{paymentLabel}</span>}{ready && order.status !== 'cancelada' && <span className={`work-order-state-badge ${hasInvoice ? 'invoice-issued' : 'invoice-pending'}`}>{hasInvoice ? 'NF anexada' : 'Nota fiscal pendente'}</span>}</div><h3>{order.cliente || 'Cliente não informado'}</h3><p>{order.descricao}{order.prioridade ? ` · prioridade ${order.prioridade}` : ''}</p></div><div className="work-order-value"><small>Valor do lote</small><strong>{formatMoney(Number(order.valor_total || 0))}</strong><span className={`work-order-deadline ${isOverdue(order) ? 'is-late' : ''}`}>{order.prazo ? `Prazo ${formatDate(order.prazo)}` : 'Sem prazo'}</span></div></header>
             <p className="work-order-metadata">Fornecedor: {order.fornecedor || 'não informado'} · Referência: {order.referencia || 'não informada'} · Preço por peça: {order.valor_unitario_peca == null ? 'não informado' : formatMoney(Number(order.valor_unitario_peca))}</p>
             <div className="work-order-progress-summary"><div><span>Solicitadas</span><strong>{progress.total.toLocaleString('pt-BR')}</strong></div><div><span>Produzidas</span><strong>{progress.produced.toLocaleString('pt-BR')}</strong></div><div><span>Costuradas</span><strong>{progress.sewn.toLocaleString('pt-BR')}</strong></div><div><span>Entregues</span><strong>{progress.delivered.toLocaleString('pt-BR')}</strong></div></div>
             <div className="work-order-financial-grid">

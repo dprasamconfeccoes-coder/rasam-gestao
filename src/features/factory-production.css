@@ -827,3 +827,36 @@
   .factory-header-actions { grid-template-columns: 1fr; }
   .factory-kpis { grid-template-columns: 1fr; }
 }
+
+/* Destaques de gestão para leitura dos KPIs, status e gargalos por lote. */
+.factory-kpi { position: relative; isolation: isolate; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.factory-kpi::before { position: absolute; z-index: 2; top: 0; left: 16px; right: 16px; height: 3px; border-radius: 0 0 4px 4px; content: ''; background: var(--factory-accent, #b28a31); transform: scaleX(0); transform-origin: left; transition: transform .22s ease; }
+.factory-kpi:nth-child(1) { --factory-accent: #ad6539; }
+.factory-kpi:nth-child(2) { --factory-accent: #a6404a; }
+.factory-kpi:nth-child(3) { --factory-accent: #4d8d67; }
+.factory-kpi:nth-child(4) { --factory-accent: #587e9c; }
+.factory-lot-card { transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+.factory-lot-identity .status-pill { border: 1px solid transparent; font-weight: 800; }
+.factory-lot-card[data-status="recebida"] .factory-lot-identity .status-pill { border-color: #ecd8a8; color: #74530d; background: #fff5d9; }
+.factory-lot-card[data-status="em_producao"] .factory-lot-identity .status-pill { border-color: #bbd9c4; color: #245f3d; background: #e8f5eb; }
+.factory-lot-card[data-status="costurada"] .factory-lot-identity .status-pill { border-color: #c8d5eb; color: #315a88; background: #edf3fc; }
+.factory-lot-card[data-status="expedida"] .factory-lot-identity .status-pill { border-color: #d2c5e8; color: #624a8b; background: #f3effa; }
+.factory-lot-card[data-status="entregue"] .factory-lot-identity .status-pill { border-color: #b8d9c3; color: #256044; background: #e8f5ec; }
+.factory-lot-card .factory-finance-badge { border: 1px solid #b8d9c3; color: #256044; background: #eaf6ed; font-weight: 750; }
+.factory-flow-context { align-items: center; gap: 7px; }
+.factory-flow-context .factory-flow-tag { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border: 1px solid transparent; border-radius: 8px; font-size: 9px; }
+.factory-flow-tag strong { font-size: 10px; font-variant-numeric: tabular-nums; }
+.factory-flow-sewing.has-quantity { border-color: #eedba8; color: #75560f; background: #fff7df; }
+.factory-flow-delivery.has-quantity { border-color: #cbdbea; color: #345c7a; background: #f0f6fb; }
+.factory-flow-sewing.is-clear, .factory-flow-delivery.is-clear { border-color: #e5e9e5; color: #6c786f; background: #f7f9f7; }
+@media (hover: hover) and (pointer: fine) {
+  .factory-kpi:hover { transform: translateY(-4px); border-color: var(--factory-accent); box-shadow: 0 12px 28px rgba(42, 54, 45, .11); }
+  .factory-kpi:hover::before { transform: scaleX(1); }
+  .factory-kpi:hover > svg { transform: translateY(-2px) scale(1.08); }
+  .factory-kpi > svg { transition: transform .2s ease; }
+  .factory-lot-card:hover { transform: translateY(-2px); border-color: #c8d2c9; box-shadow: 0 12px 28px rgba(42, 54, 45, .09); }
+  .factory-lot-card.is-late:hover { border-color: #dbb3b6; box-shadow: inset 3px 0 #a23f48, 0 12px 28px rgba(120, 48, 55, .1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .factory-kpi, .factory-kpi::before, .factory-kpi > svg, .factory-lot-card { transition: none; }
+}

@@ -433,3 +433,60 @@
   .work-order-remove-size { grid-column: 3; grid-row: 1 / span 2; align-self: center; }
   .work-order-cost-line { grid-template-columns: minmax(48px, .4fr) minmax(0, 1fr) minmax(75px, auto); gap: 5px; }
 }
+
+/* Refinamento de hierarquia: filtros de uso frequente e estados acionáveis. */
+.work-orders-toolbar { flex-wrap: wrap; }
+.work-orders-search { flex: 1 1 340px; }
+.work-orders-filter { flex: 0 1 250px; }
+.work-orders-clear-filters { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 40px; padding: 8px 11px; border: 1px solid #e3ded4; border-radius: 9px; color: #645a50; background: #fff; font-size: 10px; font-weight: 700; cursor: pointer; }
+.work-orders-clear-filters:hover { border-color: #c9b986; color: #6d5116; background: #fffbf1; }
+.work-orders-quick-filters { display: flex; flex-wrap: wrap; gap: 7px; margin: -3px 0 14px; }
+.work-orders-quick-filter { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 5px 8px 5px 10px; border: 1px solid #e4e7e4; border-radius: 9px; color: #58645c; background: #fafbfa; font-size: 9px; font-weight: 700; cursor: pointer; transition: border-color .15s ease, background .15s ease, transform .15s ease, box-shadow .15s ease; }
+.work-orders-quick-filter strong { display: grid; place-items: center; min-width: 22px; min-height: 21px; padding: 0 5px; border-radius: 6px; color: #59655d; background: #e9ede9; font-size: 9px; font-variant-numeric: tabular-nums; }
+.work-orders-quick-filter.tone-production strong { color: #286144; background: #dff0e4; }
+.work-orders-quick-filter.tone-payment strong { color: #805715; background: #f8e9bf; }
+.work-orders-quick-filter.tone-invoice strong { color: #77452b; background: #f4e3d7; }
+.work-orders-quick-filter.tone-late strong { color: #8c303a; background: #f5dddd; }
+.work-orders-quick-filter.is-active { border-color: #b8a46e; color: #4d3e1e; background: #fff9e9; box-shadow: 0 0 0 2px rgba(183, 140, 44, .1); }
+.work-orders-alert.is-payment { border-color: #ebd39d; color: #765412; background: #fff9e8; }
+.work-orders-alert.is-invoice { border-color: #ecd0bd; color: #81472b; background: #fff7f1; }
+.work-orders-alert.is-payment > svg:first-child { color: #a17621; }
+.work-orders-alert.is-invoice > svg:first-child { color: #a45d35; }
+.work-orders-metric { transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.work-order-card { transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+.work-order-identity { row-gap: 6px; }
+.work-order-title-block .status-pill { border-width: 1px; font-weight: 800; }
+.work-order-card[data-status="recebida"] .work-order-identity > .status-pill { border-color: #ecd8a8; color: #74530d; background: #fff5d9; }
+.work-order-card[data-status="em_producao"] .work-order-identity > .status-pill { border-color: #bbd9c4; color: #245f3d; background: #e8f5eb; }
+.work-order-card[data-status="costurada"] .work-order-identity > .status-pill { border-color: #c8d5eb; color: #315a88; background: #edf3fc; }
+.work-order-card[data-status="expedida"] .work-order-identity > .status-pill { border-color: #d2c5e8; color: #624a8b; background: #f3effa; }
+.work-order-card[data-status="entregue"] .work-order-identity > .status-pill { border-color: #b8d9c3; color: #256044; background: #e8f5ec; }
+.work-order-state-badge { display: inline-flex; align-items: center; min-height: 25px; padding: 4px 8px; border: 1px solid transparent; border-radius: 7px; font-size: 9px; line-height: 1.2; font-weight: 800; white-space: nowrap; }
+.work-order-state-badge.payment-paid, .work-order-state-badge.invoice-issued { border-color: #b8d9c3; color: #256044; background: #e8f5ec; }
+.work-order-state-badge.payment-pending { border-color: #e9ce87; color: #75510e; background: #fff3cf; }
+.work-order-state-badge.payment-release { border-color: #e8c9a3; color: #865321; background: #fff3e4; }
+.work-order-state-badge.payment-not-ready { border-color: #d9e0df; color: #526461; background: #f0f4f3; }
+.work-order-state-badge.invoice-pending { border-color: #e6c0ab; color: #863f28; background: #fff0e8; }
+.work-order-card.is-overdue .work-order-deadline { display: inline-flex; padding: 4px 7px; border: 1px solid #e8bfc2; border-radius: 7px; color: #922e39; background: #fff0ef; }
+.work-order-progress-summary > div { border-left-color: #d2d9d2; }
+.work-order-progress-summary > div:nth-child(2) { border-left-color: #75ae86; }
+.work-order-progress-summary > div:nth-child(3) { border-left-color: #7598b8; }
+.work-order-progress-summary > div:nth-child(4) { border-left-color: #9a7bbd; }
+@media (hover: hover) and (pointer: fine) {
+  .work-orders-metric:hover { transform: translateY(-4px); border-color: var(--metric-color); box-shadow: 0 13px 30px rgba(47, 36, 41, .11); }
+  .work-orders-metric:hover .work-orders-metric-icon { transform: scale(1.08); }
+  .work-orders-metric-icon { transition: transform .18s ease; }
+  .work-order-card:hover { transform: translateY(-2px); border-color: #c9c5bb; box-shadow: 0 12px 28px rgba(47, 36, 41, .09); }
+  .work-order-card.is-overdue:hover { border-color: #d8a9ad; box-shadow: inset 3px 0 #a33d49, 0 12px 28px rgba(120, 48, 55, .1); }
+  .work-orders-quick-filter:hover { transform: translateY(-1px); border-color: #c7cfca; background: #fff; box-shadow: 0 3px 9px rgba(47, 58, 49, .07); }
+}
+@media (max-width: 720px) {
+  .work-orders-filter { flex: 1 1 100%; }
+  .work-orders-clear-filters { width: 100%; }
+  .work-orders-quick-filters { gap: 6px; }
+  .work-orders-quick-filter { flex: 1 1 auto; justify-content: space-between; }
+  .work-order-state-badge { white-space: normal; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .work-orders-metric, .work-orders-metric-icon, .work-order-card, .work-orders-quick-filter { transition: none; }
+}
