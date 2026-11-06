@@ -6,3 +6,27 @@
 @media(max-width:620px){.report-filterbar,.payroll-closing-filterbar{align-items:stretch}.report-filterbar>label:first-child,.payroll-closing-filterbar>label{min-width:100%}.report-filterbar .report-select-filter{flex:1}.payroll-closing-toolbar{align-items:stretch;flex-direction:column}.payroll-closing-toolbar>label{width:100%}.payroll-closing-toolbar input[type=month],.payroll-closing-toolbar select{width:100%;box-sizing:border-box}.payroll-closing-toolbar .primary-button{justify-content:center}.payroll-closing-reports .report-kpi-strip{grid-template-columns:1fr 1fr}}
 
 .payroll-closing-internal-summary{display:grid;gap:10px;padding:14px;border:1px solid #e5ebe5;border-radius:12px;background:#f8fbf7}.payroll-closing-internal-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}.payroll-closing-internal-heading strong{color:#304137;font-size:12px}.payroll-closing-internal-heading span{color:#718078;font-size:10px}.payroll-closing-internal-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.payroll-closing-internal-kpis article{display:grid;gap:5px;padding:11px;border:1px solid #e4ebe4;border-radius:9px;background:#fff}.payroll-closing-internal-kpis span{color:#718078;font-size:9px;font-weight:700}.payroll-closing-internal-kpis strong{color:#24392b;font-size:13px;line-height:1.4}.payroll-closing-internal-summary>p{margin:0;color:#76551d;font-size:10px;line-height:1.5}@media(max-width:760px){.payroll-closing-internal-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.payroll-closing-internal-heading{align-items:flex-start;flex-direction:column}}@media(max-width:420px){.payroll-closing-internal-kpis{grid-template-columns:1fr}}
+
+.finance-reports-page{display:grid;gap:14px}
+.finance-reports-topbar{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:5px 0 12px;border-bottom:1px solid #e7ece7}
+.finance-reports-topbar>div:first-child{display:grid;gap:4px;min-width:130px}
+.finance-reports-topbar h1{margin:0;color:#20352a;font-size:21px;line-height:1.15;letter-spacing:-.04em}
+.finance-reports-topbar>div:first-child>span{color:#7d8980;font-size:10px}
+.finance-reports-topbar .finance-report-actions{justify-content:flex-end;gap:6px}
+.finance-reports-topbar .finance-report-actions button{min-height:34px;padding:7px 9px;font-size:9px}
+.finance-reports-page .reports-catalog-toolbar{align-items:center;margin:0;padding:10px 12px;border-radius:10px}
+.finance-reports-page .reports-catalog-toolbar label{font-size:9px}
+.finance-reports-page .reports-catalog-toolbar input{min-height:33px;padding:7px 9px;font-size:11px}
+.finance-reports-page .reports-catalog-toolbar .primary-button{min-height:34px;padding:7px 10px;font-size:10px}
+.finance-reports-page .report-catalog-section{margin:6px 0 8px}
+.finance-reports-page .report-catalog-heading{align-items:center;margin-bottom:8px}
+.finance-reports-page .report-catalog-heading .eyebrow{font-size:8px}
+.finance-reports-page .report-catalog-heading h2{margin:2px 0 0;font-size:15px}
+.finance-reports-page .report-catalog-heading>small{font-size:9px}
+.finance-reports-page .report-catalog-grid{gap:8px}
+.finance-reports-page .report-catalog-card{padding:11px;border-radius:10px}
+.finance-reports-page .finance-report-toolbar{margin:0;padding:10px 12px}
+.finance-reports-page .finance-report-table{margin-top:13px}
+.finance-reports-page .section-card>.report-kpi-strip{margin:14px 20px 0}
+@media(max-width:1000px){.finance-reports-topbar{align-items:flex-start;flex-direction:column}.finance-reports-topbar .finance-report-actions{justify-content:flex-start;width:100%}}
+@media(max-width:620px){.finance-reports-page{gap:11px}.finance-reports-topbar{gap:9px;padding-bottom:10px}.finance-reports-topbar .finance-report-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.finance-reports-topbar .finance-report-actions button{justify-content:center;width:100%;min-width:0;padding:7px 4px;font-size:9px}.finance-reports-topbar .finance-report-actions button svg{width:13px;height:13px}.finance-reports-topbar .finance-report-actions button:only-child{grid-column:1/-1}.finance-reports-page .reports-catalog-toolbar{align-items:stretch;flex-direction:row;flex-wrap:wrap}.finance-reports-page .reports-catalog-toolbar label{flex:1;min-width:calc(50% - 8px)}.finance-reports-page .reports-catalog-toolbar input{width:100%;box-sizing:border-box}.finance-reports-page .reports-catalog-toolbar .primary-button{width:100%;justify-content:center;margin-left:0}.finance-reports-page .report-catalog-heading>small{font-size:8px}.finance-reports-page .section-card>.report-kpi-strip{margin-left:14px;margin-right:14px}}

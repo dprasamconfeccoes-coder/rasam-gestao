@@ -11,3 +11,42 @@
 @media(max-width:640px){.finance-modal-backdrop{align-items:end;padding:10px}.finance-modal{width:100%;max-height:94vh;padding:17px;border-radius:17px 17px 13px 13px}.finance-confirm-modal{width:100%;padding:17px;border-radius:17px 17px 13px 13px}.finance-modal-grid,.finance-series-config{grid-template-columns:1fr}.finance-modal-wide{grid-column:auto}.finance-modal-actions{display:grid;grid-template-columns:1fr 1fr}.finance-modal-actions button{width:100%}.finance-modal-header h2{font-size:19px}.finance-preview-list{max-height:190px}.finance-preview-row{grid-template-columns:28px 1fr auto;gap:7px;padding:8px}.finance-modal-segmented button,.finance-mode-switch button{font-size:10px;padding:9px 6px}}
 
 .finance-health-page table th:last-child{min-width:126px}.finance-cell-stack{display:grid;gap:4px;align-content:center;min-width:74px}.finance-cell-stack>small{display:block}.finance-status-under-type .status-pill{font-size:9px;padding:3px 6px}.finance-due-value time{color:#63585d;font-size:11px}.finance-due-value strong{font-size:12px}.finance-pay-action{color:#2c7955!important;border-color:#cce4d5!important;background:#f4fbf5!important}.finance-pay-action:hover:not(:disabled){background:#e7f5eb!important;border-color:#acd5bc!important}.finance-pdf-action{color:#805b13!important;border-color:#ead9ab!important;background:#fffaf0!important}.finance-pdf-action:hover:not(:disabled){background:#fff2cf!important;border-color:#d9bd76!important}.finance-health-page .row-actions{display:flex;flex-wrap:wrap;align-items:center;gap:5px}.finance-health-page .row-actions .icon-button{width:30px;height:30px;padding:0}.finance-health-page .table-wrap table td{vertical-align:middle}.finance-health-page .table-wrap table td:nth-child(2) strong{display:block;max-width:250px;overflow-wrap:anywhere}.finance-health-page .table-wrap table td:nth-child(2) small{display:block;max-width:250px;line-height:1.35;overflow-wrap:anywhere}@media(max-width:760px){.finance-health-page table th:last-child{min-width:112px}.finance-health-page .row-actions{max-width:116px}.finance-health-page .table-wrap table td:nth-child(2) strong,.finance-health-page .table-wrap table td:nth-child(2) small{max-width:180px}}
+
+.debt-management-page.finance-health-page{gap:14px}
+.finance-operations-topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:4px 0 12px;border-bottom:1px solid #e7ece7}
+.finance-operations-title{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:5px 9px;min-width:180px}
+.finance-operations-title h1{grid-column:1/-1;margin:0;color:#20352a;font-size:21px;line-height:1.15;letter-spacing:-.04em}
+.finance-operations-title>span{grid-column:1/-1;color:#7d8980;font-size:10px}
+.finance-back-link{grid-column:1/-1;display:inline-flex;align-items:center;gap:5px;width:max-content;margin-bottom:1px;padding:0;border:0;color:#4d7a5c;background:transparent;font:650 10px system-ui,sans-serif;cursor:pointer}
+.finance-back-link:hover{color:#245f3e;text-decoration:underline}
+.finance-operations-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.finance-operations-actions .primary-button,.finance-operations-actions .secondary-button{min-height:34px;padding:7px 10px;font-size:10px}
+.finance-health-page .debt-metrics{gap:10px}
+.finance-health-page .debt-metric{min-height:96px;padding:13px 14px;border-radius:12px;box-shadow:0 3px 12px rgba(31,46,39,.025)}
+.finance-health-page .debt-metric-icon{width:34px;height:34px;flex-basis:34px}
+.finance-health-page .debt-metric small{font-size:10px}
+.finance-health-page .debt-metric strong{font-size:clamp(17px,1.55vw,22px)}
+.finance-health-page .debt-metric span:last-child{font-size:9px;line-height:1.35}
+.finance-health-page .finance-filters{gap:5px;margin-top:12px;padding:4px;border-radius:9px}
+.finance-health-page .finance-filters button{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;font-size:10px}
+.finance-health-page .finance-filters button span{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 4px;border-radius:99px;color:#7b8980;background:#edf0ed;font-size:9px;font-weight:750}
+.finance-health-page .finance-filters button.active.overdue-filter{border-color:#eac9c4;color:#a64e47;background:#fff8f7}
+.finance-health-page .finance-filters button.active.overdue-filter span{color:#9f4b43;background:#f8e5e2}
+.finance-health-page .finance-overdue-flag{color:#ad514b!important;font-size:9px!important;font-weight:700}
+.finance-health-page .finance-row-overdue td{background:#fffaf9}
+.finance-health-page .finance-order-summary{display:grid;gap:5px;margin:14px 20px 5px;padding:11px 12px;border:1px solid #e4ebe4;border-radius:9px;background:#f8fbf8}
+.finance-health-page .finance-order-summary span{color:#7b8980;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.finance-health-page .finance-order-summary strong{color:#286847;font-size:13px}
+.finance-health-page .section-card>.finance-order-summary+.document-list{padding-top:4px}
+.finance-health-page .section-card>.document-list{padding-top:7px;padding-bottom:12px}
+.finance-health-page .section-card>.finance-recurring-actions{margin-top:12px;margin-bottom:14px}
+.finance-health-page .finance-recurring-actions small{line-height:1.4}
+@media(max-width:900px){.finance-operations-topbar{align-items:flex-start;flex-direction:column}.finance-operations-actions{justify-content:flex-start;width:100%}}
+@media(max-width:600px){.debt-management-page.finance-health-page{gap:11px}.finance-operations-topbar{gap:10px;padding-bottom:10px}.finance-operations-actions{display:grid;grid-template-columns:1fr 1fr}.finance-operations-actions button{justify-content:center}.finance-operations-actions>.primary-button{grid-column:1/-1}.finance-operations-actions .finance-refresh-button{grid-column:1/-1}.finance-health-page .debt-metric{min-height:88px;padding:10px;gap:8px}.finance-health-page .debt-metric-icon{width:29px;height:29px;flex-basis:29px}.finance-health-page .debt-metric strong{font-size:15px}.finance-health-page .debt-metric small{font-size:9px}.finance-health-page .debt-metric span:last-child{font-size:8px}.finance-health-page .finance-filters{align-items:center;flex-wrap:wrap}.finance-health-page .finance-filters button{flex:1;justify-content:center;padding:7px 6px;font-size:9px}.finance-health-page .finance-order-summary{margin-left:14px;margin-right:14px}.finance-health-page .section-card>.document-list{padding-left:14px;padding-right:14px}}
+
+.finance-health-page .finance-receivables-summary{display:grid;gap:5px;margin:14px 20px 5px;padding:11px 12px;border:1px solid #e4ebe4;border-radius:9px;background:#f8fbf8}
+.finance-health-page .finance-receivables-summary span{color:#7b8980;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.finance-health-page .finance-receivables-summary strong{color:#286847;font-size:13px}
+.finance-health-page .section-card>.finance-receivables-summary+.document-list{padding-top:4px}
+.finance-health-page .finance-receivables-more{margin:0 20px 12px;color:#829087;font-size:9px;line-height:1.4}
+@media(max-width:600px){.finance-health-page .finance-receivables-summary,.finance-health-page .finance-receivables-more{margin-left:14px;margin-right:14px}}

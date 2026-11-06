@@ -1716,7 +1716,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
       ? <WorkOrdersDashboard token={token} onGoToProduction={() => navigate('producao')} />
       : <><PageHeading eyebrow="Acesso restrito" title="Ordens de serviço" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
     if (active === 'financeiro') return adminProfiles.includes(user.perfil)
-      ? <FinanceExecutiveDashboard token={token} />
+      ? <FinanceExecutiveDashboard token={token} onNavigateToReports={() => navigate('relatorios')} />
       : <><PageHeading eyebrow="Acesso restrito" title="Financeiro" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
     if (active === 'dividas') return adminProfiles.includes(user.perfil)
       ? <DebtManagementDashboard token={token} />

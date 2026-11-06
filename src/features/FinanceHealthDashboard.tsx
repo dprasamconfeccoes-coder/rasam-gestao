@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   AlertCircle,
+  ArrowLeft,
   ArrowDownLeft,
   ArrowUpRight,
   Ban,
@@ -8,6 +9,7 @@ import {
   Check,
   CheckCircle2,
   FileText,
+  FileSpreadsheet,
   Paperclip,
   Pencil,
   Plus,
@@ -28,11 +30,13 @@ import {
   uploadFinancePaymentInstruction,
 } from '../lib/api'
 import type { DebtPaymentMethod, FinanceiroLancamento, FinanceiroWorkspace } from '../lib/types'
-import { EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
+import { saoPauloToday } from '../lib/business-date'
+import { EmptyState, ErrorState, LoadingState, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
 import { PaymentDocuments } from './PaymentDocuments'
 import './debt-management.css'
 import './finance-health.css'
 import { downloadFinanceiroLancamentoPdf } from './financeiro-lancamento-pdf'
+import { downloadReportPdf, downloadReportXlsx, type ReportCell, type ReportExportColumn } from '../lib/report-export'
 
 type Periodicidade = 'semanal' | 'mensal' | 'anual'
 type Draft = {
@@ -59,19 +63,18 @@ const paymentLabels: Record<DebtPaymentMethod, string> = {
 const str = (value: unknown) => value === null || value === undefined ? '' : String(value)
 const periodicityLabels: Record<Periodicidade, string> = { semanal: 'semanal', mensal: 'mensal', anual: 'anual' }
 
-function localToday() {
-  const date = new Date()
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
-
 function dateForSeries(start: string, index: number, periodicidade: Periodicidade) {
   const [year, month, day] = start.split('-').map(Number)
   if (!year || !month || !day) return ''
-  const date = new Date(year, month - 1, day)
-  if (periodicidade === 'semanal') date.setDate(date.getDate() + index * 7)
-  if (periodicidade === 'mensal') date.setMonth(date.getMonth() + index)
-  if (periodicidade === 'anual') date.setFullYear(date.getFullYear() + index)
-  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-')
+  if (periodicidade === 'semanal') {
+    const date = new Date(Date.UTC(year, month - 1, day + index * 7))
+    return [date.getUTCFullYear(), String(date.getUTCMonth() + 1).padStart(2, '0'), String(date.getUTCDate()).padStart(2, '0')].join('-')
+  }
+  const monthIndex = year * 12 + month - 1 + index * (periodicidade === 'anual' ? 12 : 1)
+  const targetYear = Math.floor(monthIndex / 12)
+  const targetMonth = monthIndex % 12
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate()
+  return [targetYear, String(targetMonth + 1).padStart(2, '0'), String(Math.min(day, lastDay)).padStart(2, '0')].join('-')
 }
 
 export function FinanceHealthDashboard({ token, onBack }: { token: string; onBack?: () => void }) {
@@ -80,15 +83,16 @@ export function FinanceHealthDashboard({ token, onBack }: { token: string; onBac
   const [loadError, setLoadError] = useState('')
   const [draft, setDraft] = useState<Draft>(emptyDraft)
   const [showForm, setShowForm] = useState(false)
-  const [filter, setFilter] = useState<'todos' | 'pagar' | 'receber'>('todos')
+  const [filter, setFilter] = useState<'todos' | 'pagar' | 'receber' | 'atrasados'>('todos')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null)
   const [pdfGenerating, setPdfGenerating] = useState('')
   const [expandedDocumentsId, setExpandedDocumentsId] = useState('')
   const [paymentTarget, setPaymentTarget] = useState<FinanceiroLancamento | null>(null)
-  const [paymentDate, setPaymentDate] = useState(localToday)
+  const [paymentDate, setPaymentDate] = useState(saoPauloToday)
   const [paymentMethod, setPaymentMethod] = useState<DebtPaymentMethod>('pix')
   const [paymentReason, setPaymentReason] = useState('')
   const [proofFile, setProofFile] = useState<File | null>(null)
@@ -131,7 +135,16 @@ export function FinanceHealthDashboard({ token, onBack }: { token: string; onBac
 
   const resumo = workspace?.resumo || {}
   const contas = workspace?.contas || []
-  const visible = useMemo(() => contas.filter((item) => filter === 'todos' || item.tipo === filter), [contas, filter])
+  const today = saoPauloToday()
+  const overdue = (entry: FinanceiroLancamento) => {
+    const status = str(entry.status).toLowerCase()
+    return status !== 'pago' && status !== 'cancelado' && Boolean(entry.vencimento && str(entry.vencimento).slice(0, 10) < today)
+  }
+  const visible = useMemo(() => contas
+    .filter((item) => filter === 'todos' || (filter === 'atrasados' ? overdue(item) : item.tipo === filter))
+    .sort((a, b) => Number(overdue(b)) - Number(overdue(a)) || str(a.vencimento).localeCompare(str(b.vencimento))), [contas, filter, today])
+  const receivables = useMemo(() => contas.filter((item) => item.tipo === 'receber' && !['pago', 'cancelado'].includes(str(item.status).toLowerCase())), [contas])
+  const receivablesTotal = receivables.reduce((total, item) => total + Number(item.valor || 0), 0)
 
   async function run(fn: () => Promise<{ sucesso: boolean; erro?: string }>, successMessage: string) {
     const result = await fn()
@@ -194,7 +207,7 @@ export function FinanceHealthDashboard({ token, onBack }: { token: string; onBac
   function openPayment(entry: FinanceiroLancamento) {
     if (!entry.id) return
     setError('')
-    setPaymentDate(localToday())
+    setPaymentDate(saoPauloToday())
     setPaymentMethod(entry.forma_pagamento || 'pix')
     setPaymentReason('')
     setProofFile(null)
@@ -224,7 +237,43 @@ export function FinanceHealthDashboard({ token, onBack }: { token: string; onBac
   const previewRows = Array.from({ length: isSeries ? quantity : 1 }, (_, index) => ({ number: index + 1, date: dateForSeries(draft.vencimento, index, draft.periodicidade), value: Number(draft.valor) || 0 }))
   const receitaPrevista = Number(resumo.receitas_ordens_previstas || 0) + Number(resumo.receitas_pendentes || 0)
   const despesas = Number(resumo.despesas_pendentes || 0)
-  const header = <PageHeading eyebrow="Financeiro · operação" title="Lançamentos financeiros" description="Cadastre, revise e liquide receitas, despesas e compromissos recorrentes." action={<div className="debt-heading-actions">{onBack && <button className="secondary-button" onClick={onBack}>Visão executiva</button>}<button className="secondary-button" onClick={() => void load()} disabled={loading}><RefreshCw size={16} className={loading ? 'spin' : ''} /> Atualizar</button><button className="primary-button" onClick={openNew}><Plus size={17} /> Novo lançamento</button></div>} />
+  const overdueCount = contas.filter(overdue).length
+  const ledgerColumns: ReportExportColumn[] = [
+    { key: 'tipo', label: 'Tipo' }, { key: 'status', label: 'Status' }, { key: 'descricao', label: 'Descrição' },
+    { key: 'categoria', label: 'Categoria' }, { key: 'vencimento', label: 'Vencimento' }, { key: 'valor', label: 'Valor (R$)' },
+    { key: 'pago_em', label: 'Pago em' }, { key: 'forma_pagamento', label: 'Forma de pagamento' }, { key: 'observacoes', label: 'Observações' },
+  ]
+  const ledgerRows: Array<Record<string, ReportCell>> = visible.map((item) => ({
+    tipo: item.tipo === 'receber' ? 'Receita' : 'Despesa', status: str(item.status), descricao: str(item.descricao), categoria: str(item.categoria),
+    vencimento: str(item.vencimento).slice(0, 10), valor: Number(item.valor || 0), pago_em: str(item.pago_em).slice(0, 10),
+    forma_pagamento: item.forma_pagamento ? paymentLabels[item.forma_pagamento] || str(item.forma_pagamento) : '', observacoes: str(item.observacoes),
+  }))
+  const exportMetadata: Array<[string, string]> = [['Itens exportados', `${visible.length} de ${contas.length}`], ['Gerado em', new Date().toLocaleString('pt-BR')]]
+  async function exportLedger(format: 'xlsx' | 'pdf') {
+    setExporting(true)
+    setError('')
+    try {
+      if (format === 'xlsx') await downloadReportXlsx('Movimentacoes financeiras', ledgerColumns, ledgerRows, exportMetadata)
+      else await downloadReportPdf('Movimentações financeiras', ledgerColumns, ledgerRows.map((row) => ({ ...row, vencimento: formatDate(String(row.vencimento || '')), pago_em: formatDate(String(row.pago_em || '')), valor: formatMoney(Number(row.valor || 0)) })), exportMetadata)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível exportar as movimentações.')
+    } finally { setExporting(false) }
+  }
+  const header = (
+    <header className="finance-operations-topbar">
+      <div className="finance-operations-title">
+        {onBack && <button className="finance-back-link" type="button" onClick={onBack}><ArrowLeft size={15} /> Resumo</button>}
+        <h1>Movimentações</h1>
+        <span>{visible.length} de {contas.length} registros</span>
+      </div>
+      <div className="finance-operations-actions">
+        <button className="secondary-button" onClick={() => void exportLedger('xlsx')} disabled={!visible.length || exporting}><FileSpreadsheet size={15} /> Excel</button>
+        <button className="secondary-button" onClick={() => void exportLedger('pdf')} disabled={!visible.length || exporting}><FileText size={15} /> PDF</button>
+        <button className="secondary-button finance-refresh-button" onClick={() => void load()} disabled={loading}><RefreshCw size={15} className={loading ? 'spin' : ''} /> Atualizar</button>
+        <button className="primary-button" onClick={openNew}><Plus size={16} /> Novo lançamento</button>
+      </div>
+    </header>
+  )
 
   function submitDraft(event: FormEvent) {
     event.preventDefault()
@@ -274,19 +323,9 @@ export function FinanceHealthDashboard({ token, onBack }: { token: string; onBac
       <article className="debt-metric gold"><span className="debt-metric-icon"><CheckCircle2 size={19} /></span><div><small>Receitas recebidas</small><strong>{formatMoney(Number(resumo.receitas_recebidas || 0))}</strong><span>Baixas registradas</span></div></article>
     </section>
 
-    <div className="debt-insights">
-      <SectionCard title="Visão do fluxo financeiro" caption="Leitura rápida do caixa projetado e dos compromissos cadastrados">
-        <div className="finance-flow-summary"><div><span className="finance-flow-dot income" /><span>Receitas previstas</span><strong>{formatMoney(receitaPrevista)}</strong></div><div><span className="finance-flow-dot expense" /><span>Despesas pendentes</span><strong>{formatMoney(despesas)}</strong></div><div className="finance-flow-balance"><span>Saldo projetado</span><strong>{formatMoney(receitaPrevista - despesas)}</strong><small>Considerando ordens entregues e lançamentos pendentes</small></div></div>
-      </SectionCard>
-      <SectionCard title="Receitas de produção" caption="Ordens entregues que ainda aguardam pagamento">
-        <div className="finance-health-note"><ArrowUpRight size={16} /><span>As ordens entram como receita futura somente depois da entrega.</span></div>
-        <strong className="finance-order-total">{Number(resumo.ordens_aguardando_pagamento || 0)} ordem(ns) · {formatMoney(Number(resumo.receitas_ordens_previstas || 0))}</strong>
-      </SectionCard>
-    </div>
-
     <div className="two-column">
-      <SectionCard title="Lançamentos financeiros" caption="Despesas e receitas cadastradas manualmente">
-        <div className="debt-filters finance-filters"><button className={filter === 'todos' ? 'active' : ''} onClick={() => setFilter('todos')}>Todos</button><button className={filter === 'pagar' ? 'active' : ''} onClick={() => setFilter('pagar')}>Despesas</button><button className={filter === 'receber' ? 'active' : ''} onClick={() => setFilter('receber')}>Receitas</button></div>
+      <SectionCard title="Lançamentos">
+        <div className="debt-filters finance-filters" role="group" aria-label="Filtrar movimentações"><button className={filter === 'todos' ? 'active' : ''} onClick={() => setFilter('todos')}>Todos</button><button className={filter === 'pagar' ? 'active' : ''} onClick={() => setFilter('pagar')}>Despesas</button><button className={filter === 'receber' ? 'active' : ''} onClick={() => setFilter('receber')}>Receitas</button><button className={filter === 'atrasados' ? 'active overdue-filter' : ''} onClick={() => setFilter('atrasados')}>Em atraso <span>{overdueCount}</span></button></div>
         {visible.length ? <div className="table-wrap"><table><thead><tr><th>Tipo / status</th><th>Descrição</th><th>Vencimento / valor</th><th>Ações</th></tr></thead><tbody>
           {visible.map((entry, index) => {
             const id = str(entry.id)
@@ -294,10 +333,10 @@ export function FinanceHealthDashboard({ token, onBack }: { token: string; onBac
             const isLedgerEntry = entry.fonte_registro === 'ledger'
             const documents = entry.documentos || []
             return <Fragment key={id || index}>
-              <tr>
+              <tr className={overdue(entry) ? 'finance-row-overdue' : ''}>
                 <td><div className="finance-cell-stack"><span className={`finance-type ${entry.tipo === 'receber' ? 'income' : 'expense'}`}>{entry.tipo === 'receber' ? 'Receita' : 'Despesa'}</span><small className="finance-status-under-type"><StatusPill value={status} /></small></div></td>
                 <td><strong>{str(entry.descricao)}</strong><small>{str(entry.categoria)}{entry.observacoes ? ` · ${entry.observacoes}` : ''}{isLedgerEntry && entry.forma_pagamento ? ` · ${paymentLabels[entry.forma_pagamento]}` : ''}{entry.pago_em ? ` · pago em ${formatDate(entry.pago_em)}` : ''}{!isLedgerEntry ? entry.fonte_registro === 'divida_parcela' ? ' · Gerenciar no módulo Dívidas' : ' · Registro legado (consulta)' : ''}</small></td>
-                <td><div className="finance-cell-stack finance-due-value"><time>{formatDate(str(entry.vencimento))}</time><strong className="money-cell">{formatMoney(Number(entry.valor || 0))}</strong></div></td>
+                <td><div className="finance-cell-stack finance-due-value"><time>{formatDate(str(entry.vencimento))}</time>{overdue(entry) && <small className="finance-overdue-flag">Em atraso</small>}<strong className="money-cell">{formatMoney(Number(entry.valor || 0))}</strong></div></td>
                 <td><div className="row-actions">
                   <button className="icon-button" title="Editar lançamento" aria-label="Editar lançamento" onClick={() => edit(entry)} disabled={!isLedgerEntry || status === 'pago'}><Pencil size={15} /></button>
                   {isLedgerEntry && status !== 'pago' && status !== 'cancelado' && <>
@@ -326,14 +365,15 @@ export function FinanceHealthDashboard({ token, onBack }: { token: string; onBac
         </tbody></table></div> : <EmptyState title="Nenhum lançamento" description="Cadastre uma despesa ou receita para começar a acompanhar o caixa." />}
       </SectionCard>
 
-      <SectionCard title="Receitas previstas das ordens" caption="Ordens entregues e ainda aguardando pagamento">
-        <div className="debt-note"><ArrowUpRight size={16} /><span>Uma ordem só entra aqui quando está <strong>entregue</strong>. Depois do pagamento, ela deixa de ser previsão.</span></div>
-        {(workspace?.receitas_ordens || []).length ? <div className="document-list">{(workspace?.receitas_ordens || []).map((entry, index) => <div className="document-row" key={str(entry.id) || index}><div><strong>{str(entry.numero)} · {str(entry.descricao)}</strong><small>{str(entry.cliente_nome) || 'Cliente não informado'} · prazo {formatDate(str(entry.prazo))}</small></div><strong>{formatMoney(Number(entry.valor_total || 0))}</strong><StatusPill value={str(entry.status_pagamento) === 'pago' ? 'recebida' : 'prevista'} /></div>)}</div> : <EmptyState title="Nenhuma receita prevista" description="Quando uma ordem for entregue e ficar aguardando pagamento, ela aparecerá aqui." />}
+      <SectionCard title="Contas a receber" caption="Receitas pendentes e vencidas">
+        <div className="finance-receivables-summary"><span>Em aberto</span><strong>{receivables.length} conta(s) · {formatMoney(receivablesTotal)}</strong></div>
+        {receivables.length ? <div className="document-list">{receivables.slice(0, 8).map((entry, index) => <div className="document-row" key={str(entry.id) || index}><div><strong>{str(entry.descricao)}</strong><small>{str(entry.categoria)} · vencimento {formatDate(str(entry.vencimento))}</small></div><strong>{formatMoney(Number(entry.valor || 0))}</strong><StatusPill value={str(entry.status)} /></div>)}</div> : <EmptyState title="Nenhuma conta a receber" description="Receitas pendentes aparecerão aqui quando forem registradas." />}
+        {receivables.length > 8 && <div className="finance-receivables-more">Exibindo 8 de {receivables.length} contas. Para exportar todas, aplique o filtro Receitas na lista principal.</div>}
       </SectionCard>
     </div>
 
     <SectionCard title="Despesas recorrentes" caption="Água, internet, energia, aluguel e honorários podem ser acompanhados por periodicidade">
-      <div className="document-list">{(workspace?.recorrencias || []).map((entry, index) => <div className="document-row" key={str(entry.id) || index}><div><strong>{str(entry.descricao)}</strong><small>{str(entry.categoria)} · {str(entry.periodicidade)} · próximo vencimento {formatDate(str(entry.proximo_vencimento))}</small></div><strong>{formatMoney(Number(entry.valor || 0))}</strong><StatusPill value={entry.ativo ? 'ativa' : 'inativa'} /></div>)}</div>
+      {(workspace?.recorrencias || []).length ? <div className="document-list">{(workspace?.recorrencias || []).map((entry, index) => <div className="document-row" key={str(entry.id) || index}><div><strong>{str(entry.descricao)}</strong><small>{str(entry.categoria)} · {str(entry.periodicidade)} · próximo vencimento {formatDate(str(entry.proximo_vencimento))}</small></div><strong>{formatMoney(Number(entry.valor || 0))}</strong><StatusPill value={entry.ativo ? 'ativa' : 'inativa'} /></div>)}</div> : <EmptyState title="Nenhuma despesa recorrente" description="Cadastre um compromisso fixo para acompanhar o próximo vencimento." />}
       <div className="finance-recurring-actions"><div><strong>Adicionar nova despesa recorrente</strong><small>Abra somente quando precisar cadastrar água, internet, energia ou outro compromisso fixo.</small></div><button className="secondary-button" type="button" onClick={() => setRecOpen(!recOpen)}>{recOpen ? 'Fechar cadastro' : 'Nova recorrência'}</button></div>
       {recOpen && <form className="form-stack compact-rec-form" onSubmit={(event) => {
         event.preventDefault()

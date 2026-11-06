@@ -7,19 +7,18 @@ import {
   FileBarChart,
   FileSpreadsheet,
   FileText,
+  Image,
   Landmark,
-  PieChart,
-  Printer,
   RefreshCw,
   Search,
   ShieldAlert,
   Table2,
-  WalletCards,
 } from 'lucide-react'
 import { adminFinanceiroRelatorio, adminRegistrarRelatorio } from '../lib/api'
+import { saoPauloMonthStart, saoPauloToday } from '../lib/business-date'
 import type { FinanceiroRelatorioResponse } from '../lib/types'
-import { EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, formatDate, formatMoney } from '../components/ui'
-import { downloadReportCsv, downloadReportXlsx, printReport, type ReportExportColumn, type ReportCell } from '../lib/report-export'
+import { EmptyState, ErrorState, LoadingState, SectionCard, formatDate, formatMoney } from '../components/ui'
+import { downloadReportCsv, downloadReportImage, downloadReportPdf, downloadReportXlsx, type ReportExportColumn, type ReportCell } from '../lib/report-export'
 import { PayrollClosingReports, specialReportOptions, type SpecialReportType } from './PayrollClosingReports'
 import './finance-reports.css'
 
@@ -106,8 +105,6 @@ const columns: Record<ReportType, Array<[string, string]>> = {
 }
 
 const num = (value: unknown) => Number(value || 0)
-const localDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-
 function displayValue(key: string, row: Record<string, unknown>) {
   const raw = row[key]
   if (['valor', 'valor_total', 'orcado', 'realizado', 'desvio', 'receitas_recebidas', 'despesas_pagas', 'receitas_previstas', 'despesas_previstas', 'projecao_anual', 'saldo'].includes(key)) {
@@ -130,9 +127,9 @@ function iconFor(icon: ReportDefinition['icon']) {
 }
 
 export function FinanceReportsDashboard({ token, isAdmin = false }: { token: string; isAdmin?: boolean }) {
-  const today = new Date()
-  const [start, setStart] = useState(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`)
-  const [end, setEnd] = useState(localDate(today))
+  const [today] = useState(saoPauloToday)
+  const [start, setStart] = useState(saoPauloMonthStart)
+  const [end, setEnd] = useState(today)
   const [type, setType] = useState<ReportType>('fluxo')
   const [data, setData] = useState<FinanceiroRelatorioResponse | null>(null)
   const [loading, setLoading] = useState(false)
@@ -228,6 +225,14 @@ export function FinanceReportsDashboard({ token, isAdmin = false }: { token: str
   const isSizeControl = type === 'controle_tamanhos_lotes'
   const isDre = type === 'dre'
   const isFinancialReport = option.area === 'Financeiro'
+  const isCashflow = type === 'fluxo'
+  const isPayables = type === 'contas_pagar'
+  const isReceivables = type === 'contas_receber'
+  const isProductionRevenue = type === 'producao'
+  const isDelinquency = type === 'inadimplencia'
+  const isCategories = type === 'categorias'
+  const isRecurring = type === 'recorrencias'
+  const isBudget = type === 'orcamento'
   const isAgreementReport = type === 'acordos_posicao' || type === 'acordos_quitacoes'
   const isNewFactoryReport = isFactoryFlow || isSizeControl
   const totalRows = rows.length
@@ -242,13 +247,49 @@ export function FinanceReportsDashboard({ token, isAdmin = false }: { token: str
   })
 
   const summary = useMemo(() => {
-    const sum = (keys: string[]) => filteredRows.reduce((total, row) => total + keys.reduce((subtotal, key) => subtotal + num(row[key]), 0), 0)
+    const sumRows = (source: Array<Record<string, unknown>>, keys: string[]) => source.reduce((total, row) => total + keys.reduce((subtotal, key) => subtotal + num(row[key]), 0), 0)
+    const sum = (keys: string[]) => sumRows(filteredRows, keys)
+    const statusOf = (row: Record<string, unknown>) => String(row.status ?? row.status_pagamento ?? '').toLowerCase()
+    const openRows = filteredRows.filter((row) => ['pendente', 'vencido', 'atrasada'].includes(statusOf(row)))
+    const overdueRows = filteredRows.filter((row) => ['vencido', 'atrasada'].includes(statusOf(row)))
+    const productionPendingRows = filteredRows.filter((row) => {
+      const status = String(row.status_pagamento || '').toLowerCase()
+      return status !== '' && !['pago', 'cancelado'].includes(status)
+    })
+    const topCategory = [...filteredRows].sort((a, b) => num(b.valor) - num(a.valor))[0]
+    const categoryTotal = sum(['valor'])
+    const budgeted = sum(['orcado'])
+    const budgetRealized = sum(['realizado'])
     const daysWithMovement = filteredRows.filter((row) => num(row.produzidas) !== 0 || num(row.costuradas) !== 0 || num(row.entregues) !== 0).length
     const dreValue = (group: string) => num(filteredRows.find((row) => row.grupo === group)?.valor)
     return {
-      receitas: sum(['receitas_recebidas', 'receitas_previstas']),
-      despesas: sum(['despesas_pagas', 'despesas_previstas', 'valor']),
-      abertos: filteredRows.filter((row) => ['pendente', 'vencido'].includes(String(row.status))).length,
+      totalValue: sum(isProductionRevenue ? ['valor_total'] : ['valor']),
+      cashReceitasRealizadas: sum(['receitas_recebidas']),
+      cashReceitasPrevistas: sum(['receitas_previstas']),
+      cashDespesasPagas: sum(['despesas_pagas']),
+      cashDespesasPrevistas: sum(['despesas_previstas']),
+      openCount: openRows.length,
+      openValue: sumRows(openRows, ['valor']),
+      overdueCount: overdueRows.length,
+      overdueValue: sumRows(overdueRows, ['valor']),
+      delinquencyCount: sum(['quantidade']),
+      delinquencyValue: sum(['valor']),
+      productionCount: filteredRows.length,
+      productionValue: sum(['valor_total']),
+      productionPendingCount: productionPendingRows.length,
+      productionPendingValue: sumRows(productionPendingRows, ['valor_total']),
+      productionPaidValue: sumRows(filteredRows.filter((row) => String(row.status_pagamento || '').toLowerCase() === 'pago'), ['valor_total']),
+      categoryCount: new Set(filteredRows.map((row) => String(row.categoria || '')).filter(Boolean)).size,
+      topCategory: topCategory ? String(topCategory.categoria || 'Sem categoria') : '—',
+      topCategoryValue: num(topCategory?.valor),
+      topCategoryShare: categoryTotal > 0 ? num(topCategory?.valor) / categoryTotal * 100 : 0,
+      recurringMonthly: sum(['valor']),
+      recurringAnnual: sum(['projecao_anual']),
+      budgeted,
+      budgetRealized,
+      budgetDeviation: sum(['desvio']),
+      budgetExecution: budgeted > 0 ? budgetRealized / budgeted * 100 : 0,
+      abertos: openRows.length,
       dreReceitasRealizadas: dreValue('Receitas realizadas'),
       dreReceitasPrevistas: dreValue('Receitas previstas'),
       dreDespesasPagas: dreValue('Despesas pagas'),
@@ -269,7 +310,7 @@ export function FinanceReportsDashboard({ token, isAdmin = false }: { token: str
       acordoEmAbertoQuantidade: filteredRows.filter((row) => ['pendente', 'atrasada'].includes(String(row.status))).length,
       acordoQuitadoQuantidade: filteredRows.filter((row) => String(row.status) === 'quitada').length,
     }
-  }, [filteredRows, data?.totais, isSizeControl])
+  }, [filteredRows, data?.totais, isSizeControl, isProductionRevenue])
 
   function exportCsv() {
     const exportColumns: ReportExportColumn[] = fields.map(([key, label]) => ({ key, label }))
@@ -292,28 +333,37 @@ export function FinanceReportsDashboard({ token, isAdmin = false }: { token: str
   function print() {
     const exportColumns: ReportExportColumn[] = fields.map(([key, label]) => ({ key, label }))
     const exportRows = filteredRows.map((row) => Object.fromEntries(fields.map(([key]) => [key, displayValue(key, row)])) as Record<string, ReportCell>)
-    try { printReport(`${option.label} · ${formatDate(start)} a ${formatDate(end)}`, exportColumns, exportRows, [['Gerado em', new Date().toLocaleString('pt-BR')], ['Linhas exportadas', `${filteredRows.length} de ${rows.length}`]]) }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível abrir a impressão.') }
+    setExporting(true)
+    setError('')
+    void downloadReportPdf(`${option.label} ${start} a ${end}`, exportColumns, exportRows, [['Período', `${formatDate(start)} a ${formatDate(end)}`], ['Linhas exportadas', `${filteredRows.length} de ${rows.length}`], ['Gerado em', new Date().toLocaleString('pt-BR')]])
+      .catch((cause) => setError(cause instanceof Error ? cause.message : 'Não foi possível gerar o PDF.'))
+      .finally(() => setExporting(false))
+  }
+
+  function exportImage(format: 'png' | 'jpg') {
+    const exportColumns: ReportExportColumn[] = fields.map(([key, label]) => ({ key, label }))
+    const exportRows = filteredRows.map((row) => Object.fromEntries(fields.map(([key]) => [key, displayValue(key, row)])) as Record<string, ReportCell>)
+    setExporting(true)
+    setError('')
+    void downloadReportImage(`${option.label} ${start} a ${end}`, exportColumns, exportRows, [['Período', `${formatDate(start)} a ${formatDate(end)}`], ['Registros', `${filteredRows.length} de ${rows.length}`], ['Gerado em', new Date().toLocaleString('pt-BR')]], format)
+      .catch((cause) => setError(cause instanceof Error ? cause.message : 'Não foi possível gerar a imagem.'))
+      .finally(() => setExporting(false))
   }
 
   const header = (
-    <PageHeading
-      eyebrow="Centro de inteligência · RF Gestão"
-      title="Relatórios"
-      description="Catálogo gerencial de financeiro, produção, pessoas e compromissos da empresa."
-      action={(
-        <div className="finance-report-actions">
-          <button className="secondary-button" onClick={() => { setShowCatalog(!showCatalog); if (!showCatalog) setSpecialReport(null) }}>
-            <FileBarChart size={15} /> {showCatalog ? 'Abrir relatório' : 'Catálogo'}
-          </button>
-          {!showCatalog && !specialReport && <>
-            <button className="secondary-button" onClick={exportCsv} disabled={!filteredRows.length}><Download size={15} /> CSV</button>
-            <button className="secondary-button" onClick={() => void exportXlsx()} disabled={!filteredRows.length || exporting}><FileSpreadsheet size={15} /> {exporting ? 'Exportando…' : 'Excel'}</button>
-            <button className="secondary-button" onClick={print} disabled={!filteredRows.length}><Printer size={15} /> Imprimir / PDF</button>
-          </>}
-        </div>
-      )}
-    />
+    <header className="finance-reports-topbar">
+      <div><h1>{showCatalog || specialReport ? 'Relatórios' : option.label}</h1>{!showCatalog && !specialReport && <span>{formatDate(start)} a {formatDate(end)} · {filteredRows.length} linha(s)</span>}</div>
+      <div className="finance-report-actions">
+        {!showCatalog && <button className="secondary-button" onClick={() => { setShowCatalog(true); setSpecialReport(null) }}><FileBarChart size={15} /> Catálogo</button>}
+        {!showCatalog && !specialReport && <>
+          <button className="secondary-button" onClick={exportCsv} disabled={!filteredRows.length}><Download size={15} /> CSV</button>
+          <button className="secondary-button" onClick={() => void exportXlsx()} disabled={!filteredRows.length || exporting}><FileSpreadsheet size={15} /> Excel</button>
+          <button className="secondary-button" onClick={print} disabled={!filteredRows.length || exporting}><FileText size={15} /> PDF</button>
+          <button className="secondary-button" title="Prévia visual limitada às primeiras 60 linhas; use PDF ou Excel para exportar todas." onClick={() => exportImage('png')} disabled={!filteredRows.length || exporting}><Image size={15} /> PNG (prévia)</button>
+          <button className="secondary-button" title="Prévia visual limitada às primeiras 60 linhas; use PDF ou Excel para exportar todas." onClick={() => exportImage('jpg')} disabled={!filteredRows.length || exporting}><Image size={15} /> JPG (prévia)</button>
+        </>}
+      </div>
+    </header>
   )
 
   if (error && !data) return <div className="finance-reports-page">{header}<ErrorState message={error} /><button className="secondary-button" type="button" onClick={() => void load(type, !showCatalog)}><RefreshCw size={15} /> Tentar novamente</button></div>
@@ -323,19 +373,6 @@ export function FinanceReportsDashboard({ token, isAdmin = false }: { token: str
       {header}
       {error && <div className="report-inline-error" role="alert">{error}{data ? ' Os dados da última consulta permanecem visíveis.' : ''}</div>}
       {showCatalog ? <>
-        <section className="reports-overview">
-          <div className="reports-overview-copy">
-            <span className="eyebrow">Visão geral executiva</span>
-            <h2>Uma leitura única para cada decisão</h2>
-            <p>Escolha uma área, abra um relatório e exporte uma visão pronta para gestão. Os dados são filtrados pelo período informado.</p>
-          </div>
-          <div className="reports-overview-metrics">
-            <article><FileText size={17} /><strong>{data ? totalRows.toLocaleString('pt-BR') : '—'}</strong><small>Linhas no último relatório</small></article>
-            <article><CalendarDays size={17} /><strong>{data ? `${formatDate(start)} – ${formatDate(end)}` : '—'}</strong><small>Período consultado</small></article>
-            <article><WalletCards size={17} /><strong>{financeOptions.length}</strong><small>Relatórios financeiros</small></article>
-            <article><PieChart size={17} /><strong>{isAdmin ? specialReportOptions.length : 'Admin'}</strong><small>Relatórios de folha e fechamento</small></article>
-          </div>
-        </section>
         <div className="reports-catalog-toolbar">
           <label>Período inicial<input type="date" value={start} onChange={(event) => updatePeriodStart(event.target.value)} /></label>
           <label>Período final<input type="date" value={end} onChange={(event) => updatePeriodEnd(event.target.value)} /></label>
@@ -396,10 +433,45 @@ export function FinanceReportsDashboard({ token, isAdmin = false }: { token: str
           <article><span>Itens contados</span><strong>{summary.quantidadeGenerica.toLocaleString('pt-BR')}</strong><small>Contagens disponíveis no relatório</small></article>
           <article><span>Período</span><strong>{formatDate(start)} – {formatDate(end)}</strong><small>Intervalo selecionado</small></article>
           <article><span>Gerado em</span><strong>{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</strong><small>Dados do tenant autorizado</small></article>
+        </div> : isCashflow ? <div className="report-kpi-strip">
+          <article><span>Receitas realizadas</span><strong>{formatMoney(summary.cashReceitasRealizadas)}</strong><small>Pagamentos recebidos</small></article>
+          <article><span>Receitas previstas</span><strong>{formatMoney(summary.cashReceitasPrevistas)}</strong><small>Títulos pendentes ou vencidos</small></article>
+          <article><span>Despesas pagas</span><strong>{formatMoney(summary.cashDespesasPagas)}</strong><small>Pagamentos realizados</small></article>
+          <article><span>Despesas previstas</span><strong>{formatMoney(summary.cashDespesasPrevistas)}</strong><small>Compromissos pendentes ou vencidos</small></article>
+        </div> : isPayables || isReceivables ? <div className="report-kpi-strip">
+          <article><span>{isReceivables ? 'Recebíveis listados' : 'Obrigações listadas'}</span><strong>{filteredRows.length}</strong><small>Vencimentos no intervalo</small></article>
+          <article><span>Valor listado</span><strong>{formatMoney(summary.totalValue)}</strong><small>{isReceivables ? 'Títulos a receber' : 'Contas a pagar'}</small></article>
+          <article><span>Em aberto</span><strong>{summary.openCount}</strong><small>{formatMoney(summary.openValue)} pendentes</small></article>
+          <article><span>Vencidos</span><strong>{summary.overdueCount}</strong><small>{formatMoney(summary.overdueValue)} em atraso</small></article>
+        </div> : isProductionRevenue ? <div className="report-kpi-strip">
+          <article><span>Ordens entregues</span><strong>{summary.productionCount}</strong><small>Entrega no intervalo</small></article>
+          <article><span>Valor das ordens</span><strong>{formatMoney(summary.productionValue)}</strong><small>Receita total da produção</small></article>
+          <article><span>Aguardando pagamento</span><strong>{summary.productionPendingCount}</strong><small>{formatMoney(summary.productionPendingValue)} pendentes</small></article>
+          <article><span>Recebido</span><strong>{formatMoney(summary.productionPaidValue)}</strong><small>Ordens já pagas</small></article>
+        </div> : isDelinquency ? <div className="report-kpi-strip">
+          <article><span>Faixas de atraso</span><strong>{filteredRows.length}</strong><small>Consolidadas até a data de corte</small></article>
+          <article><span>Títulos vencidos</span><strong>{summary.delinquencyCount}</strong><small>Recebíveis vencidos no intervalo</small></article>
+          <article><span>Saldo vencido</span><strong>{formatMoney(summary.delinquencyValue)}</strong><small>Valor em aberto por faixa</small></article>
+          <article><span>Data de corte</span><strong>{formatDate(data?.fim || end)}</strong><small>Referência do cálculo de atraso</small></article>
+        </div> : isCategories ? <div className="report-kpi-strip">
+          <article><span>Despesas no período</span><strong>{formatMoney(summary.totalValue)}</strong><small>Contas não canceladas</small></article>
+          <article><span>Categorias</span><strong>{summary.categoryCount}</strong><small>Com movimentação no período</small></article>
+          <article><span>Maior categoria</span><strong>{summary.topCategory}</strong><small>{formatMoney(summary.topCategoryValue)}</small></article>
+          <article><span>Participação</span><strong>{summary.topCategoryShare.toFixed(1).replace('.', ',')}%</strong><small>Da maior categoria no total</small></article>
+        </div> : isRecurring ? <div className="report-kpi-strip">
+          <article><span>Compromissos</span><strong>{filteredRows.length}</strong><small>Vencimento no intervalo</small></article>
+          <article><span>Valor periódico</span><strong>{formatMoney(summary.recurringMonthly)}</strong><small>Soma dos valores cadastrados</small></article>
+          <article><span>Projeção anual</span><strong>{formatMoney(summary.recurringAnnual)}</strong><small>Conforme periodicidade de cada item</small></article>
+          <article><span>Próximo vencimento</span><strong>{formatDate(String(filteredRows[0]?.proximo_vencimento || ''))}</strong><small>Primeiro compromisso listado</small></article>
+        </div> : isBudget ? <div className="report-kpi-strip">
+          <article><span>Orçado</span><strong>{formatMoney(summary.budgeted)}</strong><small>Valor previsto nas categorias</small></article>
+          <article><span>Realizado</span><strong>{formatMoney(summary.budgetRealized)}</strong><small>Despesas pagas no período</small></article>
+          <article><span>Desvio</span><strong>{formatMoney(summary.budgetDeviation)}</strong><small>Orçado menos realizado</small></article>
+          <article><span>Execução</span><strong>{summary.budgetExecution.toFixed(1).replace('.', ',')}%</strong><small>Realizado sobre o orçado</small></article>
         </div> : <div className="report-kpi-strip">
-          <article><span>Linhas encontradas</span><strong>{totalRows}</strong><small>No período selecionado</small></article>
-          <article><span>Receitas / previsto</span><strong>{formatMoney(summary.receitas)}</strong><small>Consolidação da prévia</small></article>
-          <article><span>Despesas / compromissos</span><strong>{formatMoney(summary.despesas)}</strong><small>Consolidação da prévia</small></article>
+          <article><span>Linhas encontradas</span><strong>{filteredRows.length}</strong><small>No período selecionado</small></article>
+          <article><span>Valor listado</span><strong>{formatMoney(summary.totalValue)}</strong><small>Conforme o tipo de relatório</small></article>
+          <article><span>Itens em aberto</span><strong>{summary.openCount}</strong><small>Registros pendentes ou vencidos</small></article>
           <article><span>Gerado em</span><strong>{new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</strong><small>Dados do tenant autorizado</small></article>
         </div>}
         <SectionCard title={option.label} caption={`${formatDate(start)} a ${formatDate(end)} · ${filteredRows.length} de ${totalRows} registro(s)${lastGenerated ? ` · última consulta ${new Date(lastGenerated).toLocaleString('pt-BR')}` : ''}`}>
