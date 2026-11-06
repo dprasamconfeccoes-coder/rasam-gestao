@@ -384,3 +384,66 @@
   .employee-directory-mobile-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-top: 2px; }
   .employee-directory-mobile-meta small { color: #655332; font-size: 9px; font-weight: 700; }
 }
+
+
+/* Desktop: keep the primary controls and expanded filters in separate, stable rows. */
+@media (min-width: 621px) and (max-width: 1150px) {
+  .employee-directory-search-main { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .employee-directory-search-main > label { grid-column: 1 / -1; }
+  .employee-search-submit,
+  .employee-filter-toggle { width: 100%; min-width: 0; white-space: nowrap; }
+  .employee-directory-advanced-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .employee-directory-advanced-footer { flex-wrap: wrap; }
+  .employee-directory-advanced-footer small { flex: 1 1 220px; min-width: 0; }
+}
+
+/* The selected employee's prontuário now lives in the page flow, not a fixed overlay. */
+.employee-record-inline {
+  min-width: 0;
+  scroll-margin-top: 84px;
+  outline: none;
+}
+.employee-record-inline .employee-record-shell {
+  display: grid;
+  gap: 14px;
+  min-height: 180px;
+  margin: 0;
+  padding: 20px;
+  border: 1px solid rgba(54, 40, 45, .11);
+  border-radius: 16px;
+  color: #30282d;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(48, 38, 43, .045);
+}
+.employee-record-inline .employee-record-heading {
+  align-items: center;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #eee8e3;
+}
+.employee-record-inline .employee-record-heading h2 { color: #342b30; font-size: 20px; letter-spacing: -.035em; }
+.employee-record-inline .employee-record-heading p { color: #746d66; }
+.employee-record-inline .employee-record-tabs {
+  position: sticky;
+  top: 70px;
+  z-index: 5;
+  padding: 0 2px;
+  background: #fff;
+}
+.employee-record-inline .employee-record-tabs button { white-space: nowrap; }
+.employee-record-inline > .employee-record-shell > .section-card,
+.employee-record-inline .employee-record-summary > .section-card {
+  min-width: 0;
+  border-color: #ebe4df;
+  border-radius: 12px;
+  box-shadow: none;
+}
+.employee-record-inline .employee-record-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.employee-record-inline .employee-record-attention { gap: 10px; }
+.employee-record-inline:focus-visible { box-shadow: 0 0 0 3px rgba(198, 160, 75, .28); }
+@media (max-width: 620px) {
+  .employee-record-inline { scroll-margin-top: 74px; }
+  .employee-record-inline .employee-record-shell { gap: 12px; padding: 14px; }
+  .employee-record-inline .employee-record-heading { align-items: stretch; }
+  .employee-record-inline .employee-record-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 14px; }
+  .employee-record-inline .employee-record-tabs { top: 58px; }
+}

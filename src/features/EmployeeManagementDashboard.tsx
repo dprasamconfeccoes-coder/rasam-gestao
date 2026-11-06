@@ -228,6 +228,7 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
   const [notice, setNotice] = useState('')
   const searchSequence = useRef(0)
   const recordSequence = useRef(0)
+  const recordPanelRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     const query = filters.busca.trim()
@@ -282,6 +283,12 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
   const items = tab === 'resumo' || tab === 'timeline' ? [] : collection(tab)
   const title = tabs.find(([key]) => key === tab)?.[1] || 'Registros'
 
+  useEffect(() => {
+    if (!selected) return
+    const frame = window.requestAnimationFrame(() => recordPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    return () => window.cancelAnimationFrame(frame)
+  }, [selected?.id])
+
   if (!['admin', 'administrador', 'gestor'].includes(profile)) return <><PageHeading eyebrow="Acesso restrito" title="Gestão de funcionários" /><ErrorState message="A lista geral e os prontuários da equipe estão disponíveis somente para perfis administrativos." /></>
 
   return <div className="employee-directory-page">
@@ -312,7 +319,7 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
     {error ? <ErrorState message={error} /> : null}
     {loading ? <LoadingState label="Consultando cadastros com segurança…" /> : null}
     {!page && !loading && !error ? <SectionCard title="Diretório da equipe" caption="A lista é consultada somente quando você inicia uma busca"><div className="employee-directory-empty"><Search size={30} /><strong>Pesquise para abrir um prontuário</strong><p>Digite um nome, CPF ou cargo, ou abra os filtros avançados para reduzir os resultados.</p></div></SectionCard> : null}
-    {page && !loading ? <SectionCard title={`${page.total} funcionário(s)`} caption={`Página ${pageNumber + 1} de ${totalPages} · CPF oculto na lista; selecione uma pessoa para abrir o prontuário`}>
+    {page && !loading ? <SectionCard title={`${page.total} funcionário(s)`} caption={`Página ${pageNumber + 1} de ${totalPages} · CPF oculto na lista; selecione uma pessoa para ver o prontuário abaixo`}>
       <div className="employee-directory-results">{page.registros.length ? page.registros.map((employee) => <button className="employee-directory-result" type="button" key={employee.id} onClick={() => void openRecord(employee)}>
         <span className="employee-directory-avatar">{employee.avatar_url ? <img src={employee.avatar_url} alt="" /> : <UserRound size={20} />}</span>
         <span className="employee-directory-main"><strong>{employee.nome}</strong><small>{employee.cargo || 'Cargo não informado'} · {employee.tipo_vinculo || 'Vínculo não informado'}</small><small>CPF {maskedCpf(employee.cpf)} · admissão {formatDate(employee.data_admissao)}</small><span className="employee-directory-mobile-meta"><StatusPill value={employee.situacao} /><small>{employeeCompensation(employee)}</small></span></span>
@@ -321,8 +328,8 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
       {page.total > 20 ? <div className="employee-directory-pagination"><button className="secondary-button compact-button" type="button" disabled={pageNumber === 0} onClick={() => void runSearch(activeFilters, pageNumber - 1)}><ChevronLeft size={15} /> Anterior</button><span>Página {pageNumber + 1} de {totalPages}</span><button className="secondary-button compact-button" type="button" disabled={pageNumber + 1 >= totalPages} onClick={() => void runSearch(activeFilters, pageNumber + 1)}>Próxima <ChevronRight size={15} /></button></div> : null}
     </SectionCard> : null}
 
-    {selected ? <div className="employee-record-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeRecord() }}><div className="employee-record-modal"><div className="employee-record-shell">
-      <div className="employee-record-heading"><div><span className="eyebrow">Prontuário individual</span><h2>{selected.nome}</h2><p>{selected.cargo || 'Cargo não informado'} · {selected.tipo_vinculo || 'Vínculo não informado'} · CPF {selected.cpf}</p></div><button className="secondary-button" type="button" onClick={closeRecord}><X size={16} /> Fechar prontuário</button></div>
+    {selected ? <section className="employee-record-inline" ref={recordPanelRef} role="region" aria-labelledby="employee-record-title" tabIndex={-1}><div className="employee-record-shell">
+      <div className="employee-record-heading"><div><span className="eyebrow">Prontuário individual</span><h2 id="employee-record-title">{selected.nome}</h2><p>{selected.cargo || 'Cargo não informado'} · {selected.tipo_vinculo || 'Vínculo não informado'} · CPF {selected.cpf}</p></div><button className="secondary-button" type="button" onClick={closeRecord}><X size={16} /> Fechar prontuário</button></div>
       {recordLoading ? <LoadingState label="Montando prontuário…" /> : recordError ? <ErrorState message={recordError} /> : record ? <>
         <div className="employee-record-tabs">{tabs.map(([key, label]) => { const count = key === 'resumo' || key === 'ficha' || key === 'timeline' ? null : collection(key).length; return <button type="button" key={key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}{count !== null ? <small>{count}</small> : null}</button> })}</div>
         {tab === 'resumo' ? <div className="employee-record-summary">
@@ -332,7 +339,7 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
           {employeeFicha ? <><div className="employee-ficha-groups">{fieldGroups.map((group) => <details className="employee-ficha-group" key={group.title} open={group.title.includes('Identificação') || group.title.includes('Vínculo')}><summary>{group.title}</summary><div className="employee-ficha-grid">{group.fields.filter((field) => field.key !== 'valor_diaria' || selected.tipo_vinculo === 'diarista').map((field) => <div className={`employee-ficha-value${field.kind === 'textarea' ? ' is-wide' : ''}`} key={field.key}><span>{field.label}</span><strong>{displayValue(field, employeeFicha[field.key])}</strong></div>)}</div></details>)}</div><div className="employee-create-actions"><button className="primary-button" type="button" onClick={() => setEditFichaOpen(true)}>Editar ficha completa</button></div></> : <EmptyState title="Ficha indisponível" description="Não foi possível obter os dados completos deste cadastro." />}
         </SectionCard> : tab === 'timeline' ? <EmployeeTimeline token={token} funcionarioId={selected.id} /> : <SectionCard title={title} caption={`${items.length} registro(s) carregado(s) · a linha do tempo tem paginação independente`}><RecordList items={items} /></SectionCard>}
       </> : null}
-    </div></div></div> : null}
+    </div></section> : null}
     {editFichaOpen && employeeFicha ? <EmployeeFichaPanel token={token} employee={employeeFicha} onClose={() => setEditFichaOpen(false)} onSaved={(updated) => { setRecord((current) => current ? { ...current, funcionario: updated } : current); setEditFichaOpen(false); void runSearch(activeFilters, pageNumber) }} /> : null}
     <EmployeeRegistrationWizard open={createOpen} token={token} onClose={() => setCreateOpen(false)} onCreated={(_id, cpf) => { const next = { ...filters, busca: cpf }; setFilters(next); void runSearch(next, 0).then(() => setNotice('Funcionário cadastrado e disponível para consulta.')) }} />
   </div>
