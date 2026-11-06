@@ -42,8 +42,8 @@ export function ErrorState({ message }: { message: string }) {
   return <div className="state-card error-state"><strong>Não foi possível concluir a consulta</strong><p>{message}</p></div>
 }
 
-export function SectionCard({ title, caption, children, className = '' }: { title: string; caption?: string; children: ReactNode; className?: string }) {
-  return <section className={`section-card ${className}`}><div className="section-header"><div><h2>{title}</h2>{caption && <span>{caption}</span>}</div></div>{children}</section>
+export function SectionCard({ title, caption, children, className = '', action }: { title: string; caption?: string; children: ReactNode; className?: string; action?: ReactNode }) {
+  return <section className={`section-card ${className}`}><div className="section-header"><div><h2>{title}</h2>{caption && <span>{caption}</span>}</div>{action && <div className="section-header-action">{action}</div>}</div>{children}</section>
 }
 
 export function ConfirmationModal({

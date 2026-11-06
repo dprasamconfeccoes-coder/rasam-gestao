@@ -3,7 +3,7 @@ import { BriefcaseBusiness, CalendarDays, ChevronDown, ChevronLeft, ChevronRight
 import { adminCadastrarFuncionario, adminFichaCompleta, adminProntuario, searchEmployees } from '../lib/api'
 import type { EmployeeRow, EmployeeSearchPage, ProntuarioResponse, Profile } from '../lib/types'
 import { displayValue, EmployeeFichaPanel, fieldGroups, type FieldDefinition } from './EmployeeFichaPanel'
-import { EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
+import { EmptyState, ErrorState, LoadingState, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
 import { EmployeeTimeline } from './EmployeeTimeline'
 import './employee-directory.css'
 
@@ -329,12 +329,11 @@ export function EmployeeManagementDashboard({ token, profile }: { token: string;
     return () => window.cancelAnimationFrame(frame)
   }, [selected?.id])
 
-  if (!['admin', 'administrador', 'gestor'].includes(profile)) return <><PageHeading eyebrow="Acesso restrito" title="Gestão de funcionários" /><ErrorState message="A lista geral e os prontuários da equipe estão disponíveis somente para perfis administrativos." /></>
+  if (!['admin', 'administrador', 'gestor'].includes(profile)) return <ErrorState message="A lista geral e os prontuários da equipe estão disponíveis somente para perfis administrativos." />
 
   return <div className="employee-directory-page">
-    <PageHeading eyebrow="Pessoas · gestão de equipe" title="Funcionários" description="Encontre um cadastro e abra o prontuário individual." action={<button className="primary-button" type="button" onClick={() => setCreateOpen(true)}><UserPlus size={16} /> Novo funcionário</button>} />
     {notice ? <div className="form-success employee-directory-notice" role="status">{notice}</div> : null}
-    <SectionCard className="employee-search-card" title="Encontrar funcionário" caption="Busque por nome, CPF ou cargo. Use filtros avançados quando necessário.">
+    <SectionCard className="employee-search-card" title="Encontrar funcionário" caption="Busque por nome, CPF ou cargo. Use filtros avançados quando necessário." action={<button className="primary-button" type="button" onClick={() => setCreateOpen(true)}><UserPlus size={16} /> Novo funcionário</button>}>
       <form className="employee-directory-search" onSubmit={(event) => { event.preventDefault(); setSuggestionsOpen(false); void runSearch(filters, 0) }}>
         <div className="employee-directory-search-main">
           <label className="employee-search-autocomplete">Nome, CPF ou cargo

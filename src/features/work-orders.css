@@ -1,5 +1,5 @@
 .work-orders-page { display: grid; gap: 18px; color: #2b2529; }
-.work-orders-page .page-heading { margin-bottom: 0; }
+.work-orders-actions-row { display: flex; justify-content: flex-end; margin-bottom: -8px; }
 .work-orders-heading-actions { display: flex; align-items: center; gap: 9px; }
 .work-orders-heading-actions .primary-button, .work-orders-heading-actions .secondary-button { min-height: 42px; margin: 0; white-space: nowrap; }
 .work-orders-page .secondary-button { color: #443a3f; background: #fff; border-color: rgba(54,40,45,.15); }
@@ -137,8 +137,7 @@
 }
 @media (max-width: 720px) {
   .work-orders-page { gap: 13px; }
-  .work-orders-page .page-heading { align-items: flex-start; flex-direction: column; gap: 13px; }
-  .work-orders-page .heading-action { width: 100%; }
+  .work-orders-actions-row { margin-bottom: -4px; }
   .work-orders-heading-actions { width: 100%; }
   .work-orders-heading-actions > button { flex: 1; }
   .work-orders-alerts { grid-template-columns: 1fr; gap: 7px; }
@@ -418,8 +417,6 @@
   .work-orders-metrics.financial-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 1000px) {
-  .work-orders-page .page-heading { align-items: flex-start; flex-direction: column; gap: 13px; }
-  .work-orders-page .heading-action { width: 100%; }
   .work-orders-heading-actions { width: 100%; flex-wrap: wrap; }
   .work-orders-heading-actions > button { flex: 1 1 150px; min-width: 0; }
   .work-orders-toolbar { flex-wrap: wrap; }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { ArrowRight, Check, ChevronDown, CircleDollarSign, ClipboardList, Clock3, Download, FileCheck2, FileText, Plus, RefreshCw, Search, Upload, X } from 'lucide-react'
 import { createOrderClient, createWorkOrder, getWorkOrderDashboard, getWorkOrderDocumentUrl, searchOrderClients, updateWorkOrderFinance, uploadWorkOrderDocument } from '../lib/api'
 import type { CreateWorkOrderPayload, OrderDocumentRow, OrderRow, WorkOrderSummary } from '../lib/types'
-import { ConfirmationModal, EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
+import { ConfirmationModal, EmptyState, ErrorState, LoadingState, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
 import './work-orders.css'
 
 type FilterKey = 'todas' | 'recebida' | 'em_producao' | 'costurada' | 'expedida' | 'entregue' | 'vencida' | 'vence_7_dias' | 'pagamento_pendente' | 'pago' | 'sem_nf'
@@ -284,7 +284,7 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
         : confirmation?.kind === 'document' ? 'Enviar documento' : 'Confirmar'
 
   return <div className="work-orders-page">
-    <PageHeading eyebrow="Gestão · ordens e financeiro" title="Ordens de serviço" description="Cadastre e consulte lotes. O acompanhamento de produção fica no painel fabril; aqui você registra pagamento, nota fiscal e comprovantes." action={<div className="work-orders-heading-actions"><button className="secondary-button" onClick={() => void reload(true)} disabled={loading || Boolean(saving)}><RefreshCw size={16} className={loading ? 'spin' : ''} /> Atualizar</button>{onGoToProduction && <button className="secondary-button" onClick={onGoToProduction}><ArrowRight size={16} /> Produção</button>}<button className="primary-button" onClick={() => { setShowForm((value) => !value); setError(''); setFormError('') }}><Plus size={17} /> {showForm ? 'Fechar cadastro' : 'Nova ordem'}</button></div>} />
+    <div className="work-orders-actions-row"><div className="work-orders-heading-actions"><button className="secondary-button" onClick={() => void reload(true)} disabled={loading || Boolean(saving)}><RefreshCw size={16} className={loading ? 'spin' : ''} /> Atualizar</button>{onGoToProduction && <button className="secondary-button" onClick={onGoToProduction}><ArrowRight size={16} /> Produção</button>}<button className="primary-button" onClick={() => { setShowForm((value) => !value); setError(''); setFormError('') }}><Plus size={17} /> {showForm ? 'Fechar cadastro' : 'Nova ordem'}</button></div></div>
     {notice && <div className="work-orders-notice" role="status"><Check size={16} />{notice}<button aria-label="Fechar aviso" onClick={() => setNotice('')}><X size={15} /></button></div>}
     {error && <div className="work-orders-error"><ErrorState message={error} /><button className="text-button" onClick={() => setError('')}>Fechar</button></div>}
 
