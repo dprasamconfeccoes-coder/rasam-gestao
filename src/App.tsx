@@ -144,6 +144,7 @@ import {
 import './styles.css'
 import './overview-dashboard.css'
 import './hr-vacation-management.css'
+import './hr-vacation-import.css'
 
 const PointManagementDashboard = lazy(() => import('./features/PointManagementDashboard').then((module) => ({ default: module.PointManagementDashboard })))
 const PointSchedulesPanel = lazy(() => import('./features/PointSchedulesPanel').then((module) => ({ default: module.PointSchedulesPanel })))

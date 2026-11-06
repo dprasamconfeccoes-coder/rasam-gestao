@@ -791,6 +791,11 @@ export interface VacationReconciliationSummary {
   recibos_total: number
   avisos_sem_recibo: number
   recibos_sem_aviso: number
+  pagamentos_total?: number
+  pagamentos_sem_aviso?: number
+  pagamentos_sem_recibo?: number
+  periodos_sem_pagamento?: number
+  aquisicoes_incompletas?: number
 }
 
 export interface VacationHistoricalProgrammingRow {

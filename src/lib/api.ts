@@ -659,7 +659,7 @@ export function adminVacations(token: string) {
 }
 
 export function adminVacationManagement(token: string) {
-  return rpc<{ sucesso: boolean; erro?: string; ferias: AdminVacationManagementRow[]; importacoes: VacationImportBatch[]; reconciliacao: VacationReconciliationSummary }>('app_admin_listar_ferias_gestao', { p_token: token })
+  return rpc<{ sucesso: boolean; erro?: string; ferias: AdminVacationManagementRow[]; importacoes: VacationImportBatch[]; reconciliacao: VacationReconciliationSummary }>('app_admin_listar_ferias_gestao_completa', { p_token: token })
 }
 
 export function confirmVacationImport(token: string, id: string, observacoes: string) {
@@ -722,6 +722,21 @@ export function updateAdminVacation(token: string, id: string, payload: { inicio
 
 export function adminVacationHistoricalProgramming(token: string) {
   return rpc<{ sucesso: boolean; erro?: string; programacao: VacationHistoricalProgrammingRow[]; fonte?: { nome: string; emissao: string; total_empregados: number } }>('app_admin_listar_ferias_programacao_historica', { p_token: token })
+}
+
+export async function uploadVacationBatch(token: string, tipo: 'aviso' | 'recibo' | 'comprovante_pagamento', files: File[]) {
+  const form = new FormData()
+  form.set('action', 'batch-upload')
+  form.set('tipo', tipo)
+  files.forEach((file) => form.append('arquivos', file))
+  const response = await fetch(`${config.supabaseUrl}/functions/v1/ferias-migracao`, { method: 'POST', headers: { apikey: config.supabaseKey, Authorization: `Bearer ${token}`, 'x-app-token': token }, body: form })
+  const data = (await response.json()) as { sucesso: boolean; erro?: string; importacao_id?: string; total_linhas?: number; linhas_pendentes?: number }
+  if (!response.ok || !data.sucesso) throw new Error(data.erro || 'Não foi possível enviar o lote de férias')
+  return data
+}
+
+export function linkVacationImportLine(token: string, payload: { linhaId: string; funcionarioId: string; periodoInicio: string; periodoFim: string; inicio: string; fim: string; retorno?: string; tipo: 'aviso' | 'recibo' | 'comprovante_pagamento'; observacoes?: string }) {
+  return rpc<{ sucesso: boolean; erro?: string; duplicidade?: boolean; ferias_id?: string; documento_id?: string }>('app_admin_vincular_ferias_importacao_linha', { p_token: token, p_linha_id: payload.linhaId, p_funcionario_id: payload.funcionarioId, p_periodo_inicio: payload.periodoInicio, p_periodo_fim: payload.periodoFim, p_inicio: payload.inicio, p_fim: payload.fim, p_retorno: payload.retorno || null, p_tipo: payload.tipo, p_observacoes: payload.observacoes || null })
 }
 
 export function decideMedicalLeave(token: string, id: string, status: string, observacao: string) {
