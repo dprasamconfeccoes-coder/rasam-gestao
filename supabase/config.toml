@@ -1,0 +1,4 @@
+project_id = "nunnryxospkvjalbngoa"
+
+[functions.visao-inteligente-consulta]
+verify_jwt = false
