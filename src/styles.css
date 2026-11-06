@@ -1061,3 +1061,17 @@ input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="c
 .nav-badge { color: #8f315f; background: #f8e5ef; }
 .logout-button { border-top-color: #f0e5eb; }
 .logout-button:hover { color: #9e3546; background: #fff7f7; }
+
+/* Header/sidebar alignment: shared shell dimensions keep both divider lines continuous. */
+:root { --shell-header-height: 69px; --shell-sidebar-width: 270px; }
+.sidebar { width: var(--shell-sidebar-width); }
+.main-area { margin-left: var(--shell-sidebar-width); }
+.topbar { height: var(--shell-header-height); min-height: var(--shell-header-height); }
+.sidebar-brand { height: var(--shell-header-height); min-height: var(--shell-header-height); padding: 8px 20px; box-sizing: border-box; }
+@media (max-width: 1050px) {
+  :root { --shell-sidebar-width: 232px; }
+}
+@media (max-width: 760px) {
+  :root { --shell-sidebar-width: 270px; }
+  .main-area { margin-left: 0; }
+}
