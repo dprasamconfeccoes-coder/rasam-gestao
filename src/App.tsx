@@ -41,6 +41,7 @@ import {
   Search,
   Settings2,
   ShieldCheck,
+  Sparkles,
   UserRound,
   UsersRound,
   WalletCards,
@@ -132,6 +133,7 @@ import { EmployeeVacationPortal } from './features/EmployeeVacationPortal'
 import { PayslipImportDashboard } from './features/PayslipImportDashboard'
 import { EmployeeManagementDashboard } from './features/EmployeeManagementDashboard'
 import { EmployeeOwnDossier } from './features/EmployeeOwnDossier'
+import { IntelligentView } from './features/IntelligentView'
 import { PayrollManagementDashboard } from './features/PayrollManagementDashboard'
 import { durationToMinutes, formatDuration, hasDurationValue, periodMinutes } from './lib/point-schedules'
 import { pointRowsFromFile } from './lib/point-import-parser'
@@ -180,6 +182,7 @@ type NavItem = { key: ModuleKey; label: string; description: string; icon: typeo
 
 const navItems: NavItem[] = [
   { key: 'dashboard', label: 'Visão geral', description: 'Prioridades administrativas', icon: LayoutDashboard, group: 'Operação', profiles: adminProfiles },
+  { key: 'visao_inteligente', label: 'Visão inteligente', description: 'Consultas locais sobre os registros', icon: Sparkles, group: 'Operação', profiles: adminProfiles },
   { key: 'funcionarios', label: 'Funcionários', description: 'Gestão da equipe e prontuário próprio', icon: UsersRound, group: 'Operação', profiles: ['funcionario', ...managerProfiles] },
   { key: 'ordens', label: 'Ordens de serviço', description: 'Cadastro de lotes e financeiro', icon: ClipboardList, group: 'Operação', profiles: adminProfiles },
   { key: 'producao', label: 'Produção', description: 'Lotes e costura', icon: Factory, group: 'Operação', profiles: adminProfiles },
@@ -1703,6 +1706,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
   }
   function renderPage() {
     if (active === 'dashboard') return adminProfiles.includes(user.perfil) ? <DashboardView token={token} user={user} onNavigate={navigate} /> : <><PageHeading eyebrow="Acesso restrito" title="Visão geral" /><ErrorState message="Esta visão está disponível somente para perfis administradores." /></>
+    if (active === 'visao_inteligente') return adminProfiles.includes(user.perfil) ? <IntelligentView token={token} /> : <><PageHeading eyebrow="Acesso restrito" title="Visão inteligente" /><ErrorState message="Esta visão está disponível somente para perfis administradores." /></>
     if (active === 'funcionarios') {
       if (user.perfil === 'funcionario') return <EmployeeOwnDossier token={token} />
       if (managerProfiles.includes(user.perfil)) return <EmployeeManagementDashboard token={token} profile={user.perfil} />
