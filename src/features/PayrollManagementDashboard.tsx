@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, ArrowRight, Calculator, Check, ExternalLink, RefreshCw, Save, ShieldCheck } from 'lucide-react'
-import { LoadingState, PageHeading, SectionCard, formatMoney } from '../components/ui'
+import { ErrorState, LoadingState, PageHeading, SectionCard, formatMoney } from '../components/ui'
 import './payroll-management.css'
-import { adminFolhaDadosListar, adminFolhaDadosSalvar, adminFolhaSimular } from '../lib/api'
-import type { PayrollCompetenceEmployee, PayrollSimulationResponse } from '../lib/types'
+import { adminFolhaDadosListar, adminFolhaDadosSalvar, adminFolhaOficialListar, adminFolhaSimular } from '../lib/api'
+import type { PayrollCompetenceEmployee, PayrollOfficialCompetenceResponse, PayrollSimulationResponse } from '../lib/types'
 import { PayrollBenefitsDiscounts } from './PayrollBenefitsDiscounts'
+import { PayrollOfficialDashboard } from './PayrollOfficialDashboard'
 
-type PayrollTab = 'simulacao' | 'dados' | 'beneficios'
+type PayrollTab = 'simulacao' | 'dados' | 'beneficios' | 'oficial'
 type PayrollDraft = {
   salario_base: string
   dependentes_irrf: string
@@ -79,9 +80,13 @@ export function PayrollManagementDashboard({
   const [savingId, setSavingId] = useState('')
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [officialData, setOfficialData] = useState<PayrollOfficialCompetenceResponse | null>(null)
+  const [officialLoading, setOfficialLoading] = useState(true)
+  const [officialError, setOfficialError] = useState('')
   const loadRequestRef = useRef(0)
   const simulationRequestRef = useRef(0)
   const saveRequestRef = useRef(0)
+  const officialRequestRef = useRef(0)
   const competenceRef = useRef(competencia)
   competenceRef.current = competencia
 
@@ -106,12 +111,33 @@ export function PayrollManagementDashboard({
     }
   }
 
+  async function loadOfficial() {
+    const requestId = ++officialRequestRef.current
+    setOfficialLoading(true)
+    setOfficialError('')
+    setOfficialData(null)
+    try {
+      const result = await adminFolhaOficialListar(token, competencia)
+      if (requestId !== officialRequestRef.current) return
+      if (!result.sucesso) throw new Error(result.erro || 'Não foi possível consultar os valores oficiais do escritório')
+      setOfficialData(result)
+    } catch (cause) {
+      if (requestId === officialRequestRef.current) {
+        setOfficialData(null)
+        setOfficialError(cause instanceof Error ? cause.message : 'Falha ao consultar a folha oficial')
+      }
+    } finally {
+      if (requestId === officialRequestRef.current) setOfficialLoading(false)
+    }
+  }
+
   useEffect(() => {
     setSimulation(null)
     setSimulating(false)
     setMessage('')
     void loadData()
-    return () => { loadRequestRef.current += 1; simulationRequestRef.current += 1; saveRequestRef.current += 1 }
+    void loadOfficial()
+    return () => { loadRequestRef.current += 1; simulationRequestRef.current += 1; saveRequestRef.current += 1; officialRequestRef.current += 1 }
   }, [token, competencia])
 
   function updateDraft(id: string, patch: Partial<PayrollDraft>) {
@@ -186,19 +212,25 @@ export function PayrollManagementDashboard({
   const confirmedCount = employees.filter((employee) => employee.dados_confirmados).length
   const readyItems = simulation?.itens?.filter((item) => item.status === 'simulado').length || 0
   const pendingItems = simulation?.itens?.filter((item) => item.status !== 'simulado').length || 0
+  const officialRows = officialData?.funcionarios.filter((employee) => employee.status === 'confirmado') || []
+  const officialEmployeeIds = new Set(officialRows.map((employee) => employee.funcionario_id))
+  const visibleSimulationItems = officialRows.length
+    ? (simulation?.itens || []).filter((item) => !officialEmployeeIds.has(item.funcionario_id))
+    : simulation?.itens || []
   const tabs: Array<{ id: PayrollTab; label: string }> = [
-    { id: 'simulacao', label: 'Prévia mensal' },
+    { id: 'simulacao', label: 'Folha e prévia' },
+    { id: 'oficial', label: 'Folha oficial do escritório' },
     { id: 'dados', label: 'Dados fiscais' },
     { id: 'beneficios', label: 'Benefícios e descontos' },
   ]
 
-  if (loading && employees.length === 0 && tab !== 'beneficios') return <div className="payroll-management-page"><LoadingState label="Carregando dados da folha…" /></div>
+  if (loading && employees.length === 0 && tab !== 'beneficios' && tab !== 'oficial') return <div className="payroll-management-page"><LoadingState label="Carregando dados da folha…" /></div>
 
   return <div className="payroll-management-page">
     {tab !== 'beneficios' && <PageHeading
       eyebrow="Controle · acesso administrativo"
-      title="Folha de pagamento"
-      description="Simulação mensal CLT com regras 2026 versionadas. Esta etapa não confirma folha nem gera pagamentos."
+      title={tab === 'oficial' ? 'Folha oficial do escritório' : 'Folha de pagamento'}
+      description={tab === 'oficial' ? 'Registre manualmente os valores recebidos do escritório por funcionário e competência. Valores oficiais confirmados substituem a prévia para essa pessoa; a estimativa interna permanece preservada para auditoria.' : 'Simulação mensal CLT com regras 2026 versionadas. A prévia interna não confirma processamento ou pagamento da folha.'}
       action={<label className="payroll-competence-picker">Competência
         <input type="month" min="2026-01" max="2026-12" value={competencia} onChange={(event) => setCompetencia(event.target.value)} />
       </label>}
@@ -211,6 +243,10 @@ export function PayrollManagementDashboard({
     {message && <div className="payroll-inline-success" role="status"><Check size={17} />{message}</div>}
 
     {tab === 'beneficios' && <PayrollBenefitsDiscounts token={token} />}
+    {tab === 'oficial' && <>
+      {officialError && <ErrorState message={officialError} />}
+      <PayrollOfficialDashboard token={token} competencia={competencia} data={officialData} loading={officialLoading} onRefresh={loadOfficial} />
+    </>}
 
     {tab === 'dados' && <>
       <div className="payroll-disclaimer" role="note">
@@ -253,6 +289,23 @@ export function PayrollManagementDashboard({
       </div>
       <div className="payroll-action-row"><div><strong>Competência: {monthLabel(competencia)}</strong><small>Primeiro confira os dados fiscais e gere a prévia 44h/DSR em Recursos humanos → Fechamento mensal.</small></div><div className="payroll-action-buttons">{onNavigateToHR && <button type="button" className="secondary-button" onClick={onNavigateToHR}>Abrir Recursos humanos <ArrowRight size={15} /></button>}<button type="button" className="primary-button" onClick={() => void simulate()} disabled={simulating}><Calculator size={16} />{simulating ? 'Calculando…' : 'Simular INSS / IRRF'}</button></div></div>
 
+      {officialError && <ErrorState message={`Não foi possível consultar a folha oficial; os dados exibidos abaixo continuam sendo apenas prévia interna. ${officialError}`} />}
+      {officialRows.length > 0 && officialData && <SectionCard title="Valores oficiais do escritório" caption={`${officialData.confirmados} de ${officialData.funcionarios_elegiveis} vínculos elegíveis confirmados · os valores oficiais substituem a prévia para essas pessoas.`}>
+        <div className="payroll-estimated-totals payroll-official-totals">
+          <div><small>Vencimentos oficiais confirmados</small><strong>{formatMoney(officialData.total_vencimentos_oficiais)}</strong></div>
+          <div><small>Descontos oficiais confirmados</small><strong>{formatMoney(officialData.total_descontos_oficiais)}</strong></div>
+          <div><small>Líquido oficial confirmado</small><strong>{formatMoney(officialData.valor_liquido_oficial)}</strong></div>
+        </div>
+        <p className="payroll-legal-note">{officialData.status_competencia === 'completa' ? 'Competência completa com valores oficiais para todos os vínculos elegíveis.' : 'Competência parcial/mista: os funcionários sem holerite oficial confirmado continuam usando a prévia interna. Não some os subtotais oficiais e estimados como se fossem uma folha oficial.'}</p>
+        <div className="payroll-simulation-table-wrap"><table className="payroll-simulation-table"><thead><tr><th>Funcionário</th><th>Vencimentos</th><th>Descontos</th><th>Líquido oficial</th><th>Documento</th></tr></thead><tbody>{officialRows.map((item) => <tr key={item.funcionario_id}>
+          <td><strong>{item.nome}</strong><small>{item.cargo || 'Cargo não informado'}</small></td>
+          <td>{item.total_vencimentos == null ? '—' : formatMoney(item.total_vencimentos)}</td>
+          <td>{item.total_descontos == null ? '—' : formatMoney(item.total_descontos)}</td>
+          <td>{item.valor_liquido == null ? '—' : formatMoney(item.valor_liquido)}</td>
+          <td>{item.documento_disponivel ? 'Anexado' : 'Sem documento'}</td>
+        </tr>)}</tbody></table></div>
+      </SectionCard>}
+
       {simulation && <>
         {simulation.bloqueio_geral && <div className="payroll-inline-error" role="status"><AlertTriangle size={17} />{simulation.bloqueio_geral}</div>}
         <div className="payroll-simulation-summary">
@@ -261,13 +314,18 @@ export function PayrollManagementDashboard({
           <div><small>Pendentes / bloqueados</small><strong>{pendingItems}</strong></div>
           <div className="payroll-simulation-state"><small>Estado</small><strong>{simulation.status === 'simulacao_preliminar_completa' ? 'Preliminar completa' : 'Com pendências'}</strong></div>
         </div>
-        {simulation.totais && <div className="payroll-estimated-totals">
+        {simulation.totais && officialRows.length === 0 && <div className="payroll-estimated-totals">
           <div><small>INSS estimado</small><strong>{formatMoney(simulation.totais.inss_estimado)}</strong></div>
           <div><small>IRRF estimado</small><strong>{formatMoney(simulation.totais.irrf_estimado)}</strong></div>
           <div><small>Líquido tributário estimado*</small><strong>{formatMoney(simulation.totais.liquido_estimado)}</strong></div>
         </div>}
-        <SectionCard title="Resultado por funcionário" caption="DSR e horas vêm da prévia 44h; impostos só aparecem quando os pré-requisitos passam.">
-          {(simulation.itens || []).length === 0 ? <p>Nenhum vínculo CLT retornado para esta competência.</p> : <div className="payroll-simulation-table-wrap"><table className="payroll-simulation-table"><thead><tr><th>Funcionário / jornada</th><th>DSR da prévia</th><th>HE 50% + 100%</th><th>Remuneração simulada</th><th>INSS</th><th>IRRF</th><th>Líquido tributário estimado</th><th>Situação</th></tr></thead><tbody>{(simulation.itens || []).map((item) => <tr key={item.funcionario_id}>
+        {simulation.totais && officialRows.length > 0 && <details className="payroll-official-preview-details"><summary>Prévia integral preservada para auditoria (não oficial)</summary><div className="payroll-estimated-totals">
+          <div><small>INSS estimado</small><strong>{formatMoney(simulation.totais.inss_estimado)}</strong></div>
+          <div><small>IRRF estimado</small><strong>{formatMoney(simulation.totais.irrf_estimado)}</strong></div>
+          <div><small>Líquido tributário estimado</small><strong>{formatMoney(simulation.totais.liquido_estimado)}</strong></div>
+        </div><p className="payroll-legal-note">Esta estimativa inclui também pessoas com valores oficiais; use-a apenas para comparação, não a some aos totais oficiais.</p></details>}
+        <SectionCard title={officialRows.length ? 'Prévia interna para funcionários sem valor oficial confirmado' : 'Resultado da prévia por funcionário'} caption="DSR e horas vêm da prévia 44h; impostos só aparecem quando os pré-requisitos passam. Pessoas com holerite oficial confirmado aparecem acima e deixam de usar a prévia nesta visualização.">
+          {(simulation.itens || []).length === 0 ? <p>Nenhum vínculo CLT retornado para esta competência.</p> : visibleSimulationItems.length === 0 ? <p>Todos os funcionários retornados pela simulação já têm valores oficiais confirmados. A prévia original permanece preservada para conferência.</p> : <div className="payroll-simulation-table-wrap"><table className="payroll-simulation-table"><thead><tr><th>Funcionário / jornada</th><th>DSR da prévia</th><th>HE 50% + 100%</th><th>Remuneração simulada</th><th>INSS</th><th>IRRF</th><th>Líquido tributário estimado</th><th>Situação</th></tr></thead><tbody>{visibleSimulationItems.map((item) => <tr key={item.funcionario_id}>
             <td><strong>{item.nome}</strong><small>{item.jornada_nome || 'Jornada não informada'}</small></td>
             <td>{formatMoney(item.dsr_desconto)}<small>{item.dsr_semanas_perdidas} ocorrência(s)</small></td>
             <td>{formatMoney((item.horas_extras_50_valor || 0) + (item.horas_extras_100_valor || 0))}</td>

@@ -60,14 +60,16 @@ export function PayslipImportDashboard({ token }: { token: string }) {
     setMessage('')
     if (!employeeId) { setError('Selecione o funcionário.'); return }
     if (!competencia) { setError('Selecione a competência.'); return }
-    if (!file) { setError('Selecione o PDF do holerite.'); return }
-    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) { setError('O arquivo precisa ser um PDF.'); return }
-    if (file.size > 10 * 1024 * 1024) { setError('O PDF deve ter no máximo 10 MB.'); return }
+    if (!file) { setError('Selecione o PDF ou a foto/scan do holerite.'); return }
+    const supportedMime = ['application/pdf', 'image/jpeg', 'image/png']
+    const supportedExtension = /\.(pdf|jpe?g|png)$/i.test(file.name)
+    if (!supportedExtension || (file.type && !supportedMime.includes(file.type))) { setError('Use somente PDF, JPG/JPEG ou PNG.'); return }
+    if (file.size > 10 * 1024 * 1024) { setError('O arquivo deve ter no máximo 10 MB.'); return }
 
     setSaving(true)
     try {
       await uploadPayslip(token, employeeId, competencia, file)
-      setMessage('PDF privado importado e disponibilizado no portal do funcionário. Isso não altera nem confirma o processamento da folha.')
+      setMessage('Documento privado importado e disponibilizado no portal do funcionário. Isso não confirma os valores oficiais da folha.')
       setFile(null)
       setEmployeeId('')
       const input = document.getElementById('payslip-file') as HTMLInputElement | null
@@ -86,7 +88,7 @@ export function PayslipImportDashboard({ token }: { token: string }) {
     if (!row.tem_arquivo_privado || !row.disponivel) {
       setOpeningId('')
       setError(row.disponivel
-        ? 'Este registro é legado e não tem cópia no Storage privado. Reenvie o PDF antes de disponibilizá-lo.'
+        ? 'Este registro é legado e não tem cópia no Storage privado. Reenvie o documento antes de disponibilizá-lo.'
         : 'Este holerite não está disponível para abertura.')
       return
     }
@@ -110,7 +112,7 @@ export function PayslipImportDashboard({ token }: { token: string }) {
     <PageHeading
       eyebrow="Controle · documentos"
       title="Holerites e folha"
-      description="Acompanhe a cobertura dos PDFs recebidos do escritório por competência. Estes indicadores documentais não confirmam processamento ou pagamento da folha."
+      description="Acompanhe documentos PDF ou foto/scan recebidos do escritório por competência. Receber um arquivo não confirma, por si só, os valores oficiais da folha."
       action={<button className="secondary-button" type="button" onClick={() => void reload()} disabled={loading || saving}><RefreshCw size={16} className={loading ? 'spin' : ''} /> Atualizar</button>}
     />
     {error && <ErrorState message={error} />}
@@ -119,16 +121,16 @@ export function PayslipImportDashboard({ token }: { token: string }) {
     <SectionCard title="Cobertura de holerites" caption="Competência e cobertura são calculadas no servidor, dentro da empresa da sessão.">
       <div className="payslip-competence-toolbar">
         <label>Competência<input type="month" value={competencia} onChange={(event) => setCompetencia(event.target.value)} required /></label>
-        {overview && <span>{competenceLabel(competencia)} · {overview.cobertura_percentual == null ? 'Sem vínculos elegíveis' : `${overview.cobertura_percentual}% com PDF privado`}</span>}
+        {overview && <span>{competenceLabel(competencia)} · {overview.cobertura_percentual == null ? 'Sem vínculos elegíveis' : `${overview.cobertura_percentual}% com documento privado`}</span>}
       </div>
       {loading ? <LoadingState label="Calculando a cobertura da competência…" /> : overview && <>
         <div className="payslip-overview-grid">
           <article><Users size={17} /><span>Elegíveis no período</span><strong>{overview.funcionarios_elegiveis ?? 0}</strong></article>
-          <article><Check size={17} /><span>PDFs privados recebidos</span><strong>{overview.holerites_privados_recebidos ?? 0}</strong></article>
+          <article><Check size={17} /><span>Documentos privados recebidos</span><strong>{overview.holerites_privados_recebidos ?? 0}</strong></article>
           <article><AlertTriangle size={17} /><span>Sem holerite</span><strong>{overview.holerites_ausentes ?? 0}</strong></article>
           <article><RefreshCw size={17} /><span>Reenvio necessário</span><strong>{overview.holerites_reenvio ?? 0}</strong></article>
         </div>
-        <p className="payslip-scope-note"><AlertTriangle size={15} />{overview.escopo || 'Conta somente PDF privado disponível; não é indicador de folha oficial processada ou paga.'}</p>
+        <p className="payslip-scope-note"><AlertTriangle size={15} />{overview.escopo || 'Conta somente documento privado disponível; não é indicador de folha oficial processada ou paga.'}</p>
       </>}
     </SectionCard>
 
@@ -145,13 +147,13 @@ export function PayslipImportDashboard({ token }: { token: string }) {
     </SectionCard>
 
     <div className="two-column payslip-import-layout">
-      <SectionCard title="Novo holerite" caption="O PDF fica privado e só é aberto com uma URL temporária">
+      <SectionCard title="Novo holerite" caption="PDF, JPG/JPEG ou PNG privado; o funcionário e administradores acessam somente por URL temporária">
         <form id="payslip-new-upload" className="form-stack payslip-import-form" onSubmit={submit}>
           <label>Funcionário<select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} required><option value="">Selecione um funcionário elegível</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.nome} · {employee.cpf}</option>)}</select></label>
           <label>Competência<input type="month" value={competencia} onChange={(event) => setCompetencia(event.target.value)} required /></label>
-          <label className="payslip-file-picker">Arquivo PDF<input id="payslip-file" type="file" accept="application/pdf,.pdf" onChange={(event) => setFile(event.target.files?.[0] || null)} required /></label>
-          {file ? <div className="selected-file"><FileText size={18} /><div><strong>{file.name}</strong><small>{fileSize(file.size)} · PDF selecionado</small></div></div> : <div className="payslip-upload-hint"><Upload size={18} /><div><strong>Selecione o PDF recebido do escritório</strong><small>Somente PDF · limite de 10 MB</small></div></div>}
-          <button className="primary-button" type="submit" disabled={saving}>{saving ? <><RefreshCw size={16} className="spin" /> Importando…</> : <><Upload size={16} /> Importar PDF privado</>}</button>
+          <label className="payslip-file-picker">Documento PDF ou imagem<input id="payslip-file" type="file" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" onChange={(event) => setFile(event.target.files?.[0] || null)} required /></label>
+          {file ? <div className="selected-file"><FileText size={18} /><div><strong>{file.name}</strong><small>{fileSize(file.size)} · documento selecionado</small></div></div> : <div className="payslip-upload-hint"><Upload size={18} /><div><strong>Selecione o holerite do escritório</strong><small>PDF, JPG/JPEG ou PNG · limite de 10 MB</small></div></div>}
+          <button className="primary-button" type="submit" disabled={saving}>{saving ? <><RefreshCw size={16} className="spin" /> Importando…</> : <><Upload size={16} /> Importar documento privado</>}</button>
         </form>
       </SectionCard>
       <SectionCard title="O que esses indicadores significam" caption="Documento recebido não é sinônimo de folha processada">

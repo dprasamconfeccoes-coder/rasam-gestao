@@ -375,6 +375,34 @@
   background: #f1faf4;
 }
 
+.payroll-official-totals > div {
+  border-color: #b8dec5;
+  background: #f5fbf7;
+}
+
+.payroll-official-totals > div:last-child {
+  border-color: #90c6a1;
+  background: #eff9f2;
+}
+
+.payroll-official-preview-details {
+  padding: 12px;
+  border: 1px solid #dfe5ed;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.payroll-official-preview-details > summary {
+  color: #526175;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.payroll-official-preview-details .payroll-estimated-totals {
+  margin-top: 12px;
+}
+
 .payroll-simulation-table-wrap {
   width: 100%;
   overflow-x: auto;

@@ -1180,6 +1180,70 @@ export interface PayrollSimulationResponse {
   fontes?: string[]
 }
 
+export type PayrollOfficialStatus = 'pendente' | 'rascunho' | 'confirmado'
+export type PayrollOfficialCompetenceStatus = 'sem_vinculos' | 'sem_oficiais' | 'parcial' | 'completa'
+export type PayrollOfficialRubricType = 'provento' | 'desconto' | 'informativo'
+
+export interface PayrollOfficialRubric {
+  ordem: number
+  codigo: string | null
+  descricao: string
+  referencia: string | null
+  tipo: PayrollOfficialRubricType
+  valor: number
+}
+
+export interface PayrollOfficialEmployee {
+  funcionario_id: string
+  nome: string
+  cargo: string | null
+  status: PayrollOfficialStatus
+  registro_id: string | null
+  holerite_id: string | null
+  arquivo_nome: string | null
+  mime_type: string | null
+  documento_disponivel: boolean
+  salario_base: number | null
+  base_inss: number | null
+  base_fgts: number | null
+  fgts_mes: number | null
+  base_irrf: number | null
+  faixa_irrf: string | null
+  total_vencimentos: number | null
+  total_descontos: number | null
+  valor_liquido: number | null
+  itens: PayrollOfficialRubric[]
+}
+
+export interface PayrollOfficialCompetenceResponse {
+  sucesso: boolean
+  erro?: string
+  competencia?: string
+  funcionarios_elegiveis: number
+  confirmados: number
+  rascunhos: number
+  pendentes: number
+  status_competencia: PayrollOfficialCompetenceStatus
+  total_vencimentos_oficiais: number
+  total_descontos_oficiais: number
+  valor_liquido_oficial: number
+  funcionarios: PayrollOfficialEmployee[]
+}
+
+export interface PayrollOfficialPayload {
+  holerite_id: string | null
+  salario_base: number | null
+  base_inss: number | null
+  base_fgts: number | null
+  fgts_mes: number | null
+  base_irrf: number | null
+  faixa_irrf: string | null
+  total_vencimentos: number
+  total_descontos: number
+  valor_liquido: number
+  itens: PayrollOfficialRubric[]
+}
+
 export interface FechamentoSummary { funcionarios?: number; faltas_injustificadas?: number; faltas_justificadas?: number; horas_extras_50?: number; horas_extras_100?: number; extras_50_valor?: number; extras_100_valor?: number; dsr_desconto?: number; dsr_semanas_perdidas?: number; dsr_pendencias?: number; salarios_pendentes?: number; importacoes_pendentes?: number; pendencias_total?: number }
 export interface FechamentoResult { sucesso: boolean; erro?: string; fechamento_id?: string; competencia?: string; status?: string; mensagem?: string; resumo?: FechamentoSummary; source_fingerprint?: string }
 export interface FechamentoPreview extends FechamentoResult { confirmado_at?: string | null; regras?: Record<string, unknown>; linhas?: Array<Record<string, unknown>> }

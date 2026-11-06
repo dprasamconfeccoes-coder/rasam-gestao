@@ -792,7 +792,8 @@ export async function uploadPayslip(token: string, funcionarioId: string, compet
   })
   const data = (await response.json()) as { sucesso: boolean; erro?: string; holerite_id?: string }
   if (!response.ok || !data.sucesso) throw new Error(data.erro || 'Não foi possível importar o holerite')
-  return data
+  if (!data.holerite_id) throw new Error('O servidor não retornou o identificador do holerite')
+  return { ...data, holerite_id: data.holerite_id }
 }
 
 export async function getPayslipDocumentUrl(token: string, holeriteId: string, download = false) {
@@ -1084,6 +1085,31 @@ export function adminFolhaDadosSalvar(token: string, payload: {
 
 export function adminFolhaSimular(token: string, competencia: string) {
   return rpc<import('./types').PayrollSimulationResponse>('app_admin_folha_simular_clt', { p_token: token, p_competencia: competencia })
+}
+
+export function adminFolhaOficialListar(token: string, competencia: string) {
+  return rpc<import('./types').PayrollOfficialCompetenceResponse>('app_admin_folha_escritorio_listar', {
+    p_token: token, p_competencia: competencia,
+  })
+}
+
+export function adminFolhaOficialSalvar(
+  token: string,
+  funcionarioId: string,
+  competencia: string,
+  payload: import('./types').PayrollOfficialPayload,
+  confirmar: boolean,
+) {
+  return rpc<{ sucesso: boolean; erro?: string; registro_id?: string; status?: string }>('app_admin_folha_escritorio_salvar', {
+    p_token: token, p_funcionario_id: funcionarioId, p_competencia: competencia,
+    p_dados: payload, p_confirmar: confirmar,
+  })
+}
+
+export function adminFolhaOficialReabrir(token: string, registroId: string, motivo: string) {
+  return rpc<{ sucesso: boolean; erro?: string; status?: string }>('app_admin_folha_escritorio_reabrir', {
+    p_token: token, p_registro_id: registroId, p_motivo: motivo,
+  })
 }
 
 export function adminFinanceiroWorkspace(token: string) {

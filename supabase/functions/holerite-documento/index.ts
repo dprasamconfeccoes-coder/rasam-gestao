@@ -17,10 +17,23 @@ const tokenOf = (req: Request) => {
 };
 const uuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
-async function isPdf(file: File) {
+const FORMATS = {
+  pdf: { mime: "application/pdf", extensions: [".pdf"] },
+  jpeg: { mime: "image/jpeg", extensions: [".jpg", ".jpeg"] },
+  png: { mime: "image/png", extensions: [".png"] },
+} as const;
+type CanonicalMime = (typeof FORMATS)[keyof typeof FORMATS]["mime"];
+async function validatedMime(file: File): Promise<CanonicalMime | null> {
+  const name = file.name.toLowerCase();
+  const ext = name.slice(name.lastIndexOf("."));
   const bytes = new Uint8Array(await file.slice(0, 8).arrayBuffer());
-  const signature = new TextDecoder().decode(bytes);
-  return signature.startsWith("%PDF-") && (!file.type || file.type === "application/pdf" || file.type === "application/octet-stream");
+  let detected: keyof typeof FORMATS | null = null;
+  if (bytes.length >= 5 && new TextDecoder().decode(bytes.slice(0, 5)) === "%PDF-") detected = "pdf";
+  else if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) detected = "jpeg";
+  else if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a) detected = "png";
+  if (!detected || !FORMATS[detected].extensions.includes(ext as never)) return null;
+  if (file.type && file.type !== "application/octet-stream" && file.type !== FORMATS[detected].mime) return null;
+  return FORMATS[detected].mime;
 }
 
 Deno.serve(async (req) => {
@@ -54,9 +67,11 @@ Deno.serve(async (req) => {
     if (!uuid(funcionarioId) || !Number.isInteger(year) || year < 2000 || year > 2100 || !Number.isInteger(month) || month < 1 || month > 12) {
       return out({ sucesso: false, erro: "Funcionário ou competência inválida" }, 400);
     }
-    if (!(file instanceof File) || file.size < 1 || file.size > MAX || !(await isPdf(file))) {
-      return out({ sucesso: false, erro: "Selecione um PDF válido de até 10 MB" }, 400);
+    if (!(file instanceof File) || file.size < 1 || file.size > MAX) {
+      return out({ sucesso: false, erro: "Selecione um PDF, JPEG ou PNG válido de até 10 MB" }, 400);
     }
+    const mime = await validatedMime(file);
+    if (!mime) return out({ sucesso: false, erro: "Extensão, MIME e assinatura do arquivo devem corresponder a PDF, JPEG ou PNG" }, 400);
 
     const preflight = await admin.rpc("app_admin_holerite_preflight", { p_token: token, p_funcionario_id: funcionarioId });
     if (preflight.error || !preflight.data?.sucesso) {
@@ -64,8 +79,8 @@ Deno.serve(async (req) => {
     }
     const safeName = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/[.]{2,}/g, ".").slice(-120) || "holerite.pdf";
     const path = `${preflight.data.empresa_id}/holerites/${funcionarioId}/${year}-${String(month).padStart(2, "0")}/${crypto.randomUUID()}-${safeName}`;
-    const uploaded = await admin.storage.from(BUCKET).upload(path, file, { contentType: "application/pdf", upsert: false });
-    if (uploaded.error) return out({ sucesso: false, erro: "Não foi possível armazenar o PDF" }, 502);
+    const uploaded = await admin.storage.from(BUCKET).upload(path, file, { contentType: mime, upsert: false });
+    if (uploaded.error) return out({ sucesso: false, erro: "Não foi possível armazenar o documento" }, 502);
 
     const saved = await admin.rpc("app_admin_registrar_holerite_upload", {
       p_token: token,
@@ -74,7 +89,7 @@ Deno.serve(async (req) => {
       p_ano: year,
       p_storage_path: path,
       p_arquivo_nome: file.name.slice(0, 255),
-      p_mime_type: "application/pdf",
+      p_mime_type: mime,
       p_tamanho_bytes: file.size,
     });
     if (saved.error || !saved.data?.sucesso) {
@@ -90,7 +105,7 @@ Deno.serve(async (req) => {
     const access = await admin.rpc("app_holerite_documento_path", { p_token: token, p_holerite_id: holeriteId });
     if (access.error || !access.data?.sucesso) return out({ sucesso: false, erro: access.data?.erro || "Acesso negado" }, 403);
     const signed = await admin.storage.from(BUCKET).createSignedUrl(access.data.caminho, 300, { download: Boolean(body.download) });
-    if (signed.error || !signed.data?.signedUrl) return out({ sucesso: false, erro: "Não foi possível abrir o PDF" }, 502);
+    if (signed.error || !signed.data?.signedUrl) return out({ sucesso: false, erro: "Não foi possível abrir o documento" }, 502);
     return out({ sucesso: true, url: signed.data.signedUrl, expires_in: 300, nome_arquivo: access.data.nome });
   }
 
