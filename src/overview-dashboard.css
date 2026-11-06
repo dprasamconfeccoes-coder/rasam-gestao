@@ -805,3 +805,59 @@
   .overview-updated-at { width: 100%; }
   .overview-data-warning { align-items: flex-start; flex-wrap: wrap; }
 }
+
+
+/* RF overview identity: concise, meaning-led color and comfortable mobile controls. */
+.overview-page { gap: 16px; }
+.overview-page .page-heading { align-items: center; }
+.overview-page .page-heading p { max-width: 520px; }
+.overview-welcome { border-color: #f0d9e5; background: linear-gradient(120deg, #fffafd, #fbf4f8); box-shadow: 0 8px 24px rgba(72, 37, 56, .04); }
+.overview-welcome-symbol { color: #9f3f6d; border-color: #f0d9e5; background: #fbedf4; box-shadow: none; }
+.overview-quick-report { border-color: #eadce4; background: linear-gradient(135deg, #fff, #fcf8fa); box-shadow: 0 8px 24px rgba(72, 37, 56, .035); }
+.overview-quick-report-heading h2 { margin-top: 5px; }
+.overview-quick-report-heading p { max-width: 630px; }
+.overview-quick-report-period,
+.overview-quick-report-navigation { border-color: #efd8e3; color: #8d315f; background: #fff5fa; }
+.overview-quick-report-navigation span,
+.overview-quick-report-navigation button { color: #8d315f; }
+.overview-quick-report-navigation button:hover { background: #f8e5ef; }
+.overview-quick-report-controls select:focus { outline: 2px solid rgba(159, 63, 109, .16); border-color: #a33f70; }
+.overview-quick-report-list button:hover { background: #fff7fb; }
+.overview-quick-report-list button > b.is-atencao { color: #8a4e08; background: #fff1dc; }
+.overview-quick-report-list button > b.is-positivo { color: #286b46; background: #eaf6ee; }
+.overview-quick-report-list button > b.is-urgente { color: #a3333d; background: #fff0f0; }
+.overview-risk-icon.is-gold { color: #985500; background: #fff0da; }
+.overview-chart-bar.is-ordens { background: linear-gradient(180deg, #83a9be, #467b98); }
+.overview-chart-bar.is-entregues { background: linear-gradient(180deg, #78b88e, #398454); }
+.overview-chart-column:hover .overview-chart-bar { box-shadow: 0 0 0 3px rgba(70, 123, 152, .14); }
+.overview-trend-legend i.is-orders,
+.overview-trend-legend i.is-ordens { background: #5487a1; }
+.overview-trend-legend i.is-delivered,
+.overview-trend-legend i.is-entregues { background: #438a5b; }
+.overview-area-list button.is-pending > div i { background: linear-gradient(90deg, #f4b45c, #d77a14); }
+.overview-area-list button.is-clear > div i { background: linear-gradient(90deg, #82c997, #3b8a56); }
+.overview-area-list button.is-pending > span small { color: #94530c; }
+.overview-area-list button.is-clear > span small { color: #36734c; }
+.overview-live-dot.is-connected { background: #398a58; }
+.overview-live-status { color: #4f6f59; }
+.overview-data-warning { border-color: #f0d8b3; color: #8a4e08; background: #fff6e8; }
+@media (max-width: 620px) {
+  .overview-page { gap: 12px; }
+  .overview-page .page-heading { align-items: flex-start; }
+  .overview-live-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 8px; }
+  .overview-live-status, .overview-updated-at { grid-column: 1 / -1; }
+  .overview-refresh-button, .overview-notification-button { width: 100%; min-width: 0; justify-content: center; padding: 7px 6px; font-size: 9px; }
+  .overview-quick-report { gap: 12px; padding: 14px; }
+  .overview-quick-report-heading { gap: 9px; }
+  .overview-quick-report-heading h2 { font-size: 16px; line-height: 1.25; }
+  .overview-quick-report-heading p { font-size: 10px; }
+  .overview-quick-report-controls { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); align-items: center; width: 100%; gap: 7px; }
+  .overview-quick-report-controls select { width: 100%; min-width: 0; min-height: 35px; }
+  .overview-quick-report-navigation { min-width: 0; min-height: 35px; }
+  .overview-quick-report-navigation span { min-width: 0; flex: 1; font-size: 8px; }
+  .overview-quick-report-controls .overview-report-actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .overview-quick-report-controls .overview-report-actions button { min-height: 35px; }
+  .overview-quick-report-grid { grid-template-columns: 1fr; }
+  .overview-quick-report-list button { padding: 9px 9px; }
+  .overview-metrics { margin-top: 2px; }
+}
