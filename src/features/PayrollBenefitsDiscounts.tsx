@@ -40,7 +40,7 @@ function entryDate(value: unknown) {
   return Number.isNaN(date.valueOf()) ? String(value) : date.toLocaleDateString('pt-BR', { month: '2-digit', year: 'numeric' })
 }
 
-export function PayrollBenefitsDiscounts({ token, onNavigateToReports }: { token: string; onNavigateToReports?: () => void }) {
+export function PayrollBenefitsDiscounts({ token, onNavigateToReports, embedded = false }: { token: string; onNavigateToReports?: () => void; embedded?: boolean }) {
   const [view, setView] = useState<'lancamentos' | 'catalogo' | 'assiduidade' | 'relatorios'>('lancamentos')
   const [employees, setEmployees] = useState<EmployeeRow[]>([])
   const [benefits, setBenefits] = useState<Array<Record<string, unknown>>>([])
@@ -238,12 +238,12 @@ export function PayrollBenefitsDiscounts({ token, onNavigateToReports }: { token
     : discounts.map((item) => ({ ...item, _kind: 'Desconto', _title: item.tipo }))
 
   return <>
-    <PageHeading eyebrow="Controle · folha" title="Benefícios e descontos" description="Lançamentos, catálogo versionado, simulação da CCT e relatórios em um único lugar." />
-    <div className="payroll-module-tabs">
-      <button type="button" className={view === 'lancamentos' ? 'active' : ''} onClick={() => setView('lancamentos')}>Lançamentos</button>
-      <button type="button" className={view === 'catalogo' ? 'active' : ''} onClick={() => setView('catalogo')}>Catálogo</button>
-      <button type="button" className={view === 'assiduidade' ? 'active' : ''} onClick={() => setView('assiduidade')}>Simular Vale Cesta</button>
-      <button type="button" className={view === 'relatorios' ? 'active' : ''} onClick={() => onNavigateToReports ? onNavigateToReports() : setView('relatorios')}>Relatórios centralizados</button>
+    {!embedded && <PageHeading eyebrow="Controle · folha" title="Benefícios e descontos" description="Lançamentos, catálogo versionado, simulação da CCT e relatórios em um único lugar." />}
+    <div className="overview-segmented payroll-module-tabs">
+      <button type="button" className={view === 'lancamentos' ? 'is-active' : ''} aria-pressed={view === 'lancamentos'} onClick={() => setView('lancamentos')}>Lançamentos</button>
+      <button type="button" className={view === 'catalogo' ? 'is-active' : ''} aria-pressed={view === 'catalogo'} onClick={() => setView('catalogo')}>Catálogo</button>
+      <button type="button" className={view === 'assiduidade' ? 'is-active' : ''} aria-pressed={view === 'assiduidade'} onClick={() => setView('assiduidade')}>Simular Vale Cesta</button>
+      <button type="button" className={view === 'relatorios' ? 'is-active' : ''} aria-pressed={view === 'relatorios'} onClick={() => onNavigateToReports ? onNavigateToReports() : setView('relatorios')}>Relatórios centralizados</button>
     </div>
     {view === 'lancamentos' ? (
       <div className="payroll-management-layout">

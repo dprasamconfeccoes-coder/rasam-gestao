@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, ArrowRight, Calculator, Check, ExternalLink, RefreshCw, Save, ShieldCheck } from 'lucide-react'
-import { ErrorState, LoadingState, PageHeading, SectionCard, formatMoney } from '../components/ui'
+import { AlertTriangle, ArrowRight, Calculator, Check, ChevronDown, ChevronRight, ExternalLink, RefreshCw, Save, ShieldCheck } from 'lucide-react'
+import { ErrorState, LoadingState, MetricCard, SectionCard, formatMoney } from '../components/ui'
 import './payroll-management.css'
 import { adminFolhaDadosListar, adminFolhaDadosSalvar, adminFolhaOficialListar, adminFolhaSimular } from '../lib/api'
 import type { PayrollCompetenceEmployee, PayrollOfficialCompetenceResponse, PayrollSimulationResponse } from '../lib/types'
@@ -210,9 +210,11 @@ export function PayrollManagementDashboard({
   }
 
   const confirmedCount = employees.filter((employee) => employee.dados_confirmados).length
+  const unconfirmedCount = Math.max(0, employees.length - confirmedCount)
   const readyItems = simulation?.itens?.filter((item) => item.status === 'simulado').length || 0
   const pendingItems = simulation?.itens?.filter((item) => item.status !== 'simulado').length || 0
   const officialRows = officialData?.funcionarios.filter((employee) => employee.status === 'confirmado') || []
+  const officialComplete = officialData?.status_competencia === 'completa'
   const officialEmployeeIds = new Set(officialRows.map((employee) => employee.funcionario_id))
   const visibleSimulationItems = officialRows.length
     ? (simulation?.itens || []).filter((item) => !officialEmployeeIds.has(item.funcionario_id))
@@ -227,44 +229,55 @@ export function PayrollManagementDashboard({
   if (loading && employees.length === 0 && tab !== 'beneficios' && tab !== 'oficial') return <div className="payroll-management-page"><LoadingState label="Carregando dados da folha…" /></div>
 
   return <div className="payroll-management-page">
-    {tab !== 'beneficios' && <PageHeading
-      eyebrow="Controle · acesso administrativo"
-      title={tab === 'oficial' ? 'Folha oficial do escritório' : 'Folha de pagamento'}
-      description={tab === 'oficial' ? 'Registre manualmente os valores recebidos do escritório por funcionário e competência. Valores oficiais confirmados substituem a prévia para essa pessoa; a estimativa interna permanece preservada para auditoria.' : 'Simulação mensal CLT com regras 2026 versionadas. A prévia interna não confirma processamento ou pagamento da folha.'}
-      action={<label className="payroll-competence-picker">Competência
-        <input type="month" min="2026-01" max="2026-12" value={competencia} onChange={(event) => setCompetencia(event.target.value)} />
-      </label>}
-    />}
-    <nav className="payroll-management-tabs" aria-label="Áreas da folha">
-      {tabs.map((item) => <button key={item.id} type="button" className={tab === item.id ? 'is-active' : ''} onClick={() => { setTab(item.id); setError(''); setMessage('') }}>{item.label}</button>)}
-    </nav>
-
     {error && <div className="payroll-inline-error" role="alert"><AlertTriangle size={17} />{error}</div>}
     {message && <div className="payroll-inline-success" role="status"><Check size={17} />{message}</div>}
 
-    {tab === 'beneficios' && <PayrollBenefitsDiscounts token={token} />}
+    {tab === 'simulacao' && <>
+      <details className="payroll-safety-details">
+        <summary className="overview-alert-item is-atencao"><span><AlertTriangle size={18} /></span><div><strong>Prévia interna — não usar para pagar, declarar ou recolher</strong><small>Estimativa restrita a cenários cobertos; outras situações ficam bloqueadas, não estimadas.</small></div><ChevronDown size={16} /></summary>
+        <div className="payroll-safety-copy">Inclui INSS progressivo e IRRF 2026 apenas para vínculo formal mensal, salário cadastrado sem alteração no mês, jornada CLT 44h válida e prévia atualizada, sem falta, atraso, férias, afastamento, outro vínculo/rendimento ou lançamentos de benefícios/descontos. Parcelas de acordos/dívidas e outras rubricas não integradas também não entram no valor; situações não cobertas ficam bloqueadas, não estimadas.</div>
+      </details>
+      <div className="metric-grid overview-metrics payroll-overview-metrics" aria-label="Resumo da folha na competência">
+        <MetricCard label="Vínculos CLT elegíveis" value={employees.length} detail={`Competência ${monthLabel(competencia)}`} tone="blue" onClick={() => setTab('dados')} />
+        <MetricCard label="Dados fiscais conferidos" value={`${confirmedCount} / ${employees.length}`} detail={unconfirmedCount ? `${unconfirmedCount} aguardando conferência` : 'Declarações completas'} tone={employees.length > 0 && unconfirmedCount === 0 ? 'green' : unconfirmedCount > 0 ? 'gold' : 'blue'} onClick={() => setTab('dados')} />
+        <MetricCard label="Folha oficial confirmada" value={officialLoading ? '—' : `${officialRows.length} / ${officialData?.funcionarios_elegiveis ?? 0}`} detail={officialLoading ? 'Consultando escritório' : officialComplete ? 'Cobertura completa' : officialData?.status_competencia === 'parcial' ? `${officialData.pendentes} pendente(s)` : 'Sem valores oficiais confirmados'} tone={officialComplete ? 'green' : officialData?.status_competencia === 'parcial' ? 'pink' : 'blue'} onClick={() => setTab('oficial')} />
+        <MetricCard label="Prévia calculada" value={simulation ? `${readyItems} / ${simulation.quantidade_funcionarios ?? 0}` : 'Não gerada'} detail={simulation ? `${pendingItems} pendente(s) ou bloqueado(s)` : 'Execute após conferir os dados fiscais'} tone={simulation && pendingItems === 0 ? 'green' : simulation ? 'gold' : 'blue'} />
+      </div>
+    </>}
+
+    {tab !== 'beneficios' && <div className="payroll-period-toolbar">
+      <label className="payroll-competence-picker">Competência<input type="month" min="2026-01" max="2026-12" value={competencia} onChange={(event) => setCompetencia(event.target.value)} /></label>
+      {tab === 'simulacao' && <div className="payroll-action-buttons">{onNavigateToHR && <button type="button" className="secondary-button" onClick={onNavigateToHR}>Abrir Recursos humanos <ArrowRight size={15} /></button>}<button type="button" className="primary-button" onClick={() => void simulate()} disabled={simulating || loading}>{simulating ? 'Calculando…' : <><Calculator size={16} /> Simular INSS / IRRF</>}</button></div>}
+    </div>}
+
+    <nav className="overview-segmented payroll-management-tabs" aria-label="Áreas da folha">
+      {tabs.map((item) => <button key={item.id} type="button" className={tab === item.id ? 'is-active' : ''} aria-pressed={tab === item.id} onClick={() => { setTab(item.id); setError(''); setMessage('') }}>{item.label}</button>)}
+    </nav>
+
+    {tab === 'beneficios' && <PayrollBenefitsDiscounts token={token} embedded />}
     {tab === 'oficial' && <>
       {officialError && <ErrorState message={officialError} />}
       <PayrollOfficialDashboard token={token} competencia={competencia} data={officialData} loading={officialLoading} onRefresh={loadOfficial} />
     </>}
 
     {tab === 'dados' && <>
-      <div className="payroll-disclaimer" role="note">
-        <ShieldCheck size={20} />
-        <div><strong>Declarações por competência — sem preenchimento automático</strong><p>Confirme salário, dependentes, vínculos/rendimentos e pensão para cada pessoa. Campos vazios permanecem pendentes; o sistema não presume zero dependentes nem ausência de outras fontes.</p></div>
-      </div>
+      <details className="payroll-declaration-details">
+        <summary className="overview-alert-item is-informacao"><span><ShieldCheck size={18} /></span><div><strong>Declarações por competência — sem preenchimento automático</strong><small>Campos vazios permanecem pendentes; valores e ausência de outras fontes precisam de confirmação.</small></div><ChevronDown size={16} /></summary>
+        <div className="payroll-declaration-copy">Confirme salário, dependentes, vínculos/rendimentos e pensão para cada pessoa. O sistema não presume zero dependentes nem ausência de outras fontes.</div>
+      </details>
       {loading ? <LoadingState label="Atualizando declarações…" /> : employees.length === 0 ? <SectionCard title="Nenhum CLT elegível" caption="A competência selecionada não retornou vínculos formais ativos."><p>Verifique a competência e a situação cadastral dos vínculos.</p></SectionCard> : <>
         <div className="payroll-readiness-strip"><strong>{confirmedCount} de {employees.length}</strong><span>declarações salvas para {monthLabel(competencia)}</span><button type="button" className="secondary-button" onClick={() => void loadData()} disabled={loading}><RefreshCw size={15} className={loading ? 'spin' : ''} /> Atualizar</button></div>
         <div className="payroll-employee-input-list">
           {employees.map((employee) => {
             const draft = drafts[employee.funcionario_id] || emptyDraft()
             const complete = employee.dados_confirmados
+            const hasUnsavedChanges = complete && JSON.stringify(draft) !== JSON.stringify(draftFromEmployee(employee))
             const saving = savingId === employee.funcionario_id
             return <details className="payroll-employee-input-card" key={employee.funcionario_id}>
               <summary>
                 <span className="payroll-employee-summary"><strong>{employee.nome}</strong><small>{employee.cargo || 'Cargo não informado'}</small></span>
                 <span className="payroll-employee-salary">Salário cadastrado: <strong>{formatMoney(employee.salario_atual)}</strong></span>
-                <span className={`payroll-input-status ${complete ? 'is-complete' : 'is-pending'}`}>{complete ? 'Conferido' : 'Pendente'}</span>
+                <span className={`payroll-input-status ${hasUnsavedChanges ? 'is-unsaved' : complete ? 'is-complete' : 'is-pending'}`}>{hasUnsavedChanges ? 'Alterações não salvas' : complete ? 'Conferido' : 'Pendente'}</span>
               </summary>
               <div className="payroll-input-form">
                 <label>Salário-base da competência (R$)<input inputMode="decimal" value={draft.salario_base} onChange={(event) => updateDraft(employee.funcionario_id, { salario_base: event.target.value })} placeholder="Informe e confirme" /><button type="button" className="payroll-use-salary" onClick={() => updateDraft(employee.funcionario_id, { salario_base: employee.salario_atual == null ? '' : String(employee.salario_atual).replace('.', ',') })} disabled={employee.salario_atual == null}>Usar salário do cadastro ({formatMoney(employee.salario_atual)})</button></label>
@@ -274,7 +287,7 @@ export function PayrollManagementDashboard({
                 <label>Pensão alimentícia desta competência (R$)<input inputMode="decimal" value={draft.pensao_alimenticia} onChange={(event) => updateDraft(employee.funcionario_id, { pensao_alimenticia: event.target.value })} placeholder="Informe o valor ou 0" /></label>
                 <label className="payroll-checkbox"><input type="checkbox" checked={draft.pensao_confirmada} onChange={(event) => updateDraft(employee.funcionario_id, { pensao_confirmada: event.target.checked })} /><span>Conferi a pensão aplicável ou confirmei que não há pensão.</span></label>
                 <label className="payroll-checkbox"><input type="checkbox" checked={draft.declaracao_confirmada} onChange={(event) => updateDraft(employee.funcionario_id, { declaracao_confirmada: event.target.checked })} /><span>Conferi o salário e os dados desta competência com a documentação.</span></label>
-                <div className="payroll-input-actions"><small>{employee.confirmado_em ? `Última conferência: ${new Date(employee.confirmado_em).toLocaleString('pt-BR')}` : 'Ainda não conferido nesta competência.'}</small><button type="button" className="primary-button" onClick={() => void saveEmployee(employee)} disabled={saving}>{saving ? 'Salvando…' : <><Save size={16} /> Salvar conferência</>}</button></div>
+                <div className="payroll-input-actions"><small>{hasUnsavedChanges ? 'Há alterações locais aguardando salvamento.' : employee.confirmado_em ? `Última conferência: ${new Date(employee.confirmado_em).toLocaleString('pt-BR')}` : 'Ainda não conferido nesta competência.'}</small><button type="button" className="primary-button" onClick={() => void saveEmployee(employee)} disabled={saving || Boolean(savingId)}>{saving ? 'Salvando…' : <><Save size={16} /> Salvar conferência</>}</button></div>
               </div>
             </details>
           })}
@@ -283,12 +296,6 @@ export function PayrollManagementDashboard({
     </>}
 
     {tab === 'simulacao' && <>
-      <div className="payroll-disclaimer payroll-disclaimer-warning" role="note">
-        <AlertTriangle size={20} />
-        <div><strong>Estimativa interna — não usar para pagar, declarar ou recolher</strong><p>Inclui INSS progressivo e IRRF 2026 apenas para vínculo formal mensal, salário cadastrado sem alteração no mês, jornada CLT 44h válida, prévia atualizada, sem falta/atraso/férias/afastamento, sem outro vínculo/rendimento e sem lançamentos de benefícios/descontos. Parcelas de acordos/dívidas e outras rubricas não integradas também não entram no valor; situações não cobertas ficam bloqueadas, não estimadas.</p></div>
-      </div>
-      <div className="payroll-action-row"><div><strong>Competência: {monthLabel(competencia)}</strong><small>Primeiro confira os dados fiscais e gere a prévia 44h/DSR em Recursos humanos → Fechamento mensal.</small></div><div className="payroll-action-buttons">{onNavigateToHR && <button type="button" className="secondary-button" onClick={onNavigateToHR}>Abrir Recursos humanos <ArrowRight size={15} /></button>}<button type="button" className="primary-button" onClick={() => void simulate()} disabled={simulating}><Calculator size={16} />{simulating ? 'Calculando…' : 'Simular INSS / IRRF'}</button></div></div>
-
       {officialError && <ErrorState message={`Não foi possível consultar a folha oficial; os dados exibidos abaixo continuam sendo apenas prévia interna. ${officialError}`} />}
       {officialRows.length > 0 && officialData && <SectionCard title="Valores oficiais do escritório" caption={`${officialData.confirmados} de ${officialData.funcionarios_elegiveis} vínculos elegíveis confirmados · os valores oficiais substituem a prévia para essas pessoas.`}>
         <div className="payroll-estimated-totals payroll-official-totals">
@@ -339,10 +346,13 @@ export function PayrollManagementDashboard({
         <div className="payroll-simulation-footnote"><AlertTriangle size={16} /><span>{simulation.aviso || 'Simulação preliminar; não gera pagamento.'} {simulation.source_fingerprint && <small>Prévia de ponto vinculada por fingerprint.</small>}</span></div>
       </>}
 
-      <SectionCard title="Regras e fontes 2026" caption="Tabelas oficiais; incidências e arredondamento ainda precisam de homologação contábil.">
-        <div className="payroll-source-links"><a href="https://www.gov.br/inss/pt-br/direitos-e-deveres/inscricao-e-contribuicao/tabela-de-contribuicao-mensal" target="_blank" rel="noreferrer">Tabela mensal do INSS <ExternalLink size={14} /></a><a href="https://www.gov.br/receitafederal/pt-br/assuntos/meu-imposto-de-renda/tabelas/2026" target="_blank" rel="noreferrer">Tabela IRRF 2026 <ExternalLink size={14} /></a><a href="https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2025/lei/l15270.htm" target="_blank" rel="noreferrer">Lei 15.270/2025 <ExternalLink size={14} /></a></div>
-        <p className="payroll-legal-note">A simulação separa rendimentos tributáveis, deduções legais, desconto simplificado e redutor de IRRF. A referência oficial consultada contém exemplos de IRRF 2026 que usam valores de INSS da tabela de 2025; por isso o módulo usa a tabela INSS 2026 e mantém a divergência documentada para validação profissional. Não há botão de confirmar folha ou gerar contas a pagar nesta fase.</p>
-      </SectionCard>
+      <details className="payroll-rules-details">
+        <summary className="overview-alert-item is-informacao"><span><ShieldCheck size={18} /></span><div><strong>Consultar regras e fontes oficiais · 2026</strong><small>Tabelas, premissas de cálculo e ressalvas da simulação</small></div><ChevronDown size={16} /></summary>
+        <SectionCard title="Regras e fontes 2026" caption="Tabelas oficiais; incidências e arredondamento ainda precisam de homologação contábil.">
+          <div className="payroll-source-links"><a href="https://www.gov.br/inss/pt-br/direitos-e-deveres/inscricao-e-contribuicao/tabela-de-contribuicao-mensal" target="_blank" rel="noreferrer">Tabela mensal do INSS <ExternalLink size={14} /></a><a href="https://www.gov.br/receitafederal/pt-br/assuntos/meu-imposto-de-renda/tabelas/2026" target="_blank" rel="noreferrer">Tabela IRRF 2026 <ExternalLink size={14} /></a><a href="https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2025/lei/l15270.htm" target="_blank" rel="noreferrer">Lei 15.270/2025 <ExternalLink size={14} /></a></div>
+          <p className="payroll-legal-note">A simulação separa rendimentos tributáveis, deduções legais, desconto simplificado e redutor de IRRF. A referência oficial consultada contém exemplos de IRRF 2026 que usam valores de INSS da tabela de 2025; por isso o módulo usa a tabela INSS 2026 e mantém a divergência documentada para validação profissional. Não há botão de confirmar folha ou gerar contas a pagar nesta fase.</p>
+        </SectionCard>
+      </details>
     </>}
   </div>
 }
