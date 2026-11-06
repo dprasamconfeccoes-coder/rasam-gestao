@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Activity, AlertTriangle, Check, ChevronDown, Clock3, Download, Factory, FileSpreadsheet, FileText, Image, PackageCheck, RefreshCw, Scissors, Search, X } from 'lucide-react'
 import { getFactoryProduction, releaseWorkOrderForFinance, saveFactoryProduction, startWorkOrderProduction } from '../lib/api'
 import type { FactoryProductionLot, FactoryProductionResponse, FactoryProductionSummary, WorkOrderProgressPayload } from '../lib/types'
-import { ConfirmationModal, EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
+import { ConfirmationModal, EmptyState, ErrorState, LoadingState, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
 import { exportFactoryProductionImage, exportFactoryProductionPdf, exportFactoryProductionXlsx, type FactoryProductionExportContext } from './factory-production-export'
 import './factory-production.css'
 
-type FilterKey = 'todas' | 'recebida' | 'em_producao' | 'costurada' | 'expedida' | 'entregue' | 'liberados_financeiro' | 'vencida' | 'vence_7_dias' | 'sem_prazo'
+type FilterKey = 'todas' | 'ativos' | 'produzidas' | 'fila_costura' | 'recebida' | 'em_producao' | 'costurada' | 'expedida' | 'entregue' | 'liberados_financeiro' | 'vencida' | 'vence_7_dias' | 'sem_prazo'
 type ExportFormat = 'pdf' | 'xlsx' | 'png' | 'jpg'
 type ProductionConfirmation = { title: string; description: string; confirmLabel: string; detail: string; run: () => Promise<boolean> }
 
@@ -22,7 +22,7 @@ const statusLabels: Record<string, string> = {
   expedida: 'Entrega parcial', entregue: 'Entregue', cancelada: 'Cancelada',
 }
 const filterLabels: Record<FilterKey, string> = {
-  todas: 'Todos os lotes', recebida: 'Aguardando início', em_producao: 'Em produção',
+  todas: 'Todos os lotes', ativos: 'Lotes ativos', produzidas: 'Com produção registrada', fila_costura: 'Aguardando costura', recebida: 'Aguardando início', em_producao: 'Em produção',
   costurada: 'Prontos para entrega', expedida: 'Entrega parcial', entregue: 'Entregues',
   liberados_financeiro: 'Liberados ao financeiro', vencida: 'Prazo vencido',
   vence_7_dias: 'Vence em até 7 dias', sem_prazo: 'Sem prazo definido',
@@ -72,6 +72,7 @@ export function FactoryProductionDashboard({ token }: { token: string }) {
   const [data, setData] = useState<FactoryProductionResponse>()
   const [drafts, setDrafts] = useState<Record<string, WorkOrderProgressPayload[]>>({})
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [detailExpanded, setDetailExpanded] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState('')
   const [error, setError] = useState('')
@@ -114,6 +115,9 @@ export function FactoryProductionDashboard({ token }: { token: string }) {
     return lots.filter((lot) => {
       const matchText = !term || [lot.numero, lot.cliente, lot.fornecedor, lot.referencia, lot.descricao].some((value) => value?.toLocaleLowerCase('pt-BR').includes(term))
       const matchStatus = filter === 'todas'
+        || (filter === 'ativos' && !['entregue', 'cancelada'].includes(lot.status))
+        || (filter === 'produzidas' && totals(lot).produced > 0)
+        || (filter === 'fila_costura' && totals(lot).produced > totals(lot).sewn)
         || (filter === 'liberados_financeiro' && Boolean(lot.financeiro_liberado_em))
         || (filter === 'vencida' && isLate(lot))
         || (filter === 'vence_7_dias' && isDueSoon(lot))
@@ -122,6 +126,12 @@ export function FactoryProductionDashboard({ token }: { token: string }) {
       return matchText && matchStatus
     })
   }, [lots, query, filter])
+
+  function openKpiFilter(nextFilter: FilterKey) {
+    setFilter(nextFilter)
+    setQuery('')
+    document.getElementById('factory-lots')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   async function runAction(key: string, action: () => Promise<{ sucesso: boolean; erro?: string }>, success: string): Promise<boolean> {
     setSaving(key)
@@ -259,8 +269,7 @@ export function FactoryProductionDashboard({ token }: { token: string }) {
   const financialReleaseCount = lots.filter((lot) => Boolean(lot.financeiro_liberado_em)).length
 
   return <div className="factory-production-page">
-    <PageHeading eyebrow="Operação · chão de fábrica" title="Produção" description="Priorize prazos, acompanhe o avanço por lote e identifique os próximos gargalos." action={
-      <div className="factory-header-actions">
+    <div className="factory-top-actions-row"><div className="factory-header-actions">
         <div className="factory-export-wrap">
           <button type="button" className="secondary-button factory-export-toggle" onClick={() => setExportOpen((open) => !open)} disabled={loading || Boolean(saving) || Boolean(exporting)} aria-expanded={exportOpen} aria-haspopup="menu">
             <Download size={16} /> {exporting ? `Gerando ${exporting.toUpperCase()}…` : 'Exportar'} <ChevronDown size={14} className={exportOpen ? 'is-open' : ''} />
@@ -273,8 +282,7 @@ export function FactoryProductionDashboard({ token }: { token: string }) {
           </div>}
         </div>
         <button type="button" className="secondary-button factory-refresh-button" onClick={() => void reload(true)} disabled={loading || Boolean(saving) || Boolean(exporting)}><RefreshCw size={16} className={loading ? 'spin' : ''} /> Atualizar</button>
-      </div>
-    } />
+    </div></div>
     <div className="factory-context-bar"><span><Factory size={14} /> Visão agregada por lote; sem atribuição individual de produção</span>{refreshedAt && <span className="factory-updated-at"><Clock3 size={13} /> Dados atualizados às {refreshedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>}</div>
     {notice && <div className="factory-notice" role="status"><Check size={16} />{notice}<button onClick={() => setNotice('')} aria-label="Fechar aviso">×</button></div>}
     {error && <div className="factory-error"><ErrorState message={error} /><button className="text-button" onClick={() => setError('')}>Fechar</button></div>}
@@ -287,10 +295,10 @@ export function FactoryProductionDashboard({ token }: { token: string }) {
       </section> : lots.length > 0 && <div className="factory-all-clear" role="status"><Check size={15} /> Nenhum prazo vencido, próximo ou lote ativo sem prazo no conjunto carregado.</div>}
 
       <section className="factory-kpis" aria-label="Indicadores de produção">
-        <article className="factory-kpi kpi-active"><span>Lotes ativos</span><strong>{summary.lotes_ativos.toLocaleString('pt-BR')}</strong><small>{summary.lotes_aguardando_inicio.toLocaleString('pt-BR')} aguardando início · {summary.lotes_em_producao.toLocaleString('pt-BR')} em produção</small><Factory size={19} /></article>
-        <article className="factory-kpi kpi-produced"><span>Produção realizada</span><strong>{summary.unidades_produzidas.toLocaleString('pt-BR')}</strong><small>{productionPercent}% de {summary.unidades_solicitadas.toLocaleString('pt-BR')} unidades solicitadas</small><span className="factory-kpi-progress"><i style={{ width: `${productionPercent}%` }} /></span><Activity size={19} /></article>
-        <article className="factory-kpi kpi-sewing"><span>Fila de costura</span><strong>{summary.unidades_aguardando_costura.toLocaleString('pt-BR')}</strong><small>Produzidas menos costuradas · unidades</small><Scissors size={19} /></article>
-        <article className="factory-kpi kpi-late"><span>Lotes atrasados</span><strong>{summary.lotes_atrasados.toLocaleString('pt-BR')}</strong><small>Prazo previsto ultrapassado</small><AlertTriangle size={19} /></article>
+        <button type="button" className="factory-kpi kpi-active" aria-pressed={filter === 'ativos'} onClick={() => openKpiFilter('ativos')}><span>Lotes ativos</span><strong>{summary.lotes_ativos.toLocaleString('pt-BR')}</strong><small>{summary.lotes_aguardando_inicio.toLocaleString('pt-BR')} aguardando início · {summary.lotes_em_producao.toLocaleString('pt-BR')} em produção</small><span className="factory-kpi-action">{filter === 'ativos' ? 'Filtro ativo' : 'Ver lotes'} <ChevronDown size={12} /></span><Factory size={19} /></button>
+        <button type="button" className="factory-kpi kpi-produced" aria-pressed={filter === 'produzidas'} onClick={() => openKpiFilter('produzidas')}><span>Produção realizada</span><strong>{summary.unidades_produzidas.toLocaleString('pt-BR')}</strong><small>{productionPercent}% de {summary.unidades_solicitadas.toLocaleString('pt-BR')} unidades solicitadas</small><span className="factory-kpi-progress"><i style={{ width: `${productionPercent}%` }} /></span><span className="factory-kpi-action">{filter === 'produzidas' ? 'Filtro ativo' : 'Ver lotes'} <ChevronDown size={12} /></span><Activity size={19} /></button>
+        <button type="button" className="factory-kpi kpi-sewing" aria-pressed={filter === 'fila_costura'} onClick={() => openKpiFilter('fila_costura')}><span>Fila de costura</span><strong>{summary.unidades_aguardando_costura.toLocaleString('pt-BR')}</strong><small>Produzidas menos costuradas · unidades</small><span className="factory-kpi-action">{filter === 'fila_costura' ? 'Filtro ativo' : 'Ver lotes'} <ChevronDown size={12} /></span><Scissors size={19} /></button>
+        <button type="button" className="factory-kpi kpi-late" aria-pressed={filter === 'vencida'} onClick={() => openKpiFilter('vencida')}><span>Lotes atrasados</span><strong>{summary.lotes_atrasados.toLocaleString('pt-BR')}</strong><small>Prazo previsto ultrapassado</small><span className="factory-kpi-action">{filter === 'vencida' ? 'Filtro ativo' : 'Ver lotes'} <ChevronDown size={12} /></span><AlertTriangle size={19} /></button>
       </section>
 
       <div className="factory-analytics-grid">
@@ -332,15 +340,34 @@ export function FactoryProductionDashboard({ token }: { token: string }) {
             const missingDeadline = !lot.prazo && !['entregue', 'cancelada'].includes(lot.status)
             const dueDays = lot.prazo ? daysUntilDeadline(lot.prazo) : null
             return <article className={`factory-lot-card ${late ? 'is-late' : ''} ${dueSoon ? 'is-due-soon' : ''} ${missingDeadline ? 'is-no-deadline' : ''}`} data-status={lot.status} key={lot.id}>
-              <header className="factory-lot-header"><div className="factory-lot-main"><div className="factory-lot-identity"><strong>{lot.numero}</strong><StatusPill value={statusLabels[lot.status] || lot.status.replaceAll('_', ' ')} />{isHighPriority(lot.prioridade) && <span className="factory-priority-badge" title={priorityLabel(lot.prioridade)}>{priorityLabel(lot.prioridade)}</span>}{lot.financeiro_liberado_em && <span className="factory-finance-badge">Liberado para financeiro</span>}</div><h3>{lot.cliente || 'Cliente não informado'}</h3><p>{lot.descricao}</p><div className="factory-lot-commercial-data"><span>Fornecedor: {lot.fornecedor || 'não informado'}</span><span>Referência: {lot.referencia || 'não informada'}</span><span>Valor por peça: {lot.valor_unitario_peca == null ? 'não informado' : formatMoney(Number(lot.valor_unitario_peca))}</span></div></div><div className="factory-lot-deadline"><small>Prazo previsto</small><strong className={late ? 'late' : ''}>{lot.prazo ? formatDate(lot.prazo) : 'Não definido'}</strong>{late && <span className="factory-deadline-risk is-late"><AlertTriangle size={13} /> Atrasado há {Math.abs(dueDays || 0)} dia(s)</span>}{dueSoon && <span className="factory-deadline-risk is-soon"><Clock3 size={13} /> {dueDays === 0 ? 'Vence hoje' : `Vence em ${dueDays} dia(s)`}</span>}{missingDeadline && <span className="factory-deadline-risk is-missing"><AlertTriangle size={13} /> Defina o prazo</span>}</div></header>
+              <header className="factory-lot-header factory-lot-compact-header">
+                <div className="factory-lot-main">
+                  <div className="factory-lot-identity"><strong>{lot.numero}</strong><StatusPill value={statusLabels[lot.status] || lot.status.replaceAll('_', ' ')} />{isHighPriority(lot.prioridade) && <span className="factory-priority-badge" title={priorityLabel(lot.prioridade)}>{priorityLabel(lot.prioridade)}</span>}{lot.financeiro_liberado_em && <span className="factory-finance-badge">Liberado para financeiro</span>}</div>
+                  <h3>{lot.cliente || 'Cliente não informado'}</h3>
+                  <div className="factory-lot-compact-meta"><span><small>Referência</small><strong>{lot.referencia || 'Não informada'}</strong></span><span><small>Fornecedor</small><strong>{lot.fornecedor || 'Não informado'}</strong></span></div>
+                </div>
+                <div className="factory-lot-deadline"><small>Prazo previsto</small><strong className={late ? 'late' : ''}>{lot.prazo ? formatDate(lot.prazo) : 'Não definido'}</strong>{late && <span className="factory-deadline-risk is-late"><AlertTriangle size={13} /> Atrasado há {Math.abs(dueDays || 0)} dia(s)</span>}{dueSoon && <span className="factory-deadline-risk is-soon"><Clock3 size={13} /> {dueDays === 0 ? 'Vence hoje' : `Vence em ${dueDays} dia(s)`}</span>}{missingDeadline && <span className="factory-deadline-risk is-missing"><AlertTriangle size={13} /> Defina o prazo</span>}</div>
+              </header>
               <div className="factory-progress-summary"><div><span>Solicitadas</span><strong>{sum.requested.toLocaleString('pt-BR')}</strong></div><div><span>Produzidas</span><strong>{sum.produced.toLocaleString('pt-BR')}</strong></div><div><span>Costuradas</span><strong>{sum.sewn.toLocaleString('pt-BR')}</strong></div><div><span>Entregues</span><strong>{sum.delivered.toLocaleString('pt-BR')}</strong></div></div>
-              <div className="factory-flow-context"><span className={`factory-flow-tag factory-flow-sewing ${sum.produced > sum.sewn ? 'has-quantity' : 'is-clear'}`}><Scissors size={13} /><strong>{Math.max(0, sum.produced - sum.sewn).toLocaleString('pt-BR')}</strong> aguardando costura</span><span className={`factory-flow-tag factory-flow-delivery ${sum.sewn > sum.delivered ? 'has-quantity' : 'is-clear'}`}><PackageCheck size={13} /><strong>{Math.max(0, sum.sewn - sum.delivered).toLocaleString('pt-BR')}</strong> prontas para entrega</span></div>
               <div className="factory-lot-progress"><div><span>Produção do lote</span><b>{progress}%</b></div><span className="factory-progress-track" role="progressbar" aria-label={`Produção do lote ${lot.numero}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><i style={{ width: `${progress}%` }} /></span></div>
               <div className="factory-lot-actions">
                 {lot.status === 'recebida' && <button className="primary-button" disabled={Boolean(saving) || confirmationBusy} onClick={() => { setError(''); setConfirmation({ title: 'Confirmar início da produção', description: `O lote ${lot.numero} passará de “Aguardando início” para “Em produção”.`, confirmLabel: 'Iniciar lote', detail: `${lot.cliente || 'Cliente não informado'} · ${lot.descricao}\n${sum.requested.toLocaleString('pt-BR')} peças solicitadas`, run: () => runAction(`start-${lot.id}`, () => startWorkOrderProduction(token, lot.id), `Produção do lote ${lot.numero} iniciada.`) }) }}><Factory size={15} /> Iniciar produção</button>}
                 {isEditable && <button className="secondary-button" onClick={() => setExpanded((current) => ({ ...current, [lot.id]: !current[lot.id] }))}><Scissors size={15} /> {expanded[lot.id] ? 'Fechar grade' : 'Gerenciar produção e entregas'} <ChevronDown size={14} className={expanded[lot.id] ? 'is-open' : ''} /></button>}
+                <button type="button" className="secondary-button factory-lot-detail-toggle" aria-expanded={Boolean(detailExpanded[lot.id])} aria-controls={`factory-lot-detail-${lot.id}`} onClick={() => setDetailExpanded((current) => ({ ...current, [lot.id]: !current[lot.id] }))}>{detailExpanded[lot.id] ? 'Ocultar detalhes' : 'Ver detalhes'} <ChevronDown size={14} className={detailExpanded[lot.id] ? 'is-open' : ''} /></button>
                 {lot.status === 'entregue' && !lot.financeiro_liberado_em && <button className="primary-button" disabled={Boolean(saving) || confirmationBusy} onClick={() => { setError(''); setConfirmation({ title: 'Confirmar liberação para financeiro', description: `O lote ${lot.numero} ficará disponível em Ordens de Serviço para registrar pagamento e anexar nota fiscal/comprovantes.`, confirmLabel: 'Liberar lote', detail: `${lot.cliente || 'Cliente não informado'} · ${lot.descricao}\n${sum.delivered.toLocaleString('pt-BR')} peças entregues`, run: () => runAction(`release-${lot.id}`, () => releaseWorkOrderForFinance(token, lot.id), `Lote ${lot.numero} liberado para o financeiro.`) }) }}><Check size={15} /> Liberar para financeiro</button>}
                 {lot.financeiro_liberado_em && <span className="factory-release-note"><Check size={15} /> Liberado para financeiro em {formatDate(lot.financeiro_liberado_em)}</span>}
+              </div>
+              <div id={`factory-lot-detail-${lot.id}`} className="factory-lot-detail-panel" hidden={!detailExpanded[lot.id]}>
+                <div className="factory-lot-detail-description"><span>Produto / descrição</span><strong>{lot.descricao || 'Sem descrição cadastrada'}</strong></div>
+                <div className="factory-lot-detail-grid">
+                  <div><span>Valor por peça</span><strong>{lot.valor_unitario_peca == null ? 'Não informado' : formatMoney(Number(lot.valor_unitario_peca))}</strong></div>
+                  <div><span>Data de recebimento</span><strong>{formatDate(lot.data_entrada)}</strong></div>
+                  <div><span>Prioridade</span><strong>{priorityLabel(lot.prioridade)}</strong></div>
+                  <div><span>Produção iniciada</span><strong>{lot.producao_iniciada_em ? formatDate(lot.producao_iniciada_em) : 'Ainda não iniciada'}</strong></div>
+                  <div><span>Produção concluída</span><strong>{lot.producao_concluida_em ? formatDate(lot.producao_concluida_em) : 'Ainda não concluída'}</strong></div>
+                  {lot.financeiro_liberado_em && <div><span>Liberado ao financeiro</span><strong>{formatDate(lot.financeiro_liberado_em)}</strong></div>}
+                </div>
+                <div className="factory-flow-context"><span className={`factory-flow-tag factory-flow-sewing ${sum.produced > sum.sewn ? 'has-quantity' : 'is-clear'}`}><Scissors size={13} /><strong>{Math.max(0, sum.produced - sum.sewn).toLocaleString('pt-BR')}</strong> aguardando costura</span><span className={`factory-flow-tag factory-flow-delivery ${sum.sewn > sum.delivered ? 'has-quantity' : 'is-clear'}`}><PackageCheck size={13} /><strong>{Math.max(0, sum.sewn - sum.delivered).toLocaleString('pt-BR')}</strong> prontas para entrega</span></div>
               </div>
               {expanded[lot.id] && isEditable && <div className="factory-editor">
                 <div className="factory-editor-heading"><div><strong>Produção parcial ou completa por tamanho</strong><small>Entregue ≤ costurada ≤ produzida ≤ solicitada.</small></div><div className="factory-quick-actions"><button type="button" className="text-button" onClick={() => fillProduction(lot, 'produzir')}>Completar produção</button><button type="button" className="text-button" onClick={() => fillProduction(lot, 'costurar')}>Completar costura</button><button type="button" className="text-button" onClick={() => fillProduction(lot, 'entregar')}>Preencher entrega total</button></div></div>
