@@ -155,3 +155,50 @@
 .debt-projection-note{margin:2px 5px 1px;color:#8a948d;font-size:9px;line-height:1.45}
 @media(max-width:760px){.debt-chart-stack{margin:8px 14px 14px}.debt-chart{height:125px;gap:7px}.debt-evolution-chart{height:112px}.debt-chart-month-legend{gap:7px}.debt-chart-month-legend span{font-size:9px}.debt-chart-series>h3{font-size:9px}.debt-projection-note{font-size:8px}}
 @media(max-width:540px){.debt-chart-stack{margin:7px 12px 12px;gap:5px}.debt-chart{height:116px;gap:5px;padding-left:2px;padding-right:2px}.debt-chart-column>strong{font-size:8px}.debt-evolution-chart{height:102px}.debt-evolution-point text{font-size:7.5px}.debt-chart-month-legend{gap:5px;padding:0 2px}.debt-chart-month-legend span{font-size:8px}.debt-chart-series>h3{margin-left:2px}.debt-projection-note{margin-left:2px;margin-right:2px}}
+
+/* Acordos e parcelas — identidade compartilhada e modal de cadastro focado. */
+.debt-management-page .debt-metrics { margin:0; gap:13px; }
+.debt-management-page .debt-metrics .metric-card { min-width:0; min-height:122px; }
+.debt-list-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.debt-list-actions .primary-button,.debt-list-actions .secondary-button { display:inline-flex; align-items:center; justify-content:center; gap:7px; }
+.debt-create-backdrop { position:fixed; z-index:11000; inset:0; display:grid; place-items:center; padding:20px; overflow-y:auto; background:rgba(17,24,21,.76); backdrop-filter:blur(5px); animation:debt-modal-fade .16s ease-out; }
+.debt-create-modal { display:grid; grid-template-rows:auto minmax(0,1fr); width:min(100%,920px); max-height:min(92vh,900px); overflow:hidden; border:1px solid rgba(54,40,45,.15); border-radius:18px; color:#26332d; background:#fff; box-shadow:0 28px 90px rgba(8,16,12,.4); animation:debt-modal-rise .2s ease-out; }
+.debt-create-modal-header { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:17px 21px; border-bottom:1px solid #e9ece7; background:linear-gradient(180deg,#fff 0%,#fbfcfa 100%); }
+.debt-create-modal-header>div { display:flex; align-items:center; gap:12px; min-width:0; }
+.debt-create-modal-header h2 { margin:0; color:#30292e; font-size:17px; font-weight:780; letter-spacing:-.025em; }
+.debt-create-modal-header p { margin:4px 0 0; color:#78847c; font-size:11px; }
+.debt-create-modal-icon { display:grid; place-items:center; flex:0 0 40px; width:40px; height:40px; border:1px solid #d8e8dc; border-radius:12px; color:#327256; background:#eff7f0; }
+.debt-create-modal-body { min-height:0; overflow:auto; padding:18px 22px 22px; overscroll-behavior:contain; }
+.debt-create-modal .debt-editor-card { border:0!important; box-shadow:none!important; }
+.debt-create-modal .debt-form { gap:17px; }
+.debt-instruction-button { display:inline-flex; align-items:center; gap:6px; }
+.debt-pix-button { border-color:#cce5d4!important; color:#246c53!important; background:#f4faf5!important; }
+.debt-transfer-button { border-color:#d4e2ed!important; color:#426b88!important; background:#f4f8fb!important; }
+.debt-pix-button:hover { border-color:#83b697!important; background:#eaf5ed!important; }
+.debt-transfer-button:hover { border-color:#9dbbd0!important; background:#eaf3f9!important; }
+.debt-reopen-reason textarea { min-height:100px; resize:vertical; }
+.debt-reopen-hint { margin:0; padding:9px 11px; border:1px solid #efcf8c; border-radius:9px; color:#765914; background:#fffaf0; font-size:11px; line-height:1.4; }
+@keyframes debt-modal-fade { from { opacity:0; } to { opacity:1; } }
+@keyframes debt-modal-rise { from { opacity:.65; transform:translateY(8px) scale(.99); } to { opacity:1; transform:translateY(0) scale(1); } }
+@media(max-width:760px) {
+  .debt-list-heading { align-items:flex-start; flex-direction:column; gap:11px; }
+  .debt-list-actions { width:100%; }
+  .debt-list-actions button { flex:1; }
+  .debt-create-backdrop { align-items:end; padding:10px; }
+  .debt-create-modal { width:100%; max-height:94vh; border-radius:17px 17px 12px 12px; }
+  .debt-create-modal-header { padding:14px; }
+  .debt-create-modal-body { padding:14px; }
+}
+@media(max-width:540px) {
+  .debt-management-page .debt-metrics { gap:8px; }
+  .debt-management-page .debt-metrics .metric-card { min-height:104px; padding:11px; }
+  .debt-management-page .debt-metrics .metric-card strong { font-size:17px; }
+  .debt-management-page .debt-metrics .metric-card small { font-size:10px; }
+  .debt-create-modal-header h2 { font-size:15px; }
+  .debt-create-modal-header p { font-size:10px; }
+  .debt-installment-actions .debt-instruction-button { flex:1; justify-content:center; }
+}
+
+.debt-top-actions { display:flex; justify-content:flex-end; align-items:center; gap:8px; margin-bottom:-7px; }
+.debt-top-actions .primary-button,.debt-top-actions .secondary-button { display:inline-flex; align-items:center; justify-content:center; gap:7px; }
+@media(max-width:540px) { .debt-top-actions .primary-button,.debt-top-actions .secondary-button { min-height:36px; padding:7px 9px; font-size:11px; } }

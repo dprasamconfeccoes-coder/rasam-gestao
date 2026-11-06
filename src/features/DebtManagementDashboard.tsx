@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertCircle, ArrowDownToLine, Banknote, CalendarClock, Check, ChevronDown, CircleAlert, FilePlus2, FileText, History, Pencil, Plus, RefreshCw, RotateCcw, Search, ShieldCheck, WalletCards, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AlertCircle, ArrowDownToLine, Banknote, Check, ChevronDown, CircleAlert, FilePlus2, FileText, History, Landmark, Pencil, Plus, QrCode, RefreshCw, RotateCcw, Search, ShieldCheck, X } from 'lucide-react'
 import {
   addDebtInstallment,
   adminDebtAccess,
@@ -14,7 +14,7 @@ import {
   uploadDebtPaymentDocument,
 } from '../lib/api'
 import type { DebtCategory, DebtInstallment, DebtPaymentMethod, ManagedDebt } from '../lib/types'
-import { ConfirmationModal, EmptyState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
+import { ConfirmationModal, EmptyState, LoadingState, MetricCard, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
 import { downloadManagedDebtPdf } from './debt-management-pdf'
 import './debt-management.css'
 
@@ -128,6 +128,14 @@ function toInstallmentDraft(item: DebtInstallment): InstallmentDraft {
   return { valor: String(item.valor), vencimento: item.vencimento || '', formaPagamento: item.forma_pagamento, chavePix: item.chave_pix || '', dadosTransferencia: item.dados_transferencia || '' }
 }
 
+function validateInstallmentDraft(draft: InstallmentDraft, allowNoDueDate = false) {
+  if (amountCents(draft.valor) <= 0) return 'Informe um valor positivo para a parcela.'
+  if (!allowNoDueDate && !draft.vencimento) return 'Informe o vencimento da parcela.'
+  if (draft.formaPagamento === 'pix' && !draft.chavePix.trim()) return 'Informe a chave Pix do beneficiário.'
+  if (draft.formaPagamento === 'transferencia' && !draft.dadosTransferencia.trim()) return 'Informe os dados para transferência bancária.'
+  return ''
+}
+
 function monthLabel(date: Date) {
   return date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '')
 }
@@ -176,6 +184,7 @@ export function DebtManagementDashboard({ token }: { token: string }) {
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [downloading, setDownloading] = useState('')
   const [pdfGenerating, setPdfGenerating] = useState('')
+  const createTriggerRef = useRef<HTMLElement | null>(null)
 
   const reload = useCallback(async (withSpinner = true) => {
     if (withSpinner) setLoading(true)
@@ -194,6 +203,15 @@ export function DebtManagementDashboard({ token }: { token: string }) {
   }, [token])
 
   useEffect(() => { void reload() }, [reload])
+  useEffect(() => {
+    if (!createOpen) return
+    const previousFocus = document.activeElement as HTMLElement | null
+    document.querySelector<HTMLElement>('.debt-create-modal input, .debt-create-modal select, .debt-create-modal textarea')?.focus()
+    return () => {
+      const target = createTriggerRef.current || previousFocus
+      if (target?.isConnected) target.focus({ preventScroll: true })
+    }
+  }, [createOpen])
 
   const visibleDebts = useMemo(() => debts.filter((debt) => {
     if (categoryFilter !== 'todas' && debt.categoria !== categoryFilter) return false
@@ -286,6 +304,11 @@ export function DebtManagementDashboard({ token }: { token: string }) {
     setNewInstallmentDraft({ valor: '', vencimento: '', formaPagamento: 'outro', chavePix: '', dadosTransferencia: '' })
   }
 
+  function beginPaymentInstructions(item: DebtInstallment, method: 'pix' | 'transferencia') {
+    setEditingInstallment(item.id)
+    setInstallmentDraft({ ...toInstallmentDraft(item), formaPagamento: method })
+  }
+
   function toggleExpanded(id: string) {
     setExpanded((current) => {
       const next = new Set(current)
@@ -354,11 +377,15 @@ export function DebtManagementDashboard({ token }: { token: string }) {
           break
         }
         case 'add-installment': {
+          if (pending.draft.formaPagamento === 'pix' && !pending.draft.chavePix.trim()) throw new Error('Informe a chave Pix do beneficiário.')
+          if (pending.draft.formaPagamento === 'transferencia' && !pending.draft.dadosTransferencia.trim()) throw new Error('Informe os dados para transferência bancária.')
           result = await addDebtInstallment(token, pending.debtId, { valor: Number(pending.draft.valor), vencimento: pending.draft.vencimento, forma_pagamento: pending.draft.formaPagamento, chave_pix: pending.draft.chavePix, dados_transferencia: pending.draft.dadosTransferencia })
           successMessage = 'Parcela adicionada ao plano.'
           break
         }
         case 'update-installment': {
+          if (pending.draft.formaPagamento === 'pix' && !pending.draft.chavePix.trim()) throw new Error('Informe a chave Pix do beneficiário.')
+          if (pending.draft.formaPagamento === 'transferencia' && !pending.draft.dadosTransferencia.trim()) throw new Error('Informe os dados para transferência bancária.')
           result = await updateDebtInstallment(token, pending.id, { valor: Number(pending.draft.valor), vencimento: pending.draft.vencimento, forma_pagamento: pending.draft.formaPagamento, chave_pix: pending.draft.chavePix, dados_transferencia: pending.draft.dadosTransferencia })
           successMessage = 'Parcela atualizada.'
           break
@@ -405,17 +432,16 @@ export function DebtManagementDashboard({ token }: { token: string }) {
   function fileLabel(file?: File | null) { return file ? `${file.name} · ${(file.size / 1024).toFixed(0)} KB` : 'Nenhum arquivo selecionado' }
 
   return <div className="debt-management-page">
-    <PageHeading eyebrow="Controle financeiro · acesso administrativo" title="Gestão de dívidas" description="Organize obrigações, parcelas, vencimentos, formas de pagamento e comprovantes em um único painel auditável." action={<div className="debt-heading-actions"><button className="secondary-button" onClick={() => void reload()} disabled={loading}><RefreshCw size={16} className={loading ? 'spin' : ''} /> Atualizar</button><button className="primary-button" onClick={() => { setCreateOpen(true); setDraft(blankDebtDraft()); setDraftError(''); setMessage('') }}><Plus size={17} /> Nova dívida</button></div>} />
-
     {message && <div className="debt-flash success"><Check size={17} />{message}<button aria-label="Fechar aviso" onClick={() => setMessage('')}><X size={15} /></button></div>}
     {error && <div className="debt-flash error"><AlertCircle size={17} />{error}<button aria-label="Fechar aviso" onClick={() => setError('')}><X size={15} /></button></div>}
 
     {loading ? <LoadingState label="Carregando painel seguro de dívidas…" /> : <>
-      <section className="debt-metrics" aria-label="Indicadores da saúde das dívidas">
-        <article className="debt-metric gold"><span className="debt-metric-icon"><WalletCards size={19} /></span><div><small>Saldo em dívidas ativas</small><strong>{formatMoney(metrics.openBalance)}</strong><span>{metrics.active} compromisso(s) ativo(s)</span></div></article>
-        <article className="debt-metric red"><span className="debt-metric-icon"><CircleAlert size={19} /></span><div><small>Parcelas vencidas</small><strong>{formatMoney(metrics.overdueValue)}</strong><span>{metrics.overdueCount} parcela(s) em atraso</span></div></article>
-        <article className="debt-metric blue"><span className="debt-metric-icon"><CalendarClock size={19} /></span><div><small>Vence nos próximos 30 dias</small><strong>{formatMoney(metrics.next30Value)}</strong><span>Parcelas ativas e pendentes</span></div></article>
-        <article className="debt-metric green"><span className="debt-metric-icon"><Check size={19} /></span><div><small>Total já quitado</small><strong>{formatMoney(metrics.paid)}</strong><span>Valores de parcelas pagas</span></div></article>
+      <div className="debt-top-actions"><button className="secondary-button" onClick={() => void reload()} disabled={loading}><RefreshCw size={15} className={loading ? 'spin' : ''} /> Atualizar</button><button className="primary-button" onClick={(event) => { createTriggerRef.current = event.currentTarget; setCreateOpen(true); setDraft(blankDebtDraft()); setDraftError(''); setMessage('') }}><Plus size={16} /> Novo acordo</button></div>
+      <section className="metric-grid overview-metrics debt-metrics" aria-label="Indicadores da saúde das dívidas">
+        <MetricCard label="Saldo em dívidas ativas" value={formatMoney(metrics.openBalance)} detail={`${metrics.active} compromisso(s) ativo(s)`} tone="pink" />
+        <MetricCard label="Parcelas vencidas" value={formatMoney(metrics.overdueValue)} detail={`${metrics.overdueCount} parcela(s) em atraso`} tone={metrics.overdueCount ? 'pink' : 'green'} />
+        <MetricCard label="Vence nos próximos 30 dias" value={formatMoney(metrics.next30Value)} detail="Parcelas ativas e pendentes" tone={metrics.next30Value > 0 ? 'gold' : 'green'} />
+        <MetricCard label="Total já quitado" value={formatMoney(metrics.paid)} detail="Valores de parcelas pagas" tone="green" />
       </section>
 
       <section className="debt-insights">
@@ -471,7 +497,18 @@ export function DebtManagementDashboard({ token }: { token: string }) {
         </SectionCard>
       </section>
 
-      {createOpen && <SectionCard title="Cadastrar dívida" caption="Informe os dados econômicos; datas retroativas são permitidas. A data real de inclusão permanece auditada." className="debt-editor-card">
+      {createOpen && <div className="debt-create-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreateOpen(false) }}>
+        <section className="debt-create-modal" role="dialog" aria-modal="true" aria-labelledby="debt-create-title" tabIndex={-1} onKeyDown={(event) => {
+          if (event.key === 'Escape' && pending?.kind !== 'create') { event.preventDefault(); setCreateOpen(false); return }
+          if (event.key !== 'Tab') return
+          const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'))
+          const first = focusable[0]
+          const last = focusable[focusable.length - 1]
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+        }}>
+          <div className="debt-create-modal-header"><div><span className="debt-create-modal-icon"><Plus size={18} /></span><div><h2 id="debt-create-title">Cadastrar novo acordo</h2><p>Preencha credor, condições e instruções de pagamento.</p></div></div><button type="button" className="icon-button" aria-label="Fechar cadastro" onClick={() => setCreateOpen(false)}><X size={18} /></button></div>
+          <div className="debt-create-modal-body">
         <form className="debt-form" noValidate onSubmit={(event) => { event.preventDefault(); const invalid = validateDraft(draft); setDraftError(invalid); if (!invalid) setPending({ kind: 'create', draft }) }}>
           <div className="debt-form-section"><h3><span>1</span> Identificação</h3><div className="debt-form-grid">
             <label>Credor / beneficiário<input value={draft.credor} maxLength={180} onChange={(event) => updateDraft('credor', event.target.value)} placeholder="Escritório, órgão, instituição ou pessoa" /></label>
@@ -493,17 +530,19 @@ export function DebtManagementDashboard({ token }: { token: string }) {
           </div>
           <div className="debt-form-section"><h3><span>3</span> Instruções de pagamento</h3><div className="debt-form-grid">
             <label>Forma de pagamento<select value={draft.formaPagamento} onChange={(event) => updateDraft('formaPagamento', event.target.value as DebtPaymentMethod)}>{Object.entries(paymentLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select><small>Aplicada às parcelas; pode ser ajustada em cada uma.</small></label>
-            {draft.formaPagamento === 'pix' && <label>Chave Pix<input value={draft.chavePix} onChange={(event) => updateDraft('chavePix', event.target.value)} placeholder="Chave Pix do beneficiário" /></label>}
+            {draft.formaPagamento === 'pix' && <label>Chave Pix / beneficiário<input value={draft.chavePix} onChange={(event) => updateDraft('chavePix', event.target.value)} placeholder="Telefone, CPF/CNPJ, e-mail ou chave aleatória" /><small>A chave pode ser telefone, CPF, CNPJ, e-mail ou chave aleatória.</small></label>}
             {draft.formaPagamento === 'transferencia' && <label className="debt-span-two">Dados bancários<textarea rows={2} value={draft.dadosTransferencia} onChange={(event) => updateDraft('dadosTransferencia', event.target.value)} placeholder="Banco, agência, conta, titular e documento" /></label>}
             {draft.formaPagamento === 'boleto' && <div className="debt-form-note debt-span-two"><FilePlus2 size={17} /><span>Após salvar, anexe o boleto à parcela correspondente. Arquivos ficam no Storage privado e são baixados por link temporário.</span></div>}
           </div></div>
           {draftError && <div className="debt-inline-error"><AlertCircle size={16} />{draftError}</div>}
           <div className="debt-form-actions"><button type="button" className="secondary-button" onClick={() => { setCreateOpen(false); setDraftError('') }}>Cancelar</button><button type="submit" className="primary-button"><ShieldCheck size={16} /> Revisar e confirmar cadastro</button></div>
         </form>
-      </SectionCard>}
+          </div>
+        </section>
+      </div>}
 
       <section className="debt-list-section">
-        <div className="debt-list-heading"><div><span className="eyebrow">Carteira de obrigações</span><h2>Dívidas e parcelamentos</h2><p>{visibleDebts.length} de {debts.length} registro(s) · alterações somente por administradores</p></div></div>
+        <div className="debt-list-heading"><div><span className="eyebrow">Carteira de obrigações</span><h2>Acordos e parcelas</h2><p>{visibleDebts.length} de {debts.length} registro(s)</p></div></div>
         <div className="debt-filters">
           <label className="debt-search"><Search size={17} /><input aria-label="Buscar dívida" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por credor ou descrição" /></label>
           <label>Natureza<select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value as DebtCategory | 'todas')}><option value="todas">Todas</option>{Object.entries(categoryLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
@@ -538,10 +577,10 @@ export function DebtManagementDashboard({ token }: { token: string }) {
                     <div className="debt-payment-details"><span><Banknote size={14} />{paymentLabels[item.forma_pagamento]}</span>{item.forma_pagamento === 'pix' && item.chave_pix && <span className="debt-payment-value">Chave Pix: {item.chave_pix}</span>}{item.forma_pagamento === 'transferencia' && item.dados_transferencia && <span className="debt-payment-value">{item.dados_transferencia}</span>}</div>
                     {attachments.length > 0 && <div className="debt-attachment-list">{attachments.map((file) => <button className="debt-file-link" key={file.id} onClick={() => void downloadAttachment(file.id)} disabled={downloading === file.id}><ArrowDownToLine size={14} />{downloading === file.id ? 'Preparando…' : file.arquivo_nome}<small>{file.tipo === 'documento_pagamento' ? 'Instrução / boleto' : 'Comprovante'}</small></button>)}</div>}
                     {item.legacy_comprovante_nome && <div className="debt-legacy-proof"><AlertCircle size={14} />Comprovante legado registrado como “{item.legacy_comprovante_nome}”; a referência original foi preservada.</div>}
-                    {isBeingEdited && <form className="debt-inline-editor" noValidate onSubmit={(event) => { event.preventDefault(); setPending({ kind: 'update-installment', id: item.id, draft: installmentDraft }) }}><h5>Editar parcela pendente</h5><InstallmentFields draft={installmentDraft} onChange={setInstallmentDraft} allowNoDueDate={item.tipo_item === 'entrada' || item.tipo_item === 'saldo_legado'} /><div className="debt-form-actions"><button type="button" className="secondary-button" onClick={() => { setEditingInstallment(null); setInstallmentDraft(null) }}>Cancelar</button><button type="submit" className="primary-button">Revisar atualização</button></div></form>}
-                    {addingInstallment === debt.id && <form className="debt-inline-editor" noValidate onSubmit={(event) => { event.preventDefault(); if (amountCents(newInstallmentDraft.valor) <= 0 || !newInstallmentDraft.vencimento) { setError('Informe um valor positivo e o vencimento da parcela.'); return } setPending({ kind: 'add-installment', debtId: debt.id, draft: newInstallmentDraft }) }}><h5>Adicionar parcela</h5><InstallmentFields draft={newInstallmentDraft} onChange={setNewInstallmentDraft} /><div className="debt-form-actions"><button type="button" className="secondary-button" onClick={() => setAddingInstallment(null)}>Cancelar</button><button type="submit" className="primary-button">Revisar parcela</button></div></form>}
+                    {isBeingEdited && <form className="debt-inline-editor" noValidate onSubmit={(event) => { event.preventDefault(); const invalid = validateInstallmentDraft(installmentDraft, item.tipo_item === 'entrada' || item.tipo_item === 'saldo_legado'); if (invalid) { setError(invalid); return } setPending({ kind: 'update-installment', id: item.id, draft: installmentDraft }) }}><h5>{installmentDraft.formaPagamento === 'pix' ? 'Instruções Pix do beneficiário' : installmentDraft.formaPagamento === 'transferencia' ? 'Dados para transferência bancária' : 'Editar parcela pendente'}</h5><InstallmentFields draft={installmentDraft} onChange={setInstallmentDraft} allowNoDueDate={item.tipo_item === 'entrada' || item.tipo_item === 'saldo_legado'} /><div className="debt-form-actions"><button type="button" className="secondary-button" onClick={() => { setEditingInstallment(null); setInstallmentDraft(null) }}>Cancelar</button><button type="submit" className="primary-button">Revisar atualização</button></div></form>}
+                    {addingInstallment === debt.id && <form className="debt-inline-editor" noValidate onSubmit={(event) => { event.preventDefault(); const invalid = validateInstallmentDraft(newInstallmentDraft); if (invalid) { setError(invalid); return } setPending({ kind: 'add-installment', debtId: debt.id, draft: newInstallmentDraft }) }}><h5>Adicionar parcela</h5><InstallmentFields draft={newInstallmentDraft} onChange={setNewInstallmentDraft} /><div className="debt-form-actions"><button type="button" className="secondary-button" onClick={() => setAddingInstallment(null)}>Cancelar</button><button type="submit" className="primary-button">Revisar parcela</button></div></form>}
                     <div className="debt-installment-actions">
-                      {debt.status !== 'inativa' && item.status === 'pendente' && item.ativo && <><button className="primary-button debt-pay-button" onClick={() => setPending({ kind: 'settle', id: item.id, paidOn: today(), method: item.forma_pagamento, reason: '', proof: null })}><Check size={15} /> Registrar quitação</button><button className="secondary-button" onClick={() => { setEditingInstallment(item.id); setInstallmentDraft(toInstallmentDraft(item)) }}>Editar parcela</button><label className="secondary-button debt-upload-button"><FilePlus2 size={15} /> Anexar boleto<input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) setPending({ kind: 'upload-instruction', id: item.id, file }); event.currentTarget.value = '' }} /></label>{item.ativo && <button className="text-button danger" onClick={() => setPending({ kind: 'change-installment', id: item.id, action: 'inativar', reason: '' })}>Inativar parcela</button>}</>}
+                      {debt.status !== 'inativa' && item.status === 'pendente' && item.ativo && <><button className="primary-button debt-pay-button" onClick={() => setPending({ kind: 'settle', id: item.id, paidOn: today(), method: item.forma_pagamento, reason: '', proof: null })}><Check size={15} /> Registrar quitação</button><button className="secondary-button" onClick={() => { setEditingInstallment(item.id); setInstallmentDraft(toInstallmentDraft(item)) }}>Editar parcela</button><button type="button" className="secondary-button debt-instruction-button debt-pix-button" onClick={() => beginPaymentInstructions(item, 'pix')}><QrCode size={14} /> Informar Pix</button><button type="button" className="secondary-button debt-instruction-button debt-transfer-button" onClick={() => beginPaymentInstructions(item, 'transferencia')}><Landmark size={14} /> Dados bancários</button><label className="secondary-button debt-upload-button"><FilePlus2 size={15} /> Anexar boleto<input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) setPending({ kind: 'upload-instruction', id: item.id, file }); event.currentTarget.value = '' }} /></label>{item.ativo && <button className="text-button danger" onClick={() => setPending({ kind: 'change-installment', id: item.id, action: 'inativar', reason: '' })}>Inativar parcela</button>}</>}
                       {debt.status !== 'inativa' && item.status === 'pendente' && !item.ativo && <button className="secondary-button" onClick={() => setPending({ kind: 'change-installment', id: item.id, action: 'restaurar', reason: '' })}><RotateCcw size={14} /> Restaurar parcela</button>}
                       {debt.status !== 'inativa' && item.status === 'paga' && <button className="secondary-button" onClick={() => setPending({ kind: 'change-installment', id: item.id, action: 'reabrir', reason: '' })}>Reabrir quitação</button>}
                     </div>
@@ -557,7 +596,7 @@ export function DebtManagementDashboard({ token }: { token: string }) {
 
     {pending && <ConfirmationModal
       title={pending.kind === 'create' ? 'Confirmar cadastro da dívida' : pending.kind === 'update-debt' ? 'Confirmar alteração da dívida' : pending.kind === 'add-installment' ? 'Confirmar nova parcela' : pending.kind === 'update-installment' ? 'Confirmar atualização da parcela' : pending.kind === 'settle' ? 'Confirmar quitação' : pending.kind === 'upload-instruction' ? 'Confirmar anexo do documento' : pending.kind === 'change-debt' ? pending.action === 'inativar' ? 'Inativar dívida' : 'Restaurar dívida' : pending.action === 'reabrir' ? 'Reabrir quitação' : pending.action === 'inativar' ? 'Inativar parcela' : 'Restaurar parcela'}
-      description={pending.kind === 'create' ? 'A dívida e sua agenda serão salvas no banco. A ação será registrada na auditoria.' : pending.kind === 'settle' ? 'A parcela será marcada como paga na data informada; o comprovante, se enviado, ficará privado.' : pending.kind === 'upload-instruction' ? 'O arquivo será enviado ao Storage privado e associado à parcela selecionada.' : pending.kind === 'change-debt' || pending.kind === 'change-installment' ? 'O histórico não será apagado. A alteração ficará registrada com o motivo informado quando aplicável.' : 'Revise os dados: a alteração será persistida e auditada no Supabase.'}
+      description={pending.kind === 'create' ? 'O acordo e sua agenda serão salvos e registrados na trilha de auditoria.' : pending.kind === 'settle' ? 'A parcela será marcada como paga na data informada; o comprovante, se enviado, ficará privado.' : pending.kind === 'upload-instruction' ? 'O arquivo será enviado ao Storage privado e associado à parcela selecionada.' : pending.kind === 'change-installment' && pending.action === 'reabrir' ? 'A quitação será revertida, mantendo o histórico. Registre abaixo por que a parcela precisa ser reaberta.' : pending.kind === 'change-debt' || pending.kind === 'change-installment' ? 'O histórico não será apagado. A alteração ficará registrada com o motivo informado quando aplicável.' : 'Revise os dados: a alteração será persistida e auditada no Supabase.'}
       confirmLabel={pending.kind === 'change-debt' && pending.action === 'inativar' || pending.kind === 'change-installment' && pending.action === 'inativar' ? 'Inativar' : pending.kind === 'settle' ? 'Registrar pagamento' : pending.kind === 'upload-instruction' ? 'Enviar documento' : 'Confirmar e salvar'}
       busy={saving}
       onCancel={closePending}
@@ -567,12 +606,12 @@ export function DebtManagementDashboard({ token }: { token: string }) {
       {pending.kind === 'settle' && <div className="debt-confirm-fields"><label>Data efetiva do pagamento<input type="date" value={pending.paidOn} onChange={(event) => setPending({ ...pending, paidOn: event.target.value })} /></label><label>Forma de pagamento<select value={pending.method} onChange={(event) => setPending({ ...pending, method: event.target.value as DebtPaymentMethod })}>{Object.entries(paymentLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label>Observação opcional<input value={pending.reason} onChange={(event) => setPending({ ...pending, reason: event.target.value })} placeholder="Referência da baixa" /></label><label className="debt-modal-file">Comprovante de pagamento<input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => setPending({ ...pending, proof: event.target.files?.[0] || null })} /><small>{fileLabel(pending.proof)}</small></label></div>}
       {pending.kind === 'upload-instruction' && <div className="debt-confirm-summary"><span>Arquivo selecionado</span><strong>{pending.file.name}</strong><small>{(pending.file.size / 1024).toFixed(0)} KB · arquivo privado</small></div>}
       {(pending.kind === 'change-debt' || pending.kind === 'change-installment') && pending.action === 'inativar' && <div className="debt-confirm-fields"><label>Motivo da alteração<input value={pending.reason} onChange={(event) => setPending({ ...pending, reason: event.target.value })} placeholder="Informe o motivo para auditoria" /></label><small>O motivo é obrigatório e ficará no histórico.</small></div>}
-      {pending.kind === 'change-installment' && pending.action === 'reabrir' && <div className="debt-confirm-fields"><label>Motivo para reabrir<input value={pending.reason} onChange={(event) => setPending({ ...pending, reason: event.target.value })} placeholder="Ex.: baixa lançada por engano" /></label></div>}
+      {pending.kind === 'change-installment' && pending.action === 'reabrir' && <div className="debt-confirm-fields debt-reopen-reason"><label>Motivo da reabertura<textarea autoFocus required rows={4} maxLength={500} value={pending.reason} onChange={(event) => { setPending({ ...pending, reason: event.target.value }); if (event.target.value.trim()) setError('') }} placeholder="Descreva o motivo. Ex.: pagamento não foi efetivado ou baixa lançada por engano." /></label><small>Obrigatório · ficará registrado na trilha de auditoria.</small>{!pending.reason.trim() && <p className="debt-reopen-hint">Informe um motivo para habilitar a reabertura da parcela.</p>}</div>}
       {(pending.kind === 'change-debt' || pending.kind === 'change-installment') && pending.action !== 'restaurar' && <p className="debt-confirm-warning">A operação é reversível, mas não altera nem elimina documentos já registrados.</p>}
     </ConfirmationModal>}
   </div>
 }
 
 function InstallmentFields({ draft, onChange, allowNoDueDate = false }: { draft: InstallmentDraft; onChange: (draft: InstallmentDraft) => void; allowNoDueDate?: boolean }) {
-  return <div className="debt-form-grid"><label>Valor (R$)<input type="number" min="0.01" step="0.01" value={draft.valor} onChange={(event) => onChange({ ...draft, valor: event.target.value })} /></label><label>Vencimento<input type="date" value={draft.vencimento} onChange={(event) => onChange({ ...draft, vencimento: event.target.value })} />{allowNoDueDate && <small>Opcional para saldos legados sem data registrada.</small>}</label><label>Forma de pagamento<select value={draft.formaPagamento} onChange={(event) => onChange({ ...draft, formaPagamento: event.target.value as DebtPaymentMethod })}>{Object.entries(paymentLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>{draft.formaPagamento === 'pix' && <label>Chave Pix<input value={draft.chavePix} onChange={(event) => onChange({ ...draft, chavePix: event.target.value })} /></label>}{draft.formaPagamento === 'transferencia' && <label className="debt-span-two">Dados bancários<textarea rows={2} value={draft.dadosTransferencia} onChange={(event) => onChange({ ...draft, dadosTransferencia: event.target.value })} /></label>}</div>
+  return <div className="debt-form-grid"><label>Valor (R$)<input type="number" min="0.01" step="0.01" value={draft.valor} onChange={(event) => onChange({ ...draft, valor: event.target.value })} /></label><label>Vencimento<input type="date" value={draft.vencimento} onChange={(event) => onChange({ ...draft, vencimento: event.target.value })} />{allowNoDueDate && <small>Opcional para saldos legados sem data registrada.</small>}</label><label>Forma de pagamento<select value={draft.formaPagamento} onChange={(event) => onChange({ ...draft, formaPagamento: event.target.value as DebtPaymentMethod })}>{Object.entries(paymentLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>{draft.formaPagamento === 'pix' && <label>Chave Pix / beneficiário<input required value={draft.chavePix} onChange={(event) => onChange({ ...draft, chavePix: event.target.value })} placeholder="Telefone, CPF/CNPJ, e-mail ou chave aleatória" /><small>A chave pode ser telefone, CPF, CNPJ, e-mail ou chave aleatória.</small></label>}{draft.formaPagamento === 'transferencia' && <label className="debt-span-two">Dados bancários para transferência<textarea required rows={2} value={draft.dadosTransferencia} onChange={(event) => onChange({ ...draft, dadosTransferencia: event.target.value })} placeholder="Banco, agência, conta, titular e CPF/CNPJ" /><small>Informe os dados necessários para identificar o beneficiário e a conta.</small></label>}</div>
 }
