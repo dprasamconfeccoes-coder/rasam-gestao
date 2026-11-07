@@ -968,13 +968,15 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
   const [justificationFile, setJustificationFile] = useState<File | null>(null)
   const [pendingAction, setPendingAction] = useState<{ title: string; description: string; confirmLabel: string; run: () => Promise<void> | void } | null>(null)
   const [reviewModalRow, setReviewModalRow] = useState<PointRow | null>(null)
+  const [selectedPointDayId, setSelectedPointDayId] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
   const pointReviewDialogRef = useRef<HTMLDivElement | null>(null)
   const pointConfirmDialogRef = useRef<HTMLDivElement | null>(null)
+  const pointDayDialogRef = useRef<HTMLDivElement | null>(null)
   const pointDialogReturnFocusRef = useRef<HTMLElement | null>(null)
   const pointConfirmReturnFocusRef = useRef<HTMLElement | null>(null)
-  const pointDialogStateRef = useRef<'review' | 'confirm' | null>(null)
-  const activePointDialog = pendingAction ? 'confirm' : reviewModalRow ? 'review' : null
+  const pointDialogStateRef = useRef<'review' | 'confirm' | 'day' | null>(null)
+  const activePointDialog = pendingAction ? 'confirm' : reviewModalRow ? 'review' : selectedPointDayId ? 'day' : null
   pointDialogStateRef.current = activePointDialog
 
   function rememberPointDialogFocus() {
@@ -984,7 +986,7 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
   useEffect(() => {
     if (!activePointDialog) return
     rememberPointDialogFocus()
-    const dialog = activePointDialog === 'confirm' ? pointConfirmDialogRef.current : pointReviewDialogRef.current
+    const dialog = activePointDialog === 'confirm' ? pointConfirmDialogRef.current : activePointDialog === 'day' ? pointDayDialogRef.current : pointReviewDialogRef.current
     const selector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
     const focusables = dialog ? Array.from(dialog.querySelectorAll<HTMLElement>(selector)) : []
     const confirmTrigger = activePointDialog === 'review' ? pointConfirmReturnFocusRef.current : null
@@ -996,7 +998,8 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
       if (event.key === 'Escape') {
         event.preventDefault()
         if (activePointDialog === 'confirm') setPendingAction(null)
-        else setReviewModalRow(null)
+        else if (activePointDialog === 'review') setReviewModalRow(null)
+        else setSelectedPointDayId('')
         return
       }
       if (event.key !== 'Tab') return
@@ -1043,6 +1046,8 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
   }, [period, customStart, customEnd, monthReference])
   const targetEmployeeId = isAdministrative ? employeeId : user.funcionario_id
   const pointRequestKey = [targetEmployeeId || '', period, range.inicio || '', range.fim || '', customStart, customEnd, refreshSignal, refreshKey, isAdministrative ? employeeSearch : '', isAdministrative ? employeeOffset : '', isAdministrative ? employeeSearchKey : ''].join('|')
+
+  useEffect(() => { setSelectedPointDayId('') }, [pointRequestKey])
 
   useEffect(() => {
     if (!isAdministrative) return
@@ -1180,18 +1185,19 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
     const remainder = rounded % 60
     return hours > 0 ? `${hours}h ${String(remainder).padStart(2, '0')}min` : `${remainder} min`
   }
+  const selectedPointDay = displayRows.find((row) => row.id === selectedPointDayId) || null
   const pointSummary = useMemo(() => {
-    const extra50Minutes = displayRows.reduce((sum, row) => sum + (durationToMinutes(row.extra_50) ?? 0), 0)
-    const extra100Minutes = displayRows.reduce((sum, row) => sum + (durationToMinutes(row.extra_100) ?? 0), 0)
+    const extra50Minutes = rows.reduce((sum, row) => sum + (durationToMinutes(row.extra_50) ?? 0), 0)
+    const extra100Minutes = rows.reduce((sum, row) => sum + (durationToMinutes(row.extra_100) ?? 0), 0)
     const faltas = displayRows.filter((row) => rowKind(row) === 'falta').length
     const atrasos = displayRows.filter((row) => rowKind(row) === 'atraso').length
     const totalAtrasoMinutos = displayRows.reduce((sum, row) => sum + (durationToMinutes(row.horas_atraso) ?? 0), 0)
-    const invalidDurationValues = displayRows.reduce((count, row) => count + [row.horas_trabalhadas, row.horas_atraso, row.extra_50, row.extra_100]
+    const invalidDurationValues = rows.reduce((count, row) => count + [row.horas_trabalhadas, row.horas_atraso, row.extra_50, row.extra_100]
       .filter((value) => hasDurationValue(value) && durationToMinutes(value) === null).length, 0)
     const diasComMarcacao = displayRows.filter((row) => row.entrada || row.saida_almoco || row.volta_almoco || row.saida || row.horas_trabalhadas).length
     const diasSemMarcacao = displayRows.filter((row) => rowKind(row) === 'sem-marcacao').length
     return { extra50Minutes, extra100Minutes, faltas, atrasos, totalAtrasoMinutos, invalidDurationValues, diasComMarcacao, diasSemMarcacao, totalExtrasMinutes: extra50Minutes + extra100Minutes }
-  }, [displayRows])
+  }, [displayRows, rows])
   const hasInconsistency = (row: PointRow) => Boolean(row.inconsistencia_tipo || isPositiveFlag(row.dia_falta) || (durationToMinutes(row.horas_atraso) ?? 0) > 0 || String(row.status || '').toLowerCase().includes('atraso') || String(row.status || '').toLowerCase().includes('falta'))
   async function persistReviewInconsistency(row: PointRow, status: 'aprovada' | 'justificada') {
     const funcionarioId = row.funcionario_id || (isAdministrative ? employeeId : user.funcionario_id)
@@ -1315,11 +1321,46 @@ function PointView({ token, user, refreshSignal = 0 }: { token: string; user: Se
             const marked = Boolean(row.entrada || row.saida || row.horas_trabalhadas)
             const workedMinutes = durationToMinutes(row.horas_trabalhadas)
             const difference = schedule?.isWorkday && marked && workedMinutes !== null ? workedMinutes - schedule.expectedMinutes : null
-            return <tr key={row.id} className={`point-row-${kind}`}><td><strong>{formatDate(row.data)}</strong></td><td>{shortTime(row.entrada)}</td><td>{shortTime(row.saida_almoco)}</td><td>{shortTime(row.volta_almoco)}</td><td>{shortTime(row.saida)}</td><td>{formatPointDuration(row.horas_trabalhadas)}</td><td>{renderPointStatus(row)}</td><td>{row.dia_falta || '—'}</td><td>{formatPointDuration(row.horas_atraso)}</td><td>{formatPointDuration(row.extra_50)}</td><td>{formatPointDuration(row.extra_100)}</td><td>{row.desconta_dsr || '—'}</td>{isAdministrative ? <><td>{schedule ? schedule.isWorkday ? formatDuration(schedule.expectedMinutes) : 'Descanso' : '—'}</td><td className={difference === null ? '' : difference > 0 ? 'point-schedule-positive' : difference < 0 ? 'point-schedule-negative' : ''}>{difference === null ? '—' : `${difference > 0 ? '+' : difference < 0 ? '−' : ''}${formatDuration(Math.abs(difference))}`}</td><td>{hasInconsistency(row) || rowHasInvalidDuration(row) ? renderAdministrativeIssueStatus(row) : '—'}</td><td>{renderAdministrativeReview(row)}</td></> : <td>{renderEmployeeJustification(row)}</td>}</tr>
+            return <tr key={row.id} className={`point-row-${kind}${selectedPointDay?.id === row.id ? ' is-selected' : ''}`} onClick={(event) => { if ((event.target as HTMLElement).closest('button,a,input,select,textarea')) return; setSelectedPointDayId(row.id) }}><td><button type="button" className="point-day-trigger" onClick={() => setSelectedPointDayId(row.id)} aria-label={`Ver todas as informações de ${formatDate(row.data)}`}>{formatDate(row.data)}</button></td><td>{shortTime(row.entrada)}</td><td>{shortTime(row.saida_almoco)}</td><td>{shortTime(row.volta_almoco)}</td><td>{shortTime(row.saida)}</td><td>{formatPointDuration(row.horas_trabalhadas)}</td><td>{renderPointStatus(row)}</td><td>{row.dia_falta || '—'}</td><td>{formatPointDuration(row.horas_atraso)}</td><td>{formatPointDuration(row.extra_50)}</td><td>{formatPointDuration(row.extra_100)}</td><td>{row.desconta_dsr || '—'}</td>{isAdministrative ? <><td>{schedule ? schedule.isWorkday ? formatDuration(schedule.expectedMinutes) : 'Descanso' : '—'}</td><td className={difference === null ? '' : difference > 0 ? 'point-schedule-positive' : difference < 0 ? 'point-schedule-negative' : ''}>{difference === null ? '—' : `${difference > 0 ? '+' : difference < 0 ? '−' : ''}${formatDuration(Math.abs(difference))}`}</td><td>{hasInconsistency(row) || rowHasInvalidDuration(row) ? renderAdministrativeIssueStatus(row) : '—'}</td><td>{renderAdministrativeReview(row)}</td></> : <td>{renderEmployeeJustification(row)}</td>}</tr>
           })}</tbody>
         </table>
       </div>}
     </SectionCard>
+    {selectedPointDay ? <div className="point-day-details-backdrop" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) setSelectedPointDayId('') }}>
+      <div ref={pointDayDialogRef} className="point-day-details-dialog" role="dialog" aria-modal={activePointDialog === 'day'} aria-hidden={activePointDialog !== 'day'} inert={activePointDialog !== 'day'} aria-labelledby="point-day-details-title" tabIndex={-1}>
+        <div className="point-day-details-heading"><div><span className="eyebrow">Detalhe completo do dia</span><h2 id="point-day-details-title">{formatDate(selectedPointDay.data)}</h2><p>{isAdministrative ? selectedEmployee?.nome || 'Funcionário selecionado' : user.nome}</p></div><button className="icon-button" type="button" onClick={() => setSelectedPointDayId('')} aria-label="Fechar detalhe do dia"><X size={18} /></button></div>
+        {(() => {
+          const daySchedule = isAdministrative ? scheduleForDate(selectedPointDay.data) : null
+          const dayWorkedMinutes = durationToMinutes(selectedPointDay.horas_trabalhadas)
+          const dayDifference = daySchedule?.isWorkday && dayWorkedMinutes !== null ? dayWorkedMinutes - daySchedule.expectedMinutes : null
+          const justificationStatus = selectedPointDay.justificativa_status === 'aceita' ? 'Aceita pelo RH' : selectedPointDay.justificativa_status === 'recusada' ? 'Recusada pelo RH' : selectedPointDay.justificativa_status === 'pendente' ? 'Aguardando análise do RH' : selectedPointDay.justificativa_motivo ? 'Justificativa registrada' : 'Nenhuma justificativa enviada'
+          const fields: Array<{ label: string; value: ReactNode; wide?: boolean }> = [
+            { label: 'Status do dia', value: renderPointStatus(selectedPointDay) },
+            { label: 'Entrada', value: shortTime(selectedPointDay.entrada) },
+            { label: 'Saída para almoço', value: shortTime(selectedPointDay.saida_almoco) },
+            { label: 'Retorno do almoço', value: shortTime(selectedPointDay.volta_almoco) },
+            { label: 'Saída', value: shortTime(selectedPointDay.saida) },
+            { label: 'Horas trabalhadas', value: formatPointDuration(selectedPointDay.horas_trabalhadas) },
+            { label: 'Falta registrada', value: selectedPointDay.dia_falta || '—' },
+            { label: 'Atraso', value: formatPointDuration(selectedPointDay.horas_atraso) },
+            { label: 'Hora extra 50%', value: formatPointDuration(selectedPointDay.extra_50) },
+            { label: 'Hora extra 100%', value: formatPointDuration(selectedPointDay.extra_100) },
+            { label: 'Desconto de DSR', value: selectedPointDay.desconta_dsr || '—' },
+            { label: 'Justificativa enviada', value: selectedPointDay.justificativa_motivo || selectedPointDay.justificativas || '—', wide: true },
+            { label: 'Situação da justificativa', value: justificationStatus },
+            { label: 'Resposta do RH', value: selectedPointDay.justificativa_resposta || '—', wide: true },
+          ]
+          if (isAdministrative) fields.push(
+            { label: 'Jornada esperada', value: daySchedule ? daySchedule.isWorkday ? formatDuration(daySchedule.expectedMinutes) : 'Descanso' : 'Sem jornada configurada' },
+            { label: 'Horas previstas no arquivo', value: formatPointDuration(selectedPointDay.previsto) },
+            { label: 'Diferença informativa', value: dayDifference === null ? '—' : `${dayDifference > 0 ? '+' : dayDifference < 0 ? '−' : ''}${formatDuration(Math.abs(dayDifference))}` },
+            { label: 'Ocorrência / inconsistência', value: hasInconsistency(selectedPointDay) || rowHasInvalidDuration(selectedPointDay) ? renderAdministrativeIssueStatus(selectedPointDay) : 'Nenhuma ocorrência identificada', wide: true },
+          )
+          return <div className="point-day-details-grid">{fields.map((field) => <div className={field.wide ? 'is-wide' : ''} key={field.label}><span>{field.label}</span><strong>{field.value}</strong></div>)}</div>
+        })()}
+        <div className="point-day-details-footer"><small>Para revisar ou registrar uma análise, feche este detalhe e use as ações da tabela.</small><button className="secondary-button" type="button" onClick={() => setSelectedPointDayId('')}>Voltar ao diário</button></div>
+      </div>
+    </div> : null}
     {reviewModalRow ? <div className="point-review-backdrop" role="presentation" onClick={(event) => { if (event.target === event.currentTarget) setReviewModalRow(null) }}>
       <div ref={pointReviewDialogRef} className="point-review-dialog" role="dialog" aria-modal={activePointDialog === 'review'} aria-hidden={activePointDialog === 'confirm'} inert={activePointDialog === 'confirm'} aria-labelledby="point-review-title" tabIndex={-1}>
         <div className="point-review-dialog-head"><div><span className="eyebrow">Análise de justificativa</span><h3 id="point-review-title">{formatDate(reviewModalRow.data)}</h3></div><button className="icon-button" type="button" onClick={() => setReviewModalRow(null)} aria-label="Fechar análise"><X size={17} /></button></div>
@@ -1502,6 +1543,8 @@ function PointImportsView({ token }: { token: string }) {
   const previewRequestRef = useRef(0)
   const importOperationLockRef = useRef(false)
   const [pendingId, setPendingId] = useState<string | null>(null)
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null)
+  const importPreviewDialogRef = useRef<HTMLDivElement | null>(null)
   const [loading, setLoading] = useState(false); const [actionLoading, setActionLoading] = useState(false)
   const [reportLoading, setReportLoading] = useState(false)
   const [error, setError] = useState(''); const [message, setMessage] = useState('')
@@ -1515,23 +1558,55 @@ function PointImportsView({ token }: { token: string }) {
     return month && year ? `${year}-${month}` : ''
   }, [competencia])
 
+  function closePreview() {
+    previewRequestRef.current += 1
+    setPendingId(null)
+    setPreviewLoadingId(null)
+    setRows([])
+    setPreviewPage(0)
+  }
+
+  useEffect(() => {
+    if (!pendingId) return
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const dialog = importPreviewDialogRef.current
+    const selector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+    const focusables = dialog ? Array.from(dialog.querySelectorAll<HTMLElement>(selector)) : []
+    focusables[0]?.focus()
+    function handleDialogKeys(event: KeyboardEvent) {
+      if (event.key === 'Escape') { event.preventDefault(); if (!importOperationLockRef.current) closePreview(); return }
+      if (event.key !== 'Tab' || !dialog) return
+      const currentFocusables = Array.from(dialog.querySelectorAll<HTMLElement>(selector)).filter((element) => !('disabled' in element && Boolean((element as HTMLButtonElement).disabled)))
+      if (!currentFocusables.length) { event.preventDefault(); dialog.focus(); return }
+      const first = currentFocusables[0]
+      const last = currentFocusables[currentFocusables.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+      else if (!dialog.contains(document.activeElement)) { event.preventDefault(); (event.shiftKey ? last : first).focus() }
+    }
+    document.addEventListener('keydown', handleDialogKeys)
+    return () => { document.removeEventListener('keydown', handleDialogKeys); if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true }) }
+  }, [pendingId])
+
   async function reload() { const data = await listPointImports(token); if (!data.sucesso) throw new Error(data.erro || 'Falha ao consultar o histórico'); setImports(data.importacoes || []) }
   useEffect(() => { reload().catch((err) => setError(err instanceof Error ? err.message : 'Falha ao consultar o histórico')) }, [token])
 
   async function loadPreview(importacaoId: string, importType: 'diario' | 'mensal' = tipo): Promise<boolean> {
     const requestId = previewRequestRef.current + 1
     previewRequestRef.current = requestId
-    setRows([]); setPendingId(null); setError(''); setMessage('')
+    setRows([]); setPendingId(importacaoId); setPreviewPage(0); setPreviewLoadingId(importacaoId); setError(''); setMessage('')
     try {
       const listed = await listImportedPoint(token, importType, importacaoId)
       if (requestId !== previewRequestRef.current) return false
       if (!listed.sucesso) throw new Error(listed.erro || 'Falha ao carregar a prévia')
-      setRows(listed.registros || []); setPendingId(importacaoId); setPreviewPage(0)
+      setRows(listed.registros || [])
       return true
     } catch (cause) {
       if (requestId !== previewRequestRef.current) return false
       setError(cause instanceof Error ? cause.message : 'Falha ao carregar a prévia da importação.')
       return false
+    } finally {
+      if (requestId === previewRequestRef.current) setPreviewLoadingId(null)
     }
   }
 
@@ -1612,8 +1687,7 @@ function PointImportsView({ token }: { token: string }) {
   }
 
   return <div className="import-page">
-    <PageHeading eyebrow="Administração · dados reais" title="Importar ponto" description="Analise todas as linhas. O sistema bloqueia o lote inteiro se houver CPF, data, horário ou duplicidade inválidos." action={<button className="secondary-button" onClick={loadRows} disabled={reportLoading || loading || actionLoading}>{reportLoading || loading || actionLoading ? <RefreshCw size={16} className="spin" /> : <Download size={16} />} {reportLoading ? 'Preparando PDF…' : loading || actionLoading ? 'Aguarde a operação atual…' : 'Gerar PDF do ponto'}</button>} />
-    <div className="import-flow-note"><div className="import-step"><b>1</b><span><strong>Analisar</strong><small>CPF, data e horários</small></span></div><ChevronRight size={16} /><div className="import-step"><b>2</b><span><strong>Revisar</strong><small>Todas as linhas do lote</small></span></div><ChevronRight size={16} /><div className="import-step"><b>3</b><span><strong>Aplicar</strong><small>Somente lote consistente</small></span></div></div>
+    <PageHeading title="Importar ponto" action={<button className="secondary-button" onClick={loadRows} disabled={reportLoading || loading || actionLoading}>{reportLoading || loading || actionLoading ? <RefreshCw size={16} className="spin" /> : <Download size={16} />} {reportLoading ? 'Preparando PDF…' : loading || actionLoading ? 'Aguarde a operação atual…' : 'Gerar PDF do ponto'}</button>} />
     <div className="import-layout">
       <SectionCard title="Nova importação" caption="O arquivo é apenas analisado até você confirmar">
         <form className="form-stack import-form" onSubmit={submit}>
@@ -1636,7 +1710,6 @@ function PointImportsView({ token }: { token: string }) {
         </div>
       </SectionCard>
     </div>
-    {pending && <SectionCard title="Revisão antes da aplicação" caption={`Importação ${pending.tipo === 'mensal' ? 'mensal' : 'diária'} · ${pending.arquivo_nome}`} className="import-review-card"><div className="import-summary"><div className="import-stat"><span>Linhas lidas</span><strong>{pending.total_linhas}</strong></div><div className="import-stat valid"><span>Pessoas localizadas</span><strong>{pending.linhas_encontradas}</strong></div><div className="import-stat invalid"><span>CPFs sem vínculo</span><strong>{pending.linhas_nao_encontradas}</strong></div><div className="import-stat invalid"><span>Linhas inconsistentes</span><strong>{pending.linhas_com_inconsistencia}</strong></div><div className="import-stat"><span>Importado por</span><strong>{pending.imported_by_name || 'Você'}</strong></div></div><div className="import-review-actions"><div><strong>{importHasBlockingIssues ? 'Aplicação bloqueada: corrija os erros e analise o arquivo novamente.' : 'Nenhuma inconsistência detectada nesta prévia.'}</strong><small>Batidas já existentes nunca serão substituídas. Conflitos são preservados e informados no resultado.</small></div><div className="button-row"><button className="primary-button" onClick={() => void applyPending()} disabled={loading || actionLoading || reportLoading || pending.status !== 'pendente' || importHasBlockingIssues}>{actionLoading || reportLoading ? <RefreshCw className="spin" size={16} /> : <Check size={16} />} {pending.status === 'aplicada' ? 'Registros aplicados' : importHasBlockingIssues ? 'Corrija e reimporte' : 'Aplicar sem substituir'}</button><button className="secondary-button" onClick={() => void ignorePending()} disabled={loading || actionLoading || reportLoading}>{pending.status === 'aplicada' ? 'Arquivar alerta' : pending.status === 'ignorada' ? 'Importação ignorada' : 'Ignorar e arquivar'}</button></div></div></SectionCard>}
     <SectionCard title="Histórico de importações" caption="Consulte resultado, competência, operador e situação de cada arquivo">
       <details className="import-history-help">
         <summary><Info size={15} /><span>Como interpretar este histórico</span></summary>
@@ -1660,10 +1733,24 @@ function PointImportsView({ token }: { token: string }) {
         </button>)}
       </div>
     </SectionCard>
-    {rows.length > 0 && <SectionCard title="Linhas da importação" caption={`${rows.length} registros · a chave de associação é o CPF; nomes diferentes no relógio não bloqueiam correspondência`} className="import-preview-card">
-      <div className="table-wrap"><table><thead><tr><th>Data</th><th>Nome exportado pelo relógio</th><th>CPF</th><th>Entrada</th><th>Saída</th><th>Resultado por CPF</th></tr></thead><tbody>{visiblePreviewRows.map((row) => <tr className={!row.encontrado || row.inconsistencia ? 'row-inconsistent' : ''} key={row.id}><td>{formatDate(row.data || '')}</td><td><strong>{row.nome_csv}</strong>{(!row.encontrado || row.inconsistencia) && <small className="table-note">{row.inconsistencia || row.import_validation_errors?.[0] || 'CPF não localizado no cadastro da empresa.'}</small>}</td><td className="mono">{maskCpf(row.cpf_arquivo || row.cpf)}</td><td>{row.entrada_1 || '—'}</td><td>{row.saida_1 || '—'}</td><td><StatusPill value={row.inconsistencia ? 'Inconsistente' : row.encontrado ? 'Vinculado por CPF' : 'Não localizado'} /></td></tr>)}</tbody></table></div>
-      {rows.length > previewPageSize && <div className="button-row" style={{ justifyContent: 'space-between', padding: '12px 0' }}><small>Linhas {previewPage * previewPageSize + 1}–{Math.min((previewPage + 1) * previewPageSize, rows.length)} de {rows.length}</small><div className="button-row"><button type="button" className="secondary-button" disabled={previewPage === 0} onClick={() => setPreviewPage((page) => Math.max(0, page - 1))}>Anterior</button><span>Página {previewPage + 1} de {previewPageCount}</span><button type="button" className="secondary-button" disabled={previewPage + 1 >= previewPageCount} onClick={() => setPreviewPage((page) => Math.min(previewPageCount - 1, page + 1))}>Próxima</button></div></div>}
-    </SectionCard>}
+    {pending ? <div className="point-import-preview-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !actionLoading && !loading && !reportLoading) closePreview() }}>
+      <div ref={importPreviewDialogRef} className="point-import-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="point-import-preview-title" tabIndex={-1}>
+        <div className="point-import-preview-heading"><div><span className="eyebrow">{pending.tipo === 'mensal' ? 'Importação mensal' : 'Importação diária'} · {pending.competencia || 'sem competência'}</span><h2 id="point-import-preview-title">Detalhes da importação</h2><p>{pending.arquivo_nome} · {pending.imported_by_name || 'Usuário'} · {formatDate(pending.created_at)}</p></div><button type="button" className="icon-button" onClick={closePreview} disabled={actionLoading || loading} aria-label="Fechar detalhes da importação"><X size={18} /></button></div>
+        <div className="point-import-preview-content">
+          <div className="import-summary"><div className="import-stat"><span>Linhas lidas</span><strong>{pending.total_linhas}</strong></div><div className="import-stat valid"><span>Pessoas localizadas</span><strong>{pending.linhas_encontradas}</strong></div><div className="import-stat invalid"><span>CPFs sem vínculo</span><strong>{pending.linhas_nao_encontradas}</strong></div><div className="import-stat invalid"><span>Linhas inconsistentes</span><strong>{pending.linhas_com_inconsistencia}</strong></div></div>
+          <div className="point-import-preview-status"><StatusPill value={pending.status === 'aplicada' ? 'Aplicada' : pending.status === 'ignorada' ? 'Ignorada' : importHasBlockingIssues ? 'Pendente · corrigir' : 'Pendente · pronta'} /><span>{importHasBlockingIssues ? 'Há erros impeditivos; nenhum registro deste lote pode ser aplicado.' : pending.status === 'aplicada' ? 'Registros vinculados gravados; batidas existentes foram preservadas.' : pending.status === 'ignorada' ? 'Lote arquivado sem aplicar registros.' : 'Prévia consistente. A aplicação continua dependendo da sua confirmação.'}</span></div>
+          {error ? <div className="form-error" role="alert"><AlertCircle size={16} />{error}</div> : null}
+          {message ? <div className="form-success" role="status"><Check size={16} />{message}</div> : null}
+          {previewLoadingId === pending.id ? <LoadingState label="Carregando detalhes deste lote…" /> : rows.length ? <>
+            <div className="point-import-rows-heading"><div><strong>Linhas analisadas</strong><small>{rows.length} registro(s) · associação pelo CPF · {previewPage + 1} de {previewPageCount} páginas</small></div><span>Valores recebidos do arquivo</span></div>
+            <div className="table-wrap point-import-preview-table-wrap"><table><thead><tr><th>Data</th><th>Funcionário no arquivo</th><th>CPF</th><th>Entrada</th><th>Almoço</th><th>Retorno</th><th>Saída</th><th>Horas normais</th><th>Extra 50%</th><th>Extra 100%</th><th>Vínculo</th></tr></thead><tbody>{visiblePreviewRows.map((row) => <tr className={!row.encontrado || row.inconsistencia ? 'row-inconsistent' : ''} key={row.id}><td>{formatDate(row.data || '')}</td><td><strong>{row.nome_csv}</strong>{(!row.encontrado || row.inconsistencia) && <small className="table-note">{row.inconsistencia || row.import_validation_errors?.[0] || 'CPF não localizado no cadastro da empresa.'}</small>}</td><td className="mono">{maskCpf(row.cpf_arquivo || row.cpf)}</td><td>{row.entrada_1 || '—'}</td><td>{row.saida_1 || '—'}</td><td>{row.entrada_2 || '—'}</td><td>{row.saida_2 || '—'}</td><td>{formatPointDuration(row.total_normais)}</td><td>{formatPointDuration(row.extra_50)}</td><td>{formatPointDuration(row.extra_100)}</td><td><StatusPill value={row.inconsistencia ? 'Inconsistente' : row.encontrado ? 'Vinculado' : 'Não localizado'} /></td></tr>)}</tbody></table></div>
+            {rows.length > previewPageSize ? <div className="button-row point-import-pagination"><small>Linhas {previewPage * previewPageSize + 1}–{Math.min((previewPage + 1) * previewPageSize, rows.length)} de {rows.length}</small><div className="button-row"><button type="button" className="secondary-button" disabled={previewPage === 0} onClick={() => setPreviewPage((page) => Math.max(0, page - 1))}>Anterior</button><span>Página {previewPage + 1} de {previewPageCount}</span><button type="button" className="secondary-button" disabled={previewPage + 1 >= previewPageCount} onClick={() => setPreviewPage((page) => Math.min(previewPageCount - 1, page + 1))}>Próxima</button></div></div> : null}
+          </> : <EmptyState title="Nenhuma linha disponível" description="O lote não retornou registros para exibir nesta prévia." />}
+          <div className="point-import-preview-actions"><div><strong>{importHasBlockingIssues ? 'Aplicação bloqueada: corrija os erros e analise o arquivo novamente.' : 'Batidas existentes nunca serão substituídas.'}</strong><small>Conflitos com registros já gravados são preservados e informados no resultado da aplicação.</small></div><div className="button-row"><button className="secondary-button" onClick={() => void ignorePending()} disabled={loading || actionLoading || reportLoading || previewLoadingId === pending.id}>{actionLoading ? <RefreshCw className="spin" size={15} /> : null}{pending.status === 'aplicada' ? 'Arquivar alerta' : pending.status === 'ignorada' ? 'Importação ignorada' : 'Ignorar e arquivar'}</button><button className="primary-button" onClick={() => void applyPending()} disabled={loading || actionLoading || reportLoading || previewLoadingId === pending.id || pending.status !== 'pendente' || importHasBlockingIssues}>{actionLoading ? <RefreshCw className="spin" size={15} /> : <Check size={15} />} {pending.status === 'aplicada' ? 'Registros aplicados' : importHasBlockingIssues ? 'Corrija e reimporte' : 'Aplicar sem substituir'}</button></div></div>
+        </div>
+      </div>
+    </div> : null}
+
   </div>
 }
 

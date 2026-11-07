@@ -2,11 +2,11 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { Check, LoaderCircle, SearchX } from 'lucide-react'
 import './confirmation-modal.css'
 
-export function PageHeading({ eyebrow, title, description, action }: { eyebrow: string; title: string; description?: string; action?: ReactNode }) {
+export function PageHeading({ eyebrow, title, description, action }: { eyebrow?: string; title: string; description?: string; action?: ReactNode }) {
   return (
     <div className="page-heading">
       <div>
-        <span className="eyebrow">{eyebrow}</span>
+        {eyebrow ? <span className="eyebrow">{eyebrow}</span> : null}
         <h1>{title}</h1>
         {description && <p>{description}</p>}
       </div>

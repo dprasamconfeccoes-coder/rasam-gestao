@@ -1,28 +1,14 @@
-.point-management-workspace { display: grid; gap: 14px; }
-.point-management-intro { padding: 0 2px; }
-.point-management-intro > div { display: grid; gap: 4px; }
-.point-management-intro > div > span { color: var(--gold); font-size: 10px; font-weight: 850; letter-spacing: .1em; }
-.point-management-intro h1 { margin: 0; color: var(--text); font-size: clamp(25px, 3vw, 34px); letter-spacing: -.045em; line-height: 1.12; }
-.point-management-intro p { margin: 2px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
-.point-management-tabs { display: flex; align-items: center; gap: 6px; overflow-x: auto; padding: 5px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface-2); scrollbar-width: thin; }
-.point-management-tab { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 9px 14px; border: 1px solid transparent; border-radius: 9px; color: var(--muted); background: transparent; font: inherit; font-size: 11px; font-weight: 750; white-space: nowrap; cursor: pointer; transition: color .16s ease, border-color .16s ease, background .16s ease; }
+.point-management-workspace { display: grid; gap: 18px; }
+.point-management-tabs { display: flex; align-items: center; gap: 7px; overflow-x: auto; padding: 6px; border: 1px solid var(--line); border-radius: 13px; background: #faf8fa; scrollbar-width: thin; }
+.point-management-tab { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 10px 16px; border: 1px solid transparent; border-radius: 9px; color: var(--muted); background: transparent; font: inherit; font-size: 12px; font-weight: 750; white-space: nowrap; cursor: pointer; transition: color .16s ease, border-color .16s ease, background .16s ease; }
 .point-management-tab:hover { color: var(--text); background: rgba(255,255,255,.035); }
-.point-management-tab.is-active { color: var(--gold); border-color: rgba(215,168,74,.25); background: rgba(215,168,74,.1); }
+.point-management-tab.is-active { color: #87385f; border-color: #ead3df; background: #fff; box-shadow: 0 3px 10px rgba(89,42,65,.07); }
 .point-management-tab:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.point-management-panel { min-width: 0; }
+.point-management-panel { min-width: 0; outline: none; }
 .point-management-panel[hidden] { display: none !important; }
 .point-management-panel > *:first-child { margin-top: 0; }
 @media (max-width: 560px) {
+  .point-management-workspace { gap: 13px; }
   .point-management-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; }
   .point-management-tab { flex-direction: column; gap: 4px; min-height: 56px; padding: 7px 5px; font-size: 9px; }
 }
-
-.point-management-workspace{gap:18px}
-.point-management-intro{padding:17px 20px;border:1px solid #eee1e8;border-radius:15px;background:linear-gradient(115deg,#fff 0%,#fff8fb 100%)}
-.point-management-intro h1{font-size:clamp(24px,2.5vw,32px)}
-.point-management-intro p{max-width:760px;font-size:13px}
-.point-management-tabs{gap:7px;padding:6px;background:#faf8fa}
-.point-management-tab{min-height:44px;padding:10px 16px;font-size:12px}
-.point-management-tab.is-active{color:#87385f;border-color:#ead3df;background:#fff;box-shadow:0 3px 10px rgba(89,42,65,.07)}
-.point-management-panel{outline:none}
-@media(max-width:560px){.point-management-intro{padding:14px}.point-management-workspace{gap:13px}.point-management-tab{font-size:9px}}

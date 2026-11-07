@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { AlertCircle, CalendarClock, Check, ChevronDown, Clock3, LoaderCircle, Plus, RefreshCw, Save, Search, ShieldCheck, UserRound, X } from 'lucide-react'
+import { AlertCircle, CalendarClock, Check, ChevronDown, Clock3, LoaderCircle, Plus, RefreshCw, Save, Search, ShieldCheck, UserRound, UsersRound, X } from 'lucide-react'
 import { ConfirmationModal, EmptyState, ErrorState, LoadingState, PageHeading, SectionCard, StatusPill, formatDate } from '../components/ui'
 import { assignPointSchedule, assignPointScheduleBulk, deactivatePointSchedule, listEmployeePointSchedules, listPointSchedules, savePointSchedule, searchEmployees } from '../lib/api'
 import type { EmployeeRow, PointScheduleAssignment, PointScheduleMode, PointScheduleTemplate } from '../lib/types'
@@ -55,6 +55,9 @@ export function PointSchedulesPanel({ token }: { token: string }) {
   const [employeeResultsTotal, setEmployeeResultsTotal] = useState(0)
   const [employeeLoading, setEmployeeLoading] = useState(false)
   const [employeeLoadingMore, setEmployeeLoadingMore] = useState(false)
+  const [employeeLoadMode, setEmployeeLoadMode] = useState<'search' | 'all' | null>(null)
+  const [employeeLoadProgress, setEmployeeLoadProgress] = useState('')
+  const [allEmployeesLoaded, setAllEmployeesLoaded] = useState(false)
   const [employeeError, setEmployeeError] = useState('')
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeRow | null>(null)
   const [assignments, setAssignments] = useState<PointScheduleAssignment[]>([])
@@ -115,6 +118,9 @@ export function PointSchedulesPanel({ token }: { token: string }) {
     selectionRequestRef.current += 1
     setEmployeeLoading(true)
     setEmployeeLoadingMore(false)
+    setEmployeeLoadMode('search')
+    setEmployeeLoadProgress('')
+    setAllEmployeesLoaded(false)
     setEmployeeError('')
     setSelectedEmployee(null)
     setBulkEmployeeIds([])
@@ -134,7 +140,60 @@ export function PointSchedulesPanel({ token }: { token: string }) {
       if (requestId !== searchRequestRef.current) return
       setEmployeeResults([])
       setEmployeeError(cause instanceof Error ? cause.message : 'Falha ao buscar funcionários.')
-    } finally { if (requestId === searchRequestRef.current) setEmployeeLoading(false) }
+    } finally { if (requestId === searchRequestRef.current) { setEmployeeLoading(false); setEmployeeLoadMode(null) } }
+  }
+
+  async function loadAllEmployees() {
+    const requestId = searchRequestRef.current + 1
+    searchRequestRef.current = requestId
+    selectionRequestRef.current += 1
+    setEmployeeQuery('')
+    setEmployeeSearchTerm('')
+    setEmployeeLoading(true)
+    setEmployeeLoadingMore(false)
+    setEmployeeLoadMode('all')
+    setEmployeeLoadProgress('Consultando a equipe…')
+    setAllEmployeesLoaded(false)
+    setEmployeeError('')
+    setSelectedEmployee(null)
+    setBulkEmployeeIds([])
+    setAssignments([])
+    setHistoryLoading(false)
+    setEmployeeResults([])
+    setEmployeeResultsTotal(0)
+    try {
+      const first = await searchEmployees(token, { offset: 0, limite: 50 })
+      if (requestId !== searchRequestRef.current) return
+      if (!first.sucesso) throw new Error(first.erro || 'Não foi possível listar a equipe completa.')
+      const total = Math.max(0, first.total || 0)
+      const allRecords = [...(first.registros || [])]
+      setEmployeeLoadProgress(`Carregando funcionários: ${allRecords.length} de ${total}…`)
+      for (let offset = allRecords.length; offset < total; offset += 50) {
+        const page = await searchEmployees(token, { offset, limite: 50 })
+        if (requestId !== searchRequestRef.current) return
+        if (!page.sucesso) throw new Error(page.erro || 'Não foi possível carregar todos os funcionários.')
+        const nextRecords = page.registros || []
+        allRecords.push(...nextRecords)
+        setEmployeeLoadProgress(`Carregando funcionários: ${allRecords.length} de ${total}…`)
+        if (!nextRecords.length) break
+      }
+      if (requestId !== searchRequestRef.current) return
+      if (allRecords.length !== total) {
+        setAllEmployeesLoaded(false)
+        setEmployeeError(`A lista mudou enquanto era carregada: ${allRecords.length} de ${total} funcionários foram retornados. Atualize a lista antes de atribuir.`)
+      } else {
+        setEmployeeResults(allRecords)
+        setEmployeeResultsTotal(total)
+        setAllEmployeesLoaded(true)
+        if (!allRecords.length) setEmployeeError('Nenhum funcionário encontrado.')
+      }
+    } catch (cause) {
+      if (requestId !== searchRequestRef.current) return
+      setEmployeeResults([])
+      setEmployeeError(cause instanceof Error ? cause.message : 'Falha ao carregar a equipe completa.')
+    } finally {
+      if (requestId === searchRequestRef.current) { setEmployeeLoading(false); setEmployeeLoadMode(null); setEmployeeLoadProgress('') }
+    }
   }
 
   async function loadMoreEmployees() {
@@ -154,6 +213,22 @@ export function PointSchedulesPanel({ token }: { token: string }) {
       if (requestId !== searchRequestRef.current) return
       setEmployeeError(cause instanceof Error ? cause.message : 'Falha ao carregar mais funcionários.')
     } finally { if (requestId === searchRequestRef.current) setEmployeeLoadingMore(false) }
+  }
+
+  function toggleVisibleEmployeeSelection() {
+    const visibleIds = employeeResults.filter((employee) => employee.ativo).map((employee) => employee.id)
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => bulkEmployeeIds.includes(id))
+    if (allSelected) {
+      setBulkEmployeeIds((current) => current.filter((id) => !visibleIds.includes(id)))
+      return
+    }
+    const next = [...new Set([...bulkEmployeeIds, ...visibleIds])]
+    if (next.length > 200) {
+      setEmployeeError('A atribuição coletiva aceita até 200 pessoas por operação. Desmarque parte da seleção e faça lotes para incluir a equipe completa.')
+      return
+    }
+    setEmployeeError('')
+    setBulkEmployeeIds(next)
   }
 
   async function selectEmployee(employee: EmployeeRow) {
@@ -325,7 +400,7 @@ A operação será atômica: em caso de conflito, nenhuma atribuição será gra
   const previousAssignments = assignments.filter((item) => item.id !== currentAssignment?.id)
 
   return <>
-    <PageHeading eyebrow="Gestão de ponto · organização" title="Jornadas de trabalho" description="Cadastre modelos semanais, atribua-os por vigência e preserve o histórico de cada mudança." action={<button type="button" className="primary-button" onClick={openNewEditor}><Plus size={16} /> Nova jornada</button>} />
+    <PageHeading title="Jornadas de trabalho" action={<button type="button" className="primary-button" onClick={openNewEditor}><Plus size={16} /> Nova jornada</button>} />
     <details className="schedule-disclaimer"><summary><ShieldCheck size={17} /><strong>Regras de jornada e fechamento</strong><span>Consultar limites e dados preservados</span></summary><div>O DSR e o repouso adicional são identificados separadamente. Nesta etapa, o fechamento aceita o regime 44h somente com jornada, ponto e salário completos; as regras 42h/40h serão habilitadas em etapa própria. Os campos legados de horário em texto não são alterados nem convertidos automaticamente.</div></details>
     {notice ? <div className="schedule-feedback is-success" role="status"><Check size={16} />{notice}<button type="button" className="icon-button" onClick={() => setNotice('')} aria-label="Fechar aviso"><X size={15} /></button></div> : null}
     <div className="schedule-management-grid">
@@ -335,10 +410,15 @@ A operação será atômica: em caso de conflito, nenhuma atribuição será gra
           <div className="schedule-template-actions"><button type="button" className="secondary-button" onClick={() => openEditEditor(template)}><Save size={14} /> Editar</button><button type="button" className="text-button schedule-deactivate" onClick={() => setConfirmation(template)}>Inativar</button></div>
         </article>)}</div>}
       </SectionCard>
-      <SectionCard title="Atribuir jornada" caption="Selecione uma ou mais pessoas; defina a jornada e a vigência uma única vez.">
-        <form className="schedule-employee-search" onSubmit={(event) => void runEmployeeSearch(event)}><label>Buscar funcionário<input value={employeeQuery} onChange={(event) => setEmployeeQuery(event.target.value)} placeholder="Nome ou CPF" autoComplete="off" disabled={employeeLoading || employeeLoadingMore} /></label><button type="submit" className="secondary-button" disabled={employeeLoading || employeeLoadingMore}>{employeeLoading || employeeLoadingMore ? <LoaderCircle size={15} className="spin" /> : <Search size={15} />} Buscar</button></form>
+      <SectionCard title="Atribuir jornada">
+        <form className="schedule-employee-search" onSubmit={(event) => void runEmployeeSearch(event)}><label>Buscar funcionário<input value={employeeQuery} onChange={(event) => setEmployeeQuery(event.target.value)} placeholder="Nome ou CPF" autoComplete="off" disabled={employeeLoading || employeeLoadingMore} /></label><button type="submit" className="secondary-button" disabled={employeeLoading || employeeLoadingMore}>{employeeLoadMode === 'search' ? <LoaderCircle size={15} className="spin" /> : <Search size={15} />} Buscar</button><button type="button" className="secondary-button schedule-list-all" onClick={() => void loadAllEmployees()} disabled={employeeLoading || employeeLoadingMore}>{employeeLoadMode === 'all' ? <LoaderCircle size={15} className="spin" /> : <UsersRound size={15} />} Listar todos</button></form>
+        {employeeLoadProgress ? <div className="schedule-all-employees-status" role="status"><LoaderCircle size={14} className="spin" />{employeeLoadProgress}</div> : null}
         {employeeError ? <div className="form-error schedule-inline-error" role="alert"><AlertCircle size={15} />{employeeError}</div> : null}
-        {employeeResults.length ? <div className="schedule-results"><div className="schedule-results-heading"><div><strong>Resultados da busca</strong><small>{employeeResults.length} de {employeeResultsTotal} exibido(s) · {bulkEmployeeIds.length} selecionado(s) · limite de 200 por operação</small></div><button type="button" className="secondary-button" onClick={() => { const visibleIds = employeeResults.map((employee) => employee.id); const allSelected = visibleIds.every((id) => bulkEmployeeIds.includes(id)); setBulkEmployeeIds((current) => allSelected ? current.filter((id) => !visibleIds.includes(id)) : [...new Set([...current, ...visibleIds])].slice(0, 200)) }} disabled={employeeLoading || employeeResults.length === 0 || (!employeeResults.every((employee) => bulkEmployeeIds.includes(employee.id)) && bulkEmployeeIds.length + employeeResults.filter((employee) => !bulkEmployeeIds.includes(employee.id)).length > 200)}>{employeeResults.every((employee) => bulkEmployeeIds.includes(employee.id)) ? 'Limpar seleção exibida' : 'Selecionar exibidos'}</button></div><div className="schedule-employee-results" aria-label="Funcionários encontrados">{employeeResults.map((employee) => <div className="schedule-result-row" key={employee.id}><button type="button" className={`schedule-employee-result${selectedEmployee?.id === employee.id ? ' is-selected' : ''}`} onClick={() => void selectEmployee(employee)} disabled={assigning || employeeLoading}><span className="schedule-employee-avatar"><UserRound size={16} /></span><span><strong>{employee.nome}</strong><small>{employeeTypeLabel(employee.tipo_vinculo)} · {maskedCpf(employee.cpf)}</small></span><StatusPill value={employee.situacao} /></button><label className="schedule-employee-check"><input type="checkbox" checked={bulkEmployeeIds.includes(employee.id)} onChange={(event) => setBulkEmployeeIds((current) => event.target.checked ? current.length < 200 ? [...current, employee.id] : current : current.filter((id) => id !== employee.id))} disabled={bulkAssigning || (!bulkEmployeeIds.includes(employee.id) && bulkEmployeeIds.length >= 200)} /><span>Incluir na atribuição</span></label></div>)}</div></div> : null}
+        {employeeResults.length ? <div className="schedule-results">
+          <div className="schedule-results-heading"><div><strong>{allEmployeesLoaded ? 'Equipe completa' : 'Resultados da busca'}</strong><small>{employeeResults.length} de {employeeResultsTotal} funcionário(s) exibido(s) · {bulkEmployeeIds.length} selecionado(s) · limite de 200 por operação</small></div><button type="button" className="secondary-button" onClick={toggleVisibleEmployeeSelection} disabled={employeeLoading || employeeResults.length === 0 || !employeeResults.some((employee) => employee.ativo) || (!employeeResults.filter((employee) => employee.ativo).every((employee) => bulkEmployeeIds.includes(employee.id)) && bulkEmployeeIds.length + employeeResults.filter((employee) => employee.ativo && !bulkEmployeeIds.includes(employee.id)).length > 200)}>{employeeResults.filter((employee) => employee.ativo).length > 0 && employeeResults.filter((employee) => employee.ativo).every((employee) => bulkEmployeeIds.includes(employee.id)) ? 'Limpar seleção exibida' : allEmployeesLoaded ? 'Selecionar equipe ativa' : 'Selecionar ativos exibidos'}</button></div>
+          {allEmployeesLoaded && employeeResults.filter((employee) => employee.ativo).length > 200 ? <small className="schedule-bulk-limit-note">A atribuição coletiva aceita até 200 pessoas por operação. Para uma equipe maior, faça mais de um lote; nenhuma seleção parcial será feita automaticamente.</small> : null}
+          <div className="schedule-employee-results" aria-label="Funcionários encontrados">{employeeResults.map((employee) => <div className="schedule-result-row" key={employee.id}><button type="button" className={`schedule-employee-result${selectedEmployee?.id === employee.id ? ' is-selected' : ''}`} onClick={() => void selectEmployee(employee)} disabled={assigning || employeeLoading}><span className="schedule-employee-avatar"><UserRound size={16} /></span><span><strong>{employee.nome}</strong><small>{employeeTypeLabel(employee.tipo_vinculo)} · {maskedCpf(employee.cpf)}</small></span><StatusPill value={employee.situacao} /></button><label className="schedule-employee-check"><input type="checkbox" checked={bulkEmployeeIds.includes(employee.id)} onChange={(event) => { const checked = event.target.checked; setBulkEmployeeIds((current) => checked ? current.length < 200 ? [...current, employee.id] : current : current.filter((id) => id !== employee.id)) }} disabled={!employee.ativo || bulkAssigning || (!bulkEmployeeIds.includes(employee.id) && bulkEmployeeIds.length >= 200)} /><span>{employee.ativo ? 'Incluir na atribuição' : 'Inativo · não elegível'}</span></label></div>)}</div>
+        </div> : null}
         {employeeResults.length > 0 && employeeResults.length < employeeResultsTotal ? <button type="button" className="secondary-button schedule-load-more" onClick={() => void loadMoreEmployees()} disabled={employeeLoadingMore || employeeLoading}><ChevronDown size={15} className={employeeLoadingMore ? 'spin' : ''} /> {employeeLoadingMore ? 'Carregando…' : `Carregar mais (${employeeResults.length} de ${employeeResultsTotal})`}</button> : null}
         {selectedEmployee ? <div className="schedule-employee-detail"><div className="schedule-selected-employee"><div><span className="eyebrow">Funcionário selecionado</span><strong>{selectedEmployee.nome}</strong><small>{employeeTypeLabel(selectedEmployee.tipo_vinculo)} · {selectedEmployee.cargo || 'Cargo não informado'}</small></div><button type="button" className="icon-button" onClick={() => { selectionRequestRef.current += 1; setHistoryLoading(false); setSelectedEmployee(null); setAssignments([]); setAssignmentNotice(''); setAssignmentError('') }} disabled={assigning} aria-label="Limpar funcionário selecionado"><X size={15} /></button></div>
           {currentAssignment ? <div className="schedule-current-assignment"><span>Jornada vigente ou futura</span><strong>{assignmentLabel(currentAssignment)}</strong><small>Desde {formatDate(currentAssignment.vigencia_inicio)}{currentAssignment.vigencia_fim ? ` até ${formatDate(currentAssignment.vigencia_fim)}` : ''}</small></div> : <div className="schedule-legacy-note">Sem jornada estruturada no período. Se houver horários legados no cadastro, eles continuam preservados e não são interpretados automaticamente.</div>}
