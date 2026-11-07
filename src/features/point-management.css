@@ -16,3 +16,13 @@
   .point-management-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; }
   .point-management-tab { flex-direction: column; gap: 4px; min-height: 56px; padding: 7px 5px; font-size: 9px; }
 }
+
+.point-management-workspace{gap:18px}
+.point-management-intro{padding:17px 20px;border:1px solid #eee1e8;border-radius:15px;background:linear-gradient(115deg,#fff 0%,#fff8fb 100%)}
+.point-management-intro h1{font-size:clamp(24px,2.5vw,32px)}
+.point-management-intro p{max-width:760px;font-size:13px}
+.point-management-tabs{gap:7px;padding:6px;background:#faf8fa}
+.point-management-tab{min-height:44px;padding:10px 16px;font-size:12px}
+.point-management-tab.is-active{color:#87385f;border-color:#ead3df;background:#fff;box-shadow:0 3px 10px rgba(89,42,65,.07)}
+.point-management-panel{outline:none}
+@media(max-width:560px){.point-management-intro{padding:14px}.point-management-workspace{gap:13px}.point-management-tab{font-size:9px}}

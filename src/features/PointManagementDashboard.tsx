@@ -28,7 +28,7 @@ export function PointManagementDashboard({ team, imports, schedules }: {
 
   return <div className="point-management-workspace">
     <header className="point-management-intro">
-      <div><span>CONTROLE · RH</span><h1>Gestão de ponto</h1><p>Consulte a equipe, revise importações e mantenha jornadas por funcionário.</p></div>
+      <div><span>CONTROLE · RH</span><h1>Gestão de ponto</h1><p>Acompanhe presença e ocorrências por período, com histórico das importações e jornadas atribuídas.</p></div>
     </header>
     <nav className="point-management-tabs" role="tablist" aria-label="Seções da gestão de ponto">
       {tabs.map(({ id, label, icon: Icon }) => <button

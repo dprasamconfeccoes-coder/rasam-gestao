@@ -1040,6 +1040,22 @@ input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="c
 .import-reconcile-value { display:block; margin:2px 0; }
 @media(max-width:600px) { .import-reconcile-heading { align-items:stretch; flex-direction:column; } }
 
+/* Gestão de ponto: síntese objetiva, sem proporções visuais sem denominador. */
+.point-summary-section{display:grid;gap:11px;margin:0 0 16px}
+.point-summary-section.is-loading{display:none}
+.point-summary-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.point-summary-heading h2{margin:3px 0 0;color:var(--text);font-size:18px;letter-spacing:-.03em}
+.point-summary-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:10px;margin:0}
+.point-insight-card{--point-accent:#777;display:grid;align-content:start;gap:6px;min-width:0;min-height:102px;padding:13px 14px;border:1px solid var(--line);border-top:3px solid var(--point-accent);border-radius:12px;background:var(--surface);box-shadow:0 4px 12px rgba(25,20,24,.035)}
+.point-insight-card.is-presence{--point-accent:#3c8962}.point-insight-card.is-missing{--point-accent:#ce8a2d}.point-insight-card.is-absence{--point-accent:#ad4650}.point-insight-card.is-delay{--point-accent:#b47c22}.point-insight-card.is-overtime{--point-accent:#8f4779}
+.point-insight-card>span{color:var(--muted);font-size:10px;font-weight:750;letter-spacing:.015em}
+.point-insight-card>strong{overflow:hidden;color:var(--text);font-size:23px;font-variant-numeric:tabular-nums;letter-spacing:-.04em;text-overflow:ellipsis;white-space:nowrap}
+.point-insight-card>small{color:var(--muted);font-size:10px;line-height:1.4}
+.point-insight-card.is-overtime>small{overflow-wrap:anywhere}
+.point-daily-table.is-administrative{min-width:1280px}
+@media(max-width:760px){.point-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.point-insight-card{min-height:94px;padding:11px}.point-insight-card>strong{font-size:20px}.point-summary-heading{align-items:flex-start}}
+@media(max-width:420px){.point-summary-grid{grid-template-columns:1fr 1fr}.point-insight-card{min-height:90px;padding:10px}.point-insight-card>span,.point-insight-card>small{font-size:9px}.point-insight-card>strong{font-size:18px}}
+
 
 /* RF navigation identity: visual changes confined to the lateral menu. */
 .sidebar { background: #fffdfd; border-right-color: #eee2e8; box-shadow: 8px 0 28px rgba(69, 33, 52, .035); }
