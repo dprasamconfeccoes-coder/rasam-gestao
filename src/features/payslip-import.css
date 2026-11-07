@@ -1,35 +1,119 @@
-.payslip-import-layout { margin-bottom: 18px; }
-.payslip-import-form { padding: 20px; }
-.payslip-import-form input[type='file'] { padding: 11px; border-style: dashed; }
-.payslip-file-picker { position: relative; }
-.payslip-file-picker input[type='file'] { color: var(--muted); }
-.payslip-upload-hint { display: flex; align-items: center; gap: 11px; padding: 13px 14px; border: 1px dashed rgba(215,168,74,.38); border-radius: 10px; color: var(--gold); background: rgba(215,168,74,.07); }
-.payslip-upload-hint > div, .payslip-process p { display: grid; gap: 3px; }
-.payslip-upload-hint strong, .payslip-process strong { color: var(--text); font-size: 11px; }
-.payslip-upload-hint small, .payslip-process small { color: var(--muted); font-size: 10px; line-height: 1.45; }
-.payslip-process { display: grid; gap: 17px; padding: 20px; }
-.payslip-process > div { display: flex; align-items: flex-start; gap: 12px; }
-.payslip-process > div > span { display: grid; place-items: center; flex: 0 0 29px; width: 29px; height: 29px; border: 1px solid rgba(215,168,74,.4); border-radius: 50%; color: var(--gold); background: rgba(215,168,74,.08); font-size: 10px; font-weight: 800; }
-.payslip-process p { margin: 1px 0 0; }
-.payslip-history { max-height: 520px; overflow: auto; }
-.payslip-competence-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-.payslip-competence-toolbar label { display: grid; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 700; }
-.payslip-competence-toolbar input { min-height: 36px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; }
-.payslip-competence-toolbar > span { color: var(--muted); font-size: 11px; }
-.payslip-overview-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.payslip-overview-grid article { display: grid; grid-template-columns: 20px 1fr; align-items: center; gap: 5px 8px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
-.payslip-overview-grid svg { color: var(--gold); }
-.payslip-overview-grid span { color: var(--muted); font-size: 10px; }
-.payslip-overview-grid strong { grid-column: 2; color: var(--text); font-size: 20px; }
-.payslip-scope-note { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; color: #775b25; background: rgba(215,168,74,.09); font-size: 10px; line-height: 1.5; }
-.payslip-scope-note svg { flex: 0 0 auto; margin-top: 1px; }
-.payslip-pending-list { display: grid; gap: 8px; }
-.payslip-pending-list article { display: grid; grid-template-columns: 110px minmax(120px, 1fr) minmax(220px, 2fr) auto; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
-.payslip-pending-list strong { color: var(--text); font-size: 11px; }
-.payslip-pending-list small { color: var(--muted); font-size: 10px; line-height: 1.4; }
-.payslip-pending-status { width: fit-content; padding: 4px 7px; border-radius: 999px; font-size: 9px; font-weight: 800; }
-.payslip-pending-status.is-missing { color: #8b382c; background: #fff1ee; }
-.payslip-pending-status.is-reupload { color: #76551d; background: #fff6df; }
-@media (max-width: 900px) { .payslip-pending-list article { grid-template-columns: 100px 1fr auto; } .payslip-pending-list small { grid-column: 2; grid-row: 2; } .payslip-pending-list button { grid-column: 3; grid-row: 1 / span 2; } }
-@media (max-width: 760px) { .payslip-import-form, .payslip-process { padding: 14px; } .payslip-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 520px) { .payslip-competence-toolbar { align-items: stretch; flex-direction: column; } .payslip-competence-toolbar input { width: 100%; box-sizing: border-box; } .payslip-pending-list article { grid-template-columns: 1fr auto; } .payslip-pending-status { grid-column: 1; } .payslip-pending-list strong { grid-column: 1; } .payslip-pending-list small { grid-column: 1; grid-row: auto; } .payslip-pending-list button { grid-column: 2; grid-row: 1 / span 3; align-self: center; } }
+.payslip-management-page { display:grid; gap:16px; min-width:0; }
+.payslip-header-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
+.payslip-management-page .section-header { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.payslip-management-page .section-header > div:first-child { min-width:0; }
+.payslip-period-picker { display:grid; gap:5px; min-width:150px; color:var(--muted); font-size:10px; font-weight:750; }
+.payslip-period-picker input { min-height:36px; padding:7px 9px; border:1px solid var(--line); border-radius:8px; color:var(--text); background:var(--surface); font:inherit; }
+.payslip-section-body { min-width:0; padding:16px 20px 20px; }
+.payslip-section-body > .state-card { margin:0; }
+.payslip-feedback { display:flex; align-items:flex-start; gap:9px; padding:10px 13px; border:1px solid var(--line); border-radius:10px; font-size:11px; line-height:1.45; }
+.payslip-feedback svg { flex:0 0 auto; margin-top:1px; }
+.payslip-feedback.is-error { border-color:#efc6c0; color:#8b382c; background:#fff5f2; }
+.payslip-feedback.is-success { border-color:#bfdfc8; color:#276542; background:#f3faf5; }
+.payslip-coverage-meter { display:grid; gap:10px; margin-bottom:14px; }
+.payslip-coverage-meter > div:first-child { display:flex; align-items:baseline; gap:9px; }
+.payslip-coverage-meter strong { color:var(--text); font-size:24px; letter-spacing:-.04em; }
+.payslip-coverage-meter span { color:var(--muted); font-size:10px; }
+.payslip-coverage-track { width:100%; height:8px; overflow:hidden; border-radius:999px; background:#eee9ed; }
+.payslip-coverage-track > span { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#b97699,#7e4263); transition:width .24s ease; }
+.payslip-overview-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.payslip-overview-grid article { display:grid; grid-template-columns:20px 1fr; align-items:center; gap:6px 8px; min-width:0; min-height:78px; padding:13px; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
+.payslip-overview-grid svg { grid-row:span 2; color:#777; }
+.payslip-overview-grid span { color:var(--muted); font-size:10px; line-height:1.35; }
+.payslip-overview-grid strong { grid-column:2; color:var(--text); font-size:20px; line-height:1.1; }
+.payslip-overview-grid .tone-blue svg { color:#426b90; }
+.payslip-overview-grid .tone-green svg { color:#28734c; }
+.payslip-overview-grid .tone-red svg { color:#a13d3d; }
+.payslip-overview-grid .tone-amber svg { color:#926b1b; }
+.payslip-scope-details { margin-top:12px; border:1px solid var(--line); border-radius:9px; background:#f8f7f5; }
+.payslip-scope-details summary { display:flex; align-items:center; gap:7px; padding:9px 11px; color:var(--muted); font-size:10px; font-weight:750; cursor:pointer; list-style:none; }
+.payslip-scope-details summary::-webkit-details-marker { display:none; }
+.payslip-scope-details[open] summary { border-bottom:1px solid var(--line); }
+.payslip-scope-details > div { padding:9px 11px 11px; }
+.payslip-scope-details p,.payslip-scope-details small { display:block; margin:0; color:var(--muted); font-size:10px; line-height:1.5; }
+.payslip-scope-details small { margin-top:5px; }
+.payslip-management-workspace { grid-template-columns:minmax(0,1.08fr) minmax(350px,.92fr); gap:16px; align-items:stretch; margin:0; }
+.payslip-management-workspace > .section-card { min-width:0; }
+.payslip-list-toolbar { display:grid; grid-template-columns:minmax(180px,1fr) minmax(125px,170px) auto; align-items:end; gap:9px; margin-bottom:12px; }
+.payslip-search-field { display:flex; align-items:center; gap:8px; min-width:0; min-height:36px; padding:0 10px; border:1px solid var(--line); border-radius:8px; color:var(--muted); background:var(--surface); }
+.payslip-search-field:focus-within { border-color:#b77e9b; box-shadow:0 0 0 3px rgba(163,63,112,.1); }
+.payslip-search-field svg { flex:0 0 auto; }
+.payslip-search-field input { width:100%; min-width:0; border:0; outline:0; color:var(--text); background:transparent; font:inherit; font-size:10px; }
+.payslip-search-field input::placeholder { color:var(--muted); }
+.payslip-select-filter { display:grid; gap:4px; color:var(--muted); font-size:9px; font-weight:750; }
+.payslip-select-filter select { min-height:36px; min-width:0; padding:7px 8px; border:1px solid var(--line); border-radius:8px; color:var(--text); background:var(--surface); font:inherit; font-size:10px; }
+.payslip-results-count { padding:0 0 9px; color:var(--muted); font-size:9px; white-space:nowrap; }
+.payslip-pending-list { display:grid; gap:7px; max-height:510px; overflow:auto; overscroll-behavior:contain; }
+.payslip-pending-list article { display:grid; grid-template-columns:100px minmax(110px,1fr) minmax(150px,1.45fr) auto; align-items:center; gap:8px 10px; min-width:0; padding:10px 11px; border:1px solid var(--line); border-radius:9px; background:var(--surface); }
+.payslip-pending-list article > strong { min-width:0; overflow:hidden; color:var(--text); font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+.payslip-pending-list article > small { color:var(--muted); font-size:9px; line-height:1.4; }
+.payslip-pending-list article > button { min-height:32px; padding:6px 8px; font-size:9px; white-space:nowrap; }
+.payslip-pending-status { width:fit-content; padding:4px 7px; border-radius:999px; font-size:9px; font-weight:800; white-space:nowrap; }
+.payslip-pending-status.is-missing { color:#8b382c; background:#fff1ee; }
+.payslip-pending-status.is-reupload { color:#76551d; background:#fff6df; }
+.payslip-limit-note { display:flex; align-items:flex-start; gap:7px; margin:11px 0 0; padding:9px 10px; border:1px solid rgba(215,168,74,.22); border-radius:8px; color:#765d28; background:rgba(215,168,74,.07); font-size:9px; line-height:1.45; }
+.payslip-limit-note svg { flex:0 0 auto; }
+.payslip-import-form { display:grid; gap:12px; margin:0; padding:0; }
+.payslip-import-form > label { display:grid; gap:5px; color:var(--text); font-size:10px; font-weight:750; }
+.payslip-import-form input:not([type='file']),.payslip-import-form select { width:100%; min-height:38px; box-sizing:border-box; padding:8px 10px; border:1px solid var(--line); border-radius:8px; color:var(--text); background:var(--surface); font:inherit; font-size:11px; }
+.payslip-import-form input[type='file'] { width:100%; box-sizing:border-box; padding:10px; border:1px dashed #cfbac7; border-radius:9px; color:var(--muted); background:var(--surface); font:inherit; font-size:10px; }
+.payslip-file-picker { position:relative; }
+.payslip-file-picker input[type='file'] { margin-top:1px; }
+.payslip-upload-hint { display:flex; align-items:center; gap:10px; min-width:0; padding:11px 12px; border:1px dashed rgba(163,63,112,.3); border-radius:9px; color:#8a4e6c; background:rgba(163,63,112,.045); }
+.payslip-upload-hint > div { display:grid; gap:3px; min-width:0; }
+.payslip-upload-hint strong { color:var(--text); font-size:10px; }
+.payslip-upload-hint small { color:var(--muted); font-size:9px; }
+.payslip-upload-hint svg { flex:0 0 auto; }
+.payslip-privacy-note { display:flex; align-items:flex-start; gap:7px; padding:9px 10px; border:1px solid #d9e7f0; border-radius:8px; color:#53677c; background:#f7fbfe; font-size:9px; line-height:1.45; }
+.payslip-privacy-note svg { flex:0 0 auto; }
+.payslip-submit-button { justify-content:center; min-height:42px; }
+.payslip-no-employees { color:#8b382c; font-size:9px; }
+.payslip-history-body { min-width:0; }
+.payslip-history-toolbar { grid-template-columns:minmax(220px,1fr) minmax(140px,190px) minmax(150px,190px); margin-bottom:14px; }
+.payslip-history-table-wrap { max-height:560px; overflow:auto; border:1px solid var(--line); border-radius:9px; }
+.payslip-history-table-wrap table { min-width:1020px; }
+.payslip-history-table-wrap th { position:sticky; top:0; z-index:1; background:#f3f5f6; }
+.payslip-history-table-wrap td { vertical-align:middle; font-size:10px; }
+.payslip-file-name { display:inline-flex; align-items:center; gap:6px; max-width:230px; overflow:hidden; color:var(--muted); text-overflow:ellipsis; white-space:nowrap; }
+.payslip-file-name svg { flex:0 0 auto; color:#8a4e6c; }
+.payslip-history-status { display:inline-flex; align-items:center; width:max-content; padding:4px 7px; border-radius:999px; font-size:9px; font-weight:800; white-space:nowrap; }
+.payslip-history-status.is-disponivel { color:#24613b; background:#eaf6ee; }
+.payslip-history-status.is-reenvio { color:#76551d; background:#fff6df; }
+.payslip-history-status.is-indisponivel { color:#8b382c; background:#fff1ee; }
+.payslip-row-actions { display:flex; align-items:center; gap:5px; white-space:nowrap; }
+.payslip-row-actions .secondary-button { min-height:30px; padding:5px 7px; font-size:9px; }
+.payslip-row-actions .secondary-button:disabled { opacity:.5; }
+@media (max-width:1200px) {
+  .payslip-management-workspace { grid-template-columns:1fr; }
+  .payslip-pending-list article { grid-template-columns:100px minmax(130px,1fr) auto; }
+  .payslip-pending-list article > small { grid-column:2; grid-row:2; }
+  .payslip-pending-list article > button { grid-column:3; grid-row:1 / span 2; }
+}
+@media (max-width:760px) {
+  .payslip-management-page { gap:13px; }
+  .payslip-section-body { padding:14px; }
+  .payslip-management-page .section-header { align-items:flex-start; flex-direction:column; }
+  .payslip-management-page .section-header-action { width:100%; }
+  .payslip-period-picker { width:100%; }
+  .payslip-header-actions { width:100%; justify-content:flex-start; }
+  .payslip-overview-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .payslip-list-toolbar,.payslip-history-toolbar { grid-template-columns:minmax(0,1fr) minmax(120px,160px); }
+  .payslip-search-field { grid-column:1/-1; }
+  .payslip-results-count { grid-column:1/-1; padding:0; }
+  .payslip-pending-list article { grid-template-columns:minmax(0,1fr) auto; }
+  .payslip-pending-list article > strong,.payslip-pending-list article > small { grid-column:1; }
+  .payslip-pending-list article > small { grid-row:auto; }
+  .payslip-pending-list article > button { grid-column:2; grid-row:1 / span 3; }
+}
+@media (max-width:520px) {
+  .payslip-overview-grid { gap:7px; }
+  .payslip-overview-grid article { min-height:70px; padding:10px; }
+  .payslip-overview-grid span { font-size:9px; }
+  .payslip-list-toolbar,.payslip-history-toolbar { grid-template-columns:1fr; }
+  .payslip-search-field,.payslip-results-count { grid-column:1; }
+  .payslip-select-filter select { width:100%; }
+  .payslip-pending-list article { grid-template-columns:minmax(0,1fr); }
+  .payslip-pending-list article > strong,.payslip-pending-list article > small,.payslip-pending-list article > button { grid-column:1; grid-row:auto; }
+  .payslip-pending-list article > button { justify-content:center; width:100%; }
+  .payslip-header-actions .secondary-button { flex:1; justify-content:center; }
+}

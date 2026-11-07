@@ -192,7 +192,7 @@ const navItems: NavItem[] = [
   { key: 'dividas', label: 'Dívidas', description: 'Saldos e vencimentos', icon: WalletCards, group: 'Controle', profiles: adminProfiles },
   { key: 'relatorios', label: 'Relatórios', description: 'Leituras da operação', icon: BarChart3, group: 'Controle', profiles: managerProfiles },
   { key: 'importacoes', label: 'Gestão de ponto', description: 'Equipe, importações e jornadas', icon: FileSpreadsheet, group: 'Controle', profiles: managerProfiles },
-  { key: 'importar_holerite', label: 'Importar holerite', description: 'PDF por funcionário e competência', icon: Receipt, group: 'Controle', profiles: managerProfiles },
+  { key: 'importar_holerite', label: 'Gestão de Holerites', description: 'Documentos, cobertura e pendências', icon: Receipt, group: 'Controle', profiles: managerProfiles },
   { key: 'rh', label: 'Recursos humanos', description: 'Painel e operações de RH', icon: BriefcaseBusiness, group: 'Pessoas', profiles: adminProfiles },
   { key: 'perfil', label: 'Meu perfil', description: 'Dados cadastrais', icon: UserRound, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
   { key: 'ponto', label: 'Meu ponto', description: 'Jornada registrada', icon: Fingerprint, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
@@ -1830,7 +1830,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'avisos') return <NoticesView token={token} onUnreadChange={setUnreadNotices} canMarkRead={user.perfil === 'funcionario'} />
     if (active === 'solicitacoes') return <EmployeeHRRequests token={token} />
     if (active === 'importacoes') return <Suspense fallback={<LoadingState label="Carregando gestão de ponto…" />}><PointManagementDashboard team={(refreshSignal) => <PointView token={token} user={user} refreshSignal={refreshSignal} />} imports={<PointImportsView token={token} />} schedules={<PointSchedulesPanel token={token} />} /></Suspense>
-    if (active === 'importar_holerite') return <PayslipImportDashboard token={token} />
+    if (active === 'importar_holerite') return <PayslipImportDashboard token={token} onNavigateToPayroll={adminProfiles.includes(user.perfil) ? () => navigate('folha') : undefined} />
     if (active === 'beneficios_descontos') return adminProfiles.includes(user.perfil)
       ? <PayrollManagementDashboard token={token} initialTab="beneficios" />
       : <><PageHeading eyebrow="Acesso restrito" title="Folha de pagamento" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
