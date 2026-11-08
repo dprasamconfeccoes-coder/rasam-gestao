@@ -1250,6 +1250,29 @@ button, .nav-item, .secondary-button, .primary-button, .icon-button { min-height
 .global-search-result small { margin-top:3px; color:var(--muted); font-size:10px; }
 .global-search-kind { padding:4px 6px; border-radius:5px; color:#f3d890; background:rgba(215,168,74,.12); font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; }
 .global-search-result > svg { color:var(--gold); }
+.sidebar-preference-button { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; margin-left:auto; border:1px solid var(--line); border-radius:8px; color:var(--muted); background:transparent; }
+.sidebar-preference-button:hover { color:var(--gold); border-color:rgba(215,168,74,.45); }
+.sidebar.is-compact { width:82px; }
+.sidebar.is-compact ~ .main-area { margin-left:82px; }
+.sidebar.is-compact .sidebar-brand { justify-content:center; padding-left:12px; padding-right:12px; }
+.sidebar.is-compact .sidebar-brand > div, .sidebar.is-compact .sidebar-user > span:not(.sidebar-user-arrow), .sidebar.is-compact .nav-label, .sidebar.is-compact .nav-item span:not(.nav-badge), .sidebar.is-compact .logout-button, .sidebar.is-compact .help-button { display:none; }
+.sidebar.is-compact .sidebar-user, .sidebar.is-compact .nav-item { justify-content:center; }
+.sidebar.is-compact .nav-item { padding-left:0; padding-right:0; }
+.sidebar.is-compact .sidebar-preference-button { margin-left:0; }
+.sidebar-footer-actions { margin-top:auto; }
+.help-button { display:flex; align-items:center; gap:10px; width:calc(100% - 42px); margin:0 21px; padding:11px 12px; border:0; border-top:1px solid var(--line); color:var(--muted); background:transparent; text-align:left; font-size:12px; }
+.help-button:hover { color:var(--gold); }
+.help-button kbd { margin-left:auto; padding:2px 5px; border:1px solid var(--line); border-radius:4px; font-size:10px; }
+.phase3-help-backdrop { position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:22px; background:rgba(9,11,15,.68); backdrop-filter:blur(5px); }
+.phase3-help-dialog { width:min(560px,100%); border:1px solid rgba(215,168,74,.3); border-radius:18px; padding:24px; background:#151922; color:#eef0f4; box-shadow:0 28px 90px rgba(0,0,0,.38); }
+.phase3-help-dialog header, .phase3-help-dialog footer { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.phase3-help-dialog h2 { margin:8px 0 0; font-size:25px; letter-spacing:-.04em; }
+.phase3-help-dialog > p { margin:18px 0; color:var(--muted); font-size:13px; line-height:1.6; }
+.phase3-shortcuts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-bottom:22px; }
+.phase3-shortcuts > div { display:flex; align-items:center; gap:7px; padding:10px; border:1px solid var(--line); border-radius:9px; color:var(--muted); font-size:11px; }
+.phase3-shortcuts kbd { min-width:24px; padding:4px 5px; border:1px solid rgba(215,168,74,.32); border-radius:5px; color:#f3d890; background:rgba(215,168,74,.1); text-align:center; font-size:10px; }
+.phase3-help-dialog footer { padding-top:16px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; }
+.phase3-help-dialog footer .primary-button { margin-top:0; padding:9px 13px; }
 @media (max-width:760px) {
   .topbar-actions { gap:8px; }
   .global-search-box { width:42px; min-width:42px; justify-content:center; padding:0; }
@@ -1259,4 +1282,14 @@ button, .nav-item, .secondary-button, .primary-button, .icon-button { min-height
   .global-search-box.is-open kbd { display:none; }
   .connection-status, .topbar-user-meta { display:none; }
   .global-search-results { position:fixed; top:62px; left:14px; right:14px; width:auto; max-height:calc(100vh - 82px); }
+  .sidebar.is-compact { width:270px; }
+  .sidebar.is-compact ~ .main-area { margin-left:0; }
+  .sidebar.is-compact .sidebar-brand > div, .sidebar.is-compact .sidebar-user > span:not(.sidebar-user-arrow), .sidebar.is-compact .nav-label, .sidebar.is-compact .nav-item span:not(.nav-badge), .sidebar.is-compact .logout-button, .sidebar.is-compact .help-button { display:block; }
+  .sidebar.is-compact .sidebar-user, .sidebar.is-compact .nav-item { justify-content:flex-start; }
+  .sidebar.is-compact .nav-item { padding-left:12px; padding-right:12px; }
+  .phase3-help-backdrop { padding:14px; }
+  .phase3-help-dialog { padding:18px; }
+  .phase3-shortcuts { grid-template-columns:1fr; }
+  .phase3-help-dialog footer { align-items:flex-start; flex-direction:column; }
+  .phase3-help-dialog footer .primary-button { width:100%; }
 }

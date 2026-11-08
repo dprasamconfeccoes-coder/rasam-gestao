@@ -30,6 +30,7 @@ import {
   Info,
   HardHat,
   HeartPulse,
+  HelpCircle,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -1819,7 +1820,12 @@ function ControlModuleView({ token, module }: { token: string; module: ModuleKey
 
 function Shell({ user, token, onLogout }: { user: SessionUser; token: string; onLogout: () => void }) {
   const allowedItems = navItems.filter((item) => item.profiles.includes(user.perfil))
-  const [active, setActive] = useState<ModuleKey>(allowedItems[0]?.key || 'perfil')
+  const preferenceKey = `rf-gestao-preferences-${user.usuario_id}`
+  const [active, setActive] = useState<ModuleKey>(() => {
+    try { const saved = localStorage.getItem(`${preferenceKey}-active`); return saved && allowedItems.some((item) => item.key === saved) ? saved as ModuleKey : allowedItems[0]?.key || 'perfil' } catch { return allowedItems[0]?.key || 'perfil' }
+  })
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [compactSidebar, setCompactSidebar] = useState(() => localStorage.getItem(`${preferenceKey}-compact`) === 'true')
   const [mobileMenu, setMobileMenu] = useState(false)
   const [profile, setProfile] = useState<EmployeeProfile>()
   const [unreadNotices, setUnreadNotices] = useState(0)
@@ -1845,9 +1851,27 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
   function navigate(key: ModuleKey) {
     if (!allowedItems.some((item) => item.key === key)) return
     setActive(key)
+    localStorage.setItem(`${preferenceKey}-active`, key)
     setMobileMenu(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+  useEffect(() => { localStorage.setItem(`${preferenceKey}-compact`, String(compactSidebar)) }, [compactSidebar, preferenceKey])
+  useEffect(() => {
+    let sequence = ''
+    const onShortcut = (event: KeyboardEvent) => {
+      const tag = (event.target as HTMLElement)?.tagName || ''
+      if (event.key === '?' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) { event.preventDefault(); setHelpOpen((value) => !value); return }
+      if (event.key === 'Escape') { setHelpOpen(false); return }
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return
+      sequence = `${sequence}${event.key.toLowerCase()}`.slice(-2)
+      const shortcuts: Record<string, ModuleKey> = { gd: 'dashboard', gf: 'funcionarios', go: 'ordens', gl: 'financeiro', gr: 'relatorios', gh: 'rh' }
+      const destination = shortcuts[sequence]
+      if (destination && allowedItems.some((item) => item.key === destination)) { navigate(destination); sequence = '' }
+      window.setTimeout(() => { sequence = '' }, 900)
+    }
+    window.addEventListener('keydown', onShortcut)
+    return () => window.removeEventListener('keydown', onShortcut)
+  }, [allowedItems, preferenceKey])
   function renderPage() {
     if (active === 'dashboard') return adminProfiles.includes(user.perfil) ? <DashboardView token={token} user={user} onNavigate={navigate} /> : <><PageHeading eyebrow="Acesso restrito" title="Visão geral" /><ErrorState message="Esta visão está disponível somente para perfis administradores." /></>
     if (active === 'visao_inteligente') return adminProfiles.includes(user.perfil) ? <IntelligentView token={token} /> : <><PageHeading eyebrow="Acesso restrito" title="Visão inteligente" /><ErrorState message="Esta visão está disponível somente para perfis administradores." /></>
@@ -1893,11 +1917,12 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
   }
   return (
     <div className="app-shell">
-      <aside id="primary-navigation" className={`sidebar ${mobileMenu ? 'is-open' : ''}`} aria-label="Navegação principal">
+      <aside id="primary-navigation" className={`sidebar ${mobileMenu ? 'is-open' : ''} ${compactSidebar ? 'is-compact' : ''}`} aria-label="Navegação principal">
         <div className="sidebar-brand">
           <img className="brand-logo" src={rfLogo} alt="RF — Rafaela Fernandes" />
           <div><strong>RF</strong><span>Rafaela Fernandes</span></div>
           <button className="close-mobile" onClick={() => setMobileMenu(false)} aria-label="Fechar menu"><X size={18} /></button>
+          <button className="sidebar-preference-button" type="button" onClick={() => setCompactSidebar((value) => !value)} aria-label={compactSidebar ? 'Expandir menu lateral' : 'Recolher menu lateral'} title={compactSidebar ? 'Expandir menu' : 'Recolher menu'}><ChevronLeft size={16} /></button>
         </div>
         <nav aria-label="Módulos do sistema">
           {groups.map((group) => (
@@ -1914,7 +1939,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
             </div>
           ))}
         </nav>
-        <button className="logout-button" onClick={onLogout}><LogOut size={17} /> Sair da sessão</button>
+        <div className="sidebar-footer-actions"><button className="help-button" type="button" onClick={() => setHelpOpen(true)}><HelpCircle size={17} /> Ajuda e atalhos <kbd>?</kbd></button><button className="logout-button" onClick={onLogout}><LogOut size={17} /> Sair da sessão</button></div>
       </aside>
       <div className={`shell-backdrop ${mobileMenu ? 'visible' : ''}`} onClick={() => setMobileMenu(false)} />
       <main className="main-area">
@@ -1933,6 +1958,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
         <div className="content-wrap">{renderPage()}</div>
         <footer className="app-footer"><span>RF Gestão · {new Date().getFullYear()}</span><span>Sessão segura</span></footer>
       </main>
+      {helpOpen && <div className="phase3-help-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHelpOpen(false) }}><section className="phase3-help-dialog" role="dialog" aria-modal="true" aria-labelledby="phase3-help-title"><header><div><span className="eyebrow">Produtividade RF Gestão</span><h2 id="phase3-help-title">Ajuda e atalhos</h2></div><button className="icon-button" type="button" onClick={() => setHelpOpen(false)} aria-label="Fechar ajuda"><X size={18} /></button></header><p>Use a busca global para localizar registros reais do seu escopo e os atalhos abaixo para navegar sem retirar as mãos do teclado.</p><div className="phase3-shortcuts"><div><kbd>/</kbd><span>Abrir busca global</span></div><div><kbd>?</kbd><span>Abrir esta ajuda</span></div><div><kbd>G</kbd><kbd>D</kbd><span>Visão geral</span></div><div><kbd>G</kbd><kbd>F</kbd><span>Funcionários</span></div><div><kbd>G</kbd><kbd>O</kbd><span>Ordens</span></div><div><kbd>G</kbd><kbd>L</kbd><span>Financeiro</span></div><div><kbd>G</kbd><kbd>R</kbd><span>Relatórios</span></div><div><kbd>Esc</kbd><span>Fechar janelas</span></div></div><footer><span>Preferências de menu e último módulo ficam salvas neste dispositivo.</span><button className="primary-button" type="button" onClick={() => setHelpOpen(false)}>Entendi</button></footer></section></div>}
     </div>
   )
 }
