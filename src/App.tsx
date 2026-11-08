@@ -231,6 +231,53 @@ function initials(name: string) {
   return name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'RF'
 }
 
+type GlobalSearchResult = { id: string; title: string; subtitle: string; kind: string; destination: ModuleKey }
+
+function GlobalSearch({ token, canSearchAll, onNavigate }: { token: string; canSearchAll: boolean; onNavigate: (key: ModuleKey) => void }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [results, setResults] = useState<GlobalSearchResult[]>([])
+  const [error, setError] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    const openSearch = (event: KeyboardEvent) => {
+      if (event.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes((event.target as HTMLElement)?.tagName || '')) { event.preventDefault(); setOpen(true); window.setTimeout(() => inputRef.current?.focus(), 0) }
+      if (event.key === 'Escape') { setOpen(false); inputRef.current?.blur() }
+    }
+    window.addEventListener('keydown', openSearch)
+    return () => window.removeEventListener('keydown', openSearch)
+  }, [])
+  useEffect(() => {
+    const term = query.trim()
+    if (term.length < 2) { setResults([]); setError(''); return }
+    let cancelled = false
+    const timer = window.setTimeout(async () => {
+      setLoading(true); setError('')
+      try {
+        const employeePromise = searchEmployees(token, { busca: term, limite: 6 })
+        const [employees, orders, agreements, finance] = await Promise.all([
+          employeePromise,
+          canSearchAll ? listOrders(token) : Promise.resolve({ sucesso: true, ordens: [] }),
+          canSearchAll ? listAgreements(token) : Promise.resolve({ sucesso: true, parcelas: [] }),
+          canSearchAll ? adminFinanceiroWorkspace(token) : Promise.resolve({ sucesso: true, contas: [] }),
+        ])
+        if (cancelled) return
+        const normalized = term.toLocaleLowerCase('pt-BR')
+        const next: GlobalSearchResult[] = []
+        for (const row of employees.registros || []) next.push({ id: row.id, title: row.nome, subtitle: [row.cargo, row.cpf ? `CPF final ${String(row.cpf).slice(-2)}` : ''].filter(Boolean).join(' · '), kind: 'Funcionário', destination: 'funcionarios' })
+        for (const row of orders.ordens || []) if (`${row.numero} ${row.cliente || ''} ${row.descricao || ''}`.toLocaleLowerCase('pt-BR').includes(normalized)) next.push({ id: row.id, title: row.numero || 'Ordem de serviço', subtitle: [row.cliente, row.status].filter(Boolean).join(' · '), kind: 'Ordem', destination: 'ordens' })
+        for (const row of agreements.parcelas || []) if (`${row.processo || ''} ${row.funcionario_nome || ''}`.toLocaleLowerCase('pt-BR').includes(normalized)) next.push({ id: row.id, title: row.processo || 'Acordo trabalhista', subtitle: [row.funcionario_nome, row.status].filter(Boolean).join(' · '), kind: 'Acordo', destination: 'acordos' })
+        for (const row of finance.contas || []) if (`${row.descricao || ''} ${row.categoria || ''}`.toLocaleLowerCase('pt-BR').includes(normalized)) next.push({ id: row.id || `${row.descricao}`, title: row.descricao || 'Lançamento financeiro', subtitle: [row.categoria, row.status].filter(Boolean).join(' · '), kind: 'Financeiro', destination: 'financeiro' })
+        setResults(next.slice(0, 12))
+      } catch (err) { if (!cancelled) setError(err instanceof Error ? err.message : 'Não foi possível consultar os registros.') }
+      finally { if (!cancelled) setLoading(false) }
+    }, 280)
+    return () => { cancelled = true; window.clearTimeout(timer) }
+  }, [canSearchAll, query, token])
+  return <div className="global-search"><div className={`global-search-box ${open ? 'is-open' : ''}`}><Search size={16} /><input ref={inputRef} value={query} onFocus={() => setOpen(true)} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar registros…" aria-label="Busca global" /><kbd>/</kbd></div>{open && <><button className="global-search-backdrop" type="button" aria-label="Fechar busca" onClick={() => setOpen(false)} /><div className="global-search-results" role="dialog" aria-label="Resultados da busca global">{query.trim().length < 2 ? <p className="global-search-hint">Digite pelo menos 2 caracteres para buscar funcionários, ordens, acordos e lançamentos.</p> : loading ? <p className="global-search-hint">Consultando dados reais…</p> : error ? <p className="global-search-error">{error}</p> : results.length === 0 ? <p className="global-search-hint">Nenhum registro encontrado com este termo.</p> : results.map((result) => <button type="button" className="global-search-result" key={`${result.kind}-${result.id}`} onClick={() => { onNavigate(result.destination); setOpen(false) }}><span className="global-search-kind">{result.kind}</span><span><strong>{result.title}</strong><small>{result.subtitle || 'Sem detalhes adicionais'}</small></span><ArrowRight size={15} /></button>)}</div></>}</div>
+}
+
 function UserAvatar({ name, url, className = '' }: { name: string; url?: string | null; className?: string }) {
   return <div className={`user-avatar ${className}`} aria-label={`Foto de ${name}`}>
     {url ? <img src={url} alt={`Foto de ${name}`} /> : initials(name)}
@@ -1875,6 +1922,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
           <button className="mobile-menu-button" onClick={() => setMobileMenu(true)} aria-label="Abrir menu" aria-controls="primary-navigation" aria-expanded={mobileMenu}><Menu size={20} /></button>
           <div className="breadcrumbs"><span>RF Gestão</span><ChevronRight size={14} /><strong>{activeLabel}</strong></div>
           <div className="topbar-actions">
+            <GlobalSearch token={token} canSearchAll={adminProfiles.includes(user.perfil)} onNavigate={navigate} />
             <span className="connection-status"><span className="live-dot">●</span> Supabase conectado</span>
             <div className="topbar-user">
               <UserAvatar name={displayName} url={profile?.avatar_url} className="topbar-avatar" />
