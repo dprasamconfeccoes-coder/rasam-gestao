@@ -1786,6 +1786,10 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     window.addEventListener('focus', refreshCount)
     return () => { cancelled = true; window.clearInterval(timer); window.removeEventListener('focus', refreshCount) }
   }, [token, user.perfil])
+  useEffect(() => {
+    document.body.classList.toggle('mobile-nav-open', mobileMenu)
+    return () => document.body.classList.remove('mobile-nav-open')
+  }, [mobileMenu])
   const displayName = profile?.nome || user.nome
   const displayCargo = profile?.cargo || user.cargo
   const activeItem = navItems.find((item) => item.key === active) || navItems[0]
@@ -1842,13 +1846,13 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
   }
   return (
     <div className="app-shell">
-      <aside className={`sidebar ${mobileMenu ? 'is-open' : ''}`}>
+      <aside id="primary-navigation" className={`sidebar ${mobileMenu ? 'is-open' : ''}`} aria-label="Navegação principal">
         <div className="sidebar-brand">
           <img className="brand-logo" src={rfLogo} alt="RF — Rafaela Fernandes" />
           <div><strong>RF</strong><span>Rafaela Fernandes</span></div>
           <button className="close-mobile" onClick={() => setMobileMenu(false)} aria-label="Fechar menu"><X size={18} /></button>
         </div>
-        <nav>
+        <nav aria-label="Módulos do sistema">
           {groups.map((group) => (
             <div className="nav-group" key={group}>
               <span className="nav-label">{group}</span>
@@ -1868,7 +1872,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
       <div className={`shell-backdrop ${mobileMenu ? 'visible' : ''}`} onClick={() => setMobileMenu(false)} />
       <main className="main-area">
         <header className="topbar">
-          <button className="mobile-menu-button" onClick={() => setMobileMenu(true)} aria-label="Abrir menu"><Menu size={20} /></button>
+          <button className="mobile-menu-button" onClick={() => setMobileMenu(true)} aria-label="Abrir menu" aria-controls="primary-navigation" aria-expanded={mobileMenu}><Menu size={20} /></button>
           <div className="breadcrumbs"><span>RF Gestão</span><ChevronRight size={14} /><strong>{activeLabel}</strong></div>
           <div className="topbar-actions">
             <span className="connection-status"><span className="live-dot">●</span> Supabase conectado</span>
