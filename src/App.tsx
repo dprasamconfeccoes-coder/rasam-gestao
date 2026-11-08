@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Component, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import {
   AlertCircle,
@@ -180,6 +180,15 @@ function redactOperationalDashboard(data: DashboardResponse): DashboardResponse 
 }
 
 type NavItem = { key: ModuleKey; label: string; description: string; icon: typeof Gauge; group: string; profiles: Profile[] }
+
+class AppErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  render() {
+    if (!this.state.failed) return this.props.children
+    return <main className="app-error-screen"><AlertTriangle size={30} /><h1>Não foi possível carregar esta tela</h1><p>O restante da sessão foi preservado. Recarregue a página para tentar novamente.</p><button className="primary-button" type="button" onClick={() => window.location.reload()}>Recarregar sistema</button></main>
+  }
+}
 
 const navItems: NavItem[] = [
   { key: 'dashboard', label: 'Visão geral', description: 'Prioridades administrativas', icon: LayoutDashboard, group: 'Operação', profiles: adminProfiles },
@@ -1974,5 +1983,5 @@ export default function App() {
   if (booting) return <main className="boot-screen"><div className="brand-lockup"><img className="brand-logo" src={rfLogo} alt="RF — Rafaela Fernandes" /><div><strong>RF</strong><span>Rafaela Fernandes</span></div></div><RefreshCw className="spin" size={20} /><span>Carregando seu ambiente…</span></main>
   if (!user || !token) return <LoginScreen onLoggedIn={loggedIn} />
   if (firstAccess) return <FirstAccessScreen token={token} user={user} onDone={() => setFirstAccess(false)} onLogout={signOut} />
-  return <Shell user={user} token={token} onLogout={signOut} />
+  return <AppErrorBoundary><Shell user={user} token={token} onLogout={signOut} /></AppErrorBoundary>
 }

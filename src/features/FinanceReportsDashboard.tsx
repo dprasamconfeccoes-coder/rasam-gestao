@@ -20,6 +20,7 @@ import type { FinanceiroRelatorioResponse } from '../lib/types'
 import { EmptyState, ErrorState, LoadingState, SectionCard, formatDate, formatMoney } from '../components/ui'
 import { downloadReportCsv, downloadReportImage, downloadReportPdf, downloadReportXlsx, type ReportExportColumn, type ReportCell } from '../lib/report-export'
 import { PayrollClosingReports, specialReportOptions, type SpecialReportType } from './PayrollClosingReports'
+import { usePersistentState } from '../lib/persistent-state'
 import './finance-reports.css'
 
 type ReportType =
@@ -127,19 +128,19 @@ function iconFor(icon: ReportDefinition['icon']) {
 }
 
 export function FinanceReportsDashboard({ token, isAdmin = false }: { token: string; isAdmin?: boolean }) {
-  const [today] = useState(saoPauloToday)
-  const [start, setStart] = useState(saoPauloMonthStart)
-  const [end, setEnd] = useState(today)
-  const [type, setType] = useState<ReportType>('fluxo')
+  const today = saoPauloToday()
+  const [start, setStart] = usePersistentState('rf-gestao-context-reports-start-v1', saoPauloMonthStart())
+  const [end, setEnd] = usePersistentState('rf-gestao-context-reports-end-v1', today)
+  const [type, setType] = usePersistentState<ReportType>('rf-gestao-context-reports-type-v1', 'fluxo')
   const [data, setData] = useState<FinanceiroRelatorioResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const [showCatalog, setShowCatalog] = useState(true)
   const [specialReport, setSpecialReport] = useState<SpecialReportType | null>(null)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('')
+  const [search, setSearch] = usePersistentState('rf-gestao-context-reports-search-v1', '')
+  const [statusFilter, setStatusFilter] = usePersistentState('rf-gestao-context-reports-status-v1', '')
+  const [categoryFilter, setCategoryFilter] = usePersistentState('rf-gestao-context-reports-category-v1', '')
   const [lastGenerated, setLastGenerated] = useState('')
   const requestId = useRef(0)
 

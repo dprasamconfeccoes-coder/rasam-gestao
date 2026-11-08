@@ -3,6 +3,7 @@ import { ArrowRight, Check, ChevronDown, CircleDollarSign, ClipboardList, Clock3
 import { createOrderClient, createWorkOrder, getWorkOrderDashboard, getWorkOrderDocumentUrl, searchOrderClients, updateWorkOrderFinance, uploadWorkOrderDocument } from '../lib/api'
 import type { CreateWorkOrderPayload, OrderDocumentRow, OrderRow, WorkOrderSummary } from '../lib/types'
 import { ConfirmationModal, EmptyState, ErrorState, LoadingState, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
+import { clearPersistentState, usePersistentState } from '../lib/persistent-state'
 import './work-orders.css'
 
 type FilterKey = 'todas' | 'recebida' | 'em_producao' | 'costurada' | 'expedida' | 'entregue' | 'vencida' | 'vence_7_dias' | 'pagamento_pendente' | 'pago' | 'sem_nf'
@@ -30,6 +31,10 @@ const auditLabels: Record<string, string> = {
   ordem_campos_comerciais_incluidos: 'Fornecedor, referência e preço do lote registrados',
   progresso_atualizado: 'Progresso por tamanho atualizado',
   financeiro_liberado: 'Lote liberado para financeiro', documento_adicionado: 'Documento anexado',
+}
+function humanAuditLabel(evento: string) {
+  if (auditLabels[evento]) return auditLabels[evento]
+  return evento.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 const emptySummary: WorkOrderSummary = {
   total_ordens: 0, ordens_ativas: 0, recebidas: 0, em_producao: 0, costuradas: 0, expedidas: 0, entregues: 0,
@@ -79,8 +84,8 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
   const [saving, setSaving] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState<FilterKey>('todas')
+  const [query, setQuery] = usePersistentState('rf-gestao-context-orders-query-v1', '')
+  const [filter, setFilter] = usePersistentState<FilterKey>('rf-gestao-context-orders-filter-v1', 'todas')
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [selectedClient, setSelectedClient] = useState<ClientChoice | null>(null)
@@ -92,8 +97,8 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
   const [confirmationBusy, setConfirmationBusy] = useState(false)
   const formAnchorRef = useRef<HTMLDivElement>(null)
   const formErrorRef = useRef<HTMLDivElement>(null)
-  const [form, setForm] = useState({ cliente: '', fornecedor: '', referencia: '', descricao: '', prioridade: 'normal', prazo: '', observacoes: '', valor_unitario: '' })
-  const [sizes, setSizes] = useState<SizeDraft[]>([{ tamanho: 'M', quantidade: '1' }])
+  const [form, setForm] = usePersistentState('rf-gestao-draft-order-form-v1', { cliente: '', fornecedor: '', referencia: '', descricao: '', prioridade: 'normal', prazo: '', observacoes: '', valor_unitario: '' })
+  const [sizes, setSizes] = usePersistentState<SizeDraft[]>('rf-gestao-draft-order-sizes-v1', [{ tamanho: 'M', quantidade: '1' }])
 
   const reload = useCallback(async (showSpinner = true) => {
     if (showSpinner) setLoading(true)
@@ -234,6 +239,7 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
         const result = await createWorkOrder(token, confirmation.payload)
         if (!result.sucesso) throw new Error(result.erro || 'Não foi possível cadastrar a ordem.')
         setNotice(`Ordem ${result.numero || ''} criada com ${(result.quantidade || orderQuantity).toLocaleString('pt-BR')} unidades · ${formatMoney(result.valor_total ?? orderTotal)}.`)
+        clearPersistentState('rf-gestao-draft-order-form-v1'); clearPersistentState('rf-gestao-draft-order-sizes-v1')
         setForm({ cliente: '', fornecedor: '', referencia: '', descricao: '', prioridade: 'normal', prazo: '', observacoes: '', valor_unitario: '' })
         setSelectedClient(null); setClientMatches([])
         setSizes([{ tamanho: 'M', quantidade: '1' }]); setShowForm(false)
@@ -388,7 +394,7 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
                 {ready && <div className="work-order-document-actions"><label className="work-order-upload"><Upload size={14} /><span>Anexar nota fiscal</span><input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" disabled={financialSaving} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) setConfirmation({ kind: 'document', order, type: 'nota_fiscal', file }) }} /></label><label className="work-order-upload"><Upload size={14} /><span>Anexar comprovante de pagamento</span><input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" disabled={financialSaving} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) setConfirmation({ kind: 'document', order, type: 'comprovante_pagamento', file }) }} /></label><small>PDF, JPG, PNG ou WebP · até 10 MB · será solicitada confirmação antes do envio</small></div>}
                 {documents.length > 0 && <div className="work-order-document-list">{documents.map((document) => <button className="work-order-document-row" key={document.id} disabled={saving === `open-${document.id}`} onClick={() => void openDocument(document)}><span className="document-icon"><FileText size={16} /></span><span><strong>{document.nome_arquivo}</strong><small>{document.tipo === 'nota_fiscal' ? 'Nota fiscal' : 'Comprovante de pagamento'} · {fileSize(Number(document.tamanho_bytes || 0))} · {formatDate(document.created_at)}</small></span>{saving === `open-${document.id}` ? <RefreshCw size={15} className="spin" /> : <Download size={15} />}</button>)}</div>}
               </details>
-              <details className="work-order-history"><summary><span><Clock3 size={15} /> Histórico de auditoria</span><span>{order.historico?.length || 0} registro(s)</span></summary>{order.historico?.length ? <ol>{order.historico.map((event, index) => <li key={`${event.created_at}-${index}`}><span className="work-order-history-dot" /><div><strong>{auditLabels[event.evento] || event.evento.replaceAll('_', ' ')}</strong><small>{formatDate(event.created_at)}{event.responsavel ? ` · ${event.responsavel}` : ''}</small></div></li>)}</ol> : <p>Nenhuma alteração registrada até o momento.</p>}</details>
+              <details className="work-order-history"><summary><span><Clock3 size={15} /> Histórico de auditoria</span><span>{order.historico?.length || 0} registro(s)</span></summary>{order.historico?.length ? <ol>{order.historico.map((event, index) => <li key={`${event.created_at}-${index}`}><span className="work-order-history-dot" /><div><strong>{humanAuditLabel(event.evento)}</strong><small>{formatDate(event.created_at)}{event.responsavel ? ` · ${event.responsavel}` : ''}</small></div></li>)}</ol> : <p>Nenhuma alteração registrada até o momento.</p>}</details>
             </div>
           </article>
         })}

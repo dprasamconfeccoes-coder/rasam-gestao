@@ -5,6 +5,7 @@ import type { EmployeeRow, EmployeeSearchPage, ProntuarioResponse, Profile } fro
 import { displayValue, EmployeeFichaPanel, fieldGroups, type FieldDefinition } from './EmployeeFichaPanel'
 import { EmptyState, ErrorState, LoadingState, SectionCard, StatusPill, formatDate, formatMoney } from '../components/ui'
 import { EmployeeTimeline } from './EmployeeTimeline'
+import { clearPersistentState, usePersistentState } from '../lib/persistent-state'
 import './employee-directory.css'
 
 type FilterState = { busca: string; situacao: string; tipoVinculo: string; cargo: string; salarioMin: string; salarioMax: string }
@@ -74,13 +75,14 @@ function RecordList({ items }: { items: Array<Record<string, unknown>> }) {
 }
 
 export function EmployeeRegistrationWizard({ open, token, onClose, onCreated }: { open: boolean; token: string; onClose: () => void; onCreated: (id: string, cpf: string) => void }) {
-  const [form, setForm] = useState<FormState>(createInitialForm)
+  const draftKey = 'rf-gestao-draft-funcionario-v1'
+  const [form, setForm] = usePersistentState<FormState>(draftKey, createInitialForm())
   const [step, setStep] = useState(0)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (open) { setForm(createInitialForm()); setStep(0); setError('') }
+    if (open) { setStep(0); setError('') }
   }, [open])
 
   if (!open) return null
@@ -172,6 +174,7 @@ export function EmployeeRegistrationWizard({ open, token, onClose, onCreated }: 
       const result = await adminCadastrarFuncionario(token, payload)
       if (!result.sucesso) throw new Error(result.erro || 'Não foi possível cadastrar o funcionário.')
       onCreated(result.funcionario_id || '', cpf)
+      clearPersistentState(draftKey)
       onClose()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Falha ao cadastrar funcionário.')
@@ -207,14 +210,14 @@ export function EmployeeRegistrationWizard({ open, token, onClose, onCreated }: 
           <div className="employee-form-section"><strong>Portal do funcionário</strong><label className="check-line employee-access-toggle"><input type="checkbox" checked={form.liberarAcesso} onChange={(event) => setForm((current) => ({ ...current, liberarAcesso: event.target.checked }))} /> Criar acesso ao portal agora</label>{form.liberarAcesso && !form.fields.data_nascimento ? <label>Data de nascimento *<input required type="date" value={form.fields.data_nascimento || ''} onChange={(event) => setField('data_nascimento', event.target.value)} /></label> : null}<small className="employee-form-help">O acesso é opcional e começa desativado. O fluxo atual usa a data de nascimento como senha inicial e exige troca no primeiro acesso; entregue a credencial por canal privado.</small></div>
         </> : null}
         {error ? <div className="form-error" role="alert">{error}</div> : null}
-        <div className="employee-create-actions"><button className="secondary-button" type="button" onClick={step === 0 ? onClose : () => { setError(''); setStep((current) => Math.max(0, current - 1)) }} disabled={saving}>{step === 0 ? 'Cancelar' : 'Voltar'}</button><button className="primary-button" type={step < finalStep ? 'button' : 'submit'} onClick={step < finalStep ? validateStep : undefined} disabled={saving}>{saving ? <><RefreshCw size={16} className="spin" /> Salvando…</> : step < finalStep ? <>Continuar <ChevronRight size={16} /></> : <><Plus size={16} /> Concluir cadastro</>}</button></div>
+        <div className="employee-create-actions"><button className="secondary-button" type="button" onClick={step === 0 ? onClose : () => { setError(''); setStep((current) => Math.max(0, current - 1)) }} disabled={saving}>{step === 0 ? 'Fechar e salvar rascunho' : 'Voltar'}</button><button className="primary-button" type={step < finalStep ? 'button' : 'submit'} onClick={step < finalStep ? validateStep : undefined} disabled={saving}>{saving ? <><RefreshCw size={16} className="spin" /> Salvando…</> : step < finalStep ? <>Continuar <ChevronRight size={16} /></> : <><Plus size={16} /> Concluir cadastro</>}</button></div>
       </form>
     </section>
   </div>
 }
 
 export function EmployeeManagementDashboard({ token, profile }: { token: string; profile: Profile }) {
-  const [filters, setFilters] = useState<FilterState>(emptyFilters)
+  const [filters, setFilters] = usePersistentState<FilterState>('rf-gestao-context-employees-v1', emptyFilters)
   const [activeFilters, setActiveFilters] = useState<FilterState>(emptyFilters)
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false)
   const [page, setPage] = useState<EmployeeSearchPage | null>(null)

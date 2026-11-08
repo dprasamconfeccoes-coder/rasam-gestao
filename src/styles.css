@@ -1273,6 +1273,10 @@ button, .nav-item, .secondary-button, .primary-button, .icon-button { min-height
 .phase3-shortcuts kbd { min-width:24px; padding:4px 5px; border:1px solid rgba(215,168,74,.32); border-radius:5px; color:#f3d890; background:rgba(215,168,74,.1); text-align:center; font-size:10px; }
 .phase3-help-dialog footer { padding-top:16px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; }
 .phase3-help-dialog footer .primary-button { margin-top:0; padding:9px 13px; }
+.app-error-screen { min-height:100vh; display:grid; place-content:center; justify-items:center; gap:12px; padding:24px; background:var(--surface); color:var(--text); text-align:center; }
+.app-error-screen svg { color:var(--gold); }
+.app-error-screen h1 { margin:0; font-size:clamp(24px,4vw,38px); }
+.app-error-screen p { max-width:440px; margin:0 0 8px; color:var(--muted); line-height:1.6; }
 @media (max-width:760px) {
   .topbar-actions { gap:8px; }
   .global-search-box { width:42px; min-width:42px; justify-content:center; padding:0; }
