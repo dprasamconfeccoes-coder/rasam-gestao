@@ -93,12 +93,6 @@ import {
   uploadMedicalLeave,
 } from './lib/api'
 import { displayValue, fieldGroups } from './features/EmployeeFichaPanel'
-import { EmployeeMedicalLeaves } from './features/MedicalLeavesWorkflow'
-import { EmployeeHRRequests } from './features/EmployeeHRRequests'
-import { NoticeAttachments } from './features/NoticeAttachments'
-import { AgreementsDashboard } from './features/AgreementsDashboard'
-import { WorkOrdersDashboard } from './features/WorkOrdersDashboard'
-import { FactoryProductionDashboard } from './features/FactoryProductionDashboard'
 import type {
   DashboardResponse,
   DashboardPeriodOverviewResponse,
@@ -124,18 +118,7 @@ import type {
 } from './lib/types'
 import { getNotificationPermission, requestNotificationPermission, showDashboardNotification, subscribeDashboardRealtime, type DashboardLiveEvent, type DashboardRealtimeStatus } from './lib/dashboard-realtime'
 import { buildPeriodOverviewRows, downloadPeriodOverviewCsv, exportPeriodOverviewPdf, type OverviewReportEnrichment, type OverviewReportRow } from './features/dashboard-executive-report'
-import { AdminCenterV2 as AdminCenter } from './features/AdminCenterV2'
-import { DebtManagementDashboard } from './features/DebtManagementDashboard'
-import { FinanceExecutiveDashboard } from './features/FinanceExecutiveDashboard'
-import { FinanceReportsDashboard } from './features/FinanceReportsDashboard'
-import { InternalDocumentsDashboard } from './features/InternalDocumentsDashboard'
 import { EmployeeFichaPanel } from './features/EmployeeFichaPanel'
-import { EmployeeVacationPortal } from './features/EmployeeVacationPortal'
-import { PayslipImportDashboard } from './features/PayslipImportDashboard'
-import { EmployeeManagementDashboard } from './features/EmployeeManagementDashboard'
-import { EmployeeOwnDossier } from './features/EmployeeOwnDossier'
-import { IntelligentView } from './features/IntelligentView'
-import { PayrollManagementDashboard } from './features/PayrollManagementDashboard'
 import { durationToMinutes, formatDuration, hasDurationValue, periodMinutes } from './lib/point-schedules'
 import { pointRowsFromFile } from './lib/point-import-parser'
 import {
@@ -156,6 +139,23 @@ import './hr-vacation-import.css'
 
 const PointManagementDashboard = lazy(() => import('./features/PointManagementDashboard').then((module) => ({ default: module.PointManagementDashboard })))
 const PointSchedulesPanel = lazy(() => import('./features/PointSchedulesPanel').then((module) => ({ default: module.PointSchedulesPanel })))
+const EmployeeMedicalLeaves = lazy(() => import('./features/MedicalLeavesWorkflow').then((module) => ({ default: module.EmployeeMedicalLeaves })))
+const EmployeeHRRequests = lazy(() => import('./features/EmployeeHRRequests').then((module) => ({ default: module.EmployeeHRRequests })))
+const NoticeAttachments = lazy(() => import('./features/NoticeAttachments').then((module) => ({ default: module.NoticeAttachments })))
+const AgreementsDashboard = lazy(() => import('./features/AgreementsDashboard').then((module) => ({ default: module.AgreementsDashboard })))
+const WorkOrdersDashboard = lazy(() => import('./features/WorkOrdersDashboard').then((module) => ({ default: module.WorkOrdersDashboard })))
+const FactoryProductionDashboard = lazy(() => import('./features/FactoryProductionDashboard').then((module) => ({ default: module.FactoryProductionDashboard })))
+const AdminCenter = lazy(() => import('./features/AdminCenterV2').then((module) => ({ default: module.AdminCenterV2 })))
+const DebtManagementDashboard = lazy(() => import('./features/DebtManagementDashboard').then((module) => ({ default: module.DebtManagementDashboard })))
+const FinanceExecutiveDashboard = lazy(() => import('./features/FinanceExecutiveDashboard').then((module) => ({ default: module.FinanceExecutiveDashboard })))
+const FinanceReportsDashboard = lazy(() => import('./features/FinanceReportsDashboard').then((module) => ({ default: module.FinanceReportsDashboard })))
+const InternalDocumentsDashboard = lazy(() => import('./features/InternalDocumentsDashboard').then((module) => ({ default: module.InternalDocumentsDashboard })))
+const EmployeeVacationPortal = lazy(() => import('./features/EmployeeVacationPortal').then((module) => ({ default: module.EmployeeVacationPortal })))
+const PayslipImportDashboard = lazy(() => import('./features/PayslipImportDashboard').then((module) => ({ default: module.PayslipImportDashboard })))
+const EmployeeManagementDashboard = lazy(() => import('./features/EmployeeManagementDashboard').then((module) => ({ default: module.EmployeeManagementDashboard })))
+const EmployeeOwnDossier = lazy(() => import('./features/EmployeeOwnDossier').then((module) => ({ default: module.EmployeeOwnDossier })))
+const IntelligentView = lazy(() => import('./features/IntelligentView').then((module) => ({ default: module.IntelligentView })))
+const PayrollManagementDashboard = lazy(() => import('./features/PayrollManagementDashboard').then((module) => ({ default: module.PayrollManagementDashboard })))
 
 const managerProfiles: Profile[] = ['gestor', 'administrador', 'admin']
 const adminProfiles: Profile[] = ['administrador', 'admin']
@@ -1964,7 +1964,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
             </div>
           </div>
         </header>
-        <div className="content-wrap">{renderPage()}</div>
+        <div className="content-wrap"><Suspense fallback={<div className="module-loading-boundary"><LoadingState label="Carregando módulo…" /></div>}>{renderPage()}</Suspense></div>
         <footer className="app-footer"><span>RF Gestão · {new Date().getFullYear()}</span><span>Sessão segura</span></footer>
       </main>
       {helpOpen && <div className="phase3-help-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHelpOpen(false) }}><section className="phase3-help-dialog" role="dialog" aria-modal="true" aria-labelledby="phase3-help-title"><header><div><span className="eyebrow">Produtividade RF Gestão</span><h2 id="phase3-help-title">Ajuda e atalhos</h2></div><button className="icon-button" type="button" onClick={() => setHelpOpen(false)} aria-label="Fechar ajuda"><X size={18} /></button></header><p>Use a busca global para localizar registros reais do seu escopo e os atalhos abaixo para navegar sem retirar as mãos do teclado.</p><div className="phase3-shortcuts"><div><kbd>/</kbd><span>Abrir busca global</span></div><div><kbd>?</kbd><span>Abrir esta ajuda</span></div><div><kbd>G</kbd><kbd>D</kbd><span>Visão geral</span></div><div><kbd>G</kbd><kbd>F</kbd><span>Funcionários</span></div><div><kbd>G</kbd><kbd>O</kbd><span>Ordens</span></div><div><kbd>G</kbd><kbd>L</kbd><span>Financeiro</span></div><div><kbd>G</kbd><kbd>R</kbd><span>Relatórios</span></div><div><kbd>Esc</kbd><span>Fechar janelas</span></div></div><footer><span>Preferências de menu e último módulo ficam salvas neste dispositivo.</span><button className="primary-button" type="button" onClick={() => setHelpOpen(false)}>Entendi</button></footer></section></div>}
