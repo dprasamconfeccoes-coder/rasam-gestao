@@ -857,3 +857,27 @@
 @media (prefers-reduced-motion: reduce) {
   .factory-kpi-action svg { transition: none; }
 }
+
+/* Contraste alto para leitura imediata de risco no painel de lotes. */
+.factory-attention-card { border-width: 2px; box-shadow: 0 5px 16px rgba(31,45,35,.08); }
+.factory-attention-card.tone-danger { border-color: #c2414b; color: #7f1d1d; background: #fee2e2; box-shadow: inset 5px 0 #b4232f, 0 5px 16px rgba(180,35,47,.14); }
+.factory-attention-card.tone-warning { border-color: #e08a12; color: #7c2d12; background: #ffedd5; box-shadow: inset 5px 0 #d97706, 0 5px 16px rgba(217,119,6,.14); }
+.factory-attention-card.tone-info { border-color: #2563eb; color: #1e3a8a; background: #dbeafe; box-shadow: inset 5px 0 #2563eb, 0 5px 16px rgba(37,99,235,.12); }
+.factory-attention-card .factory-attention-count { color: currentColor; font-weight: 900; }
+.factory-attention-card small { color: currentColor; opacity: .86; }
+.factory-lot-card.is-late { border-color: #c2414b; box-shadow: inset 5px 0 #b4232f, 0 5px 16px rgba(180,35,47,.12); }
+.factory-lot-card.is-due-soon { border-color: #e08a12; box-shadow: inset 5px 0 #d97706, 0 5px 16px rgba(217,119,6,.1); }
+.factory-lot-card.is-no-deadline { border-color: #2563eb; box-shadow: inset 5px 0 #2563eb, 0 5px 16px rgba(37,99,235,.1); }
+.factory-deadline-risk.is-late { padding: 4px 6px; border-radius: 6px; color: #fff; background: #b4232f; }
+.factory-deadline-risk.is-soon { padding: 4px 6px; border-radius: 6px; color: #fff; background: #b45309; }
+.factory-deadline-risk.is-missing { padding: 4px 6px; border-radius: 6px; color: #fff; background: #1d4ed8; }
+.factory-lot-card[data-status="recebida"] .factory-lot-identity .status-pill { border-color: #b45309; color: #fff; background: #b45309; }
+.factory-lot-card[data-status="em_producao"] .factory-lot-identity .status-pill { border-color: #15803d; color: #fff; background: #15803d; }
+.factory-lot-card[data-status="costurada"] .factory-lot-identity .status-pill { border-color: #1d4ed8; color: #fff; background: #1d4ed8; }
+.factory-lot-card[data-status="expedida"] .factory-lot-identity .status-pill { border-color: #6d28d9; color: #fff; background: #6d28d9; }
+.factory-lot-card[data-status="entregue"] .factory-lot-identity .status-pill { border-color: #15803d; color: #fff; background: #15803d; }
+@media (max-width: 720px) {
+  .factory-attention-card { min-height: 68px; padding: 12px; }
+  .factory-attention-card .factory-attention-copy strong { font-size: 11px; }
+  .factory-attention-card .factory-attention-copy small { font-size: 10px; line-height: 1.3; }
+}
