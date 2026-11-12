@@ -537,7 +537,7 @@ export interface PointImportRow {
 
 export interface PointImportSummary {
   id: string
-  tipo: 'diario' | 'mensal'
+  tipo: 'diario' | 'mensal' | 'extrato_diario' | 'extrato_mensal'
   competencia: string | null
   arquivo_nome: string
   total_linhas: number
@@ -550,6 +550,23 @@ export interface PointImportSummary {
   applied_at: string | null
   archived_at: string | null
   created_at: string
+}
+
+export interface PointSummaryImportRow {
+  id: string
+  importacao_id: string
+  nome_csv: string
+  total_normais: string | null
+  total_noturno: string | null
+  dia_falta: string | null
+  horas_atraso: string | null
+  abono: string | null
+  extra_50: string | null
+  desconta_dsr: string | null
+  encontrado: boolean
+  inconsistencia: string | null
+  tipo: 'extrato_diario' | 'extrato_mensal'
+  competencia: string | null
 }
 
 export type PointScheduleMode = 'horarios_fixos' | 'carga_semanal'

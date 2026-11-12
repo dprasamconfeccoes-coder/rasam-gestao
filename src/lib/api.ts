@@ -45,6 +45,7 @@ import type {
   PointRow,
   PointImportRow,
   PointImportSummary,
+  PointSummaryImportRow,
   PointScheduleAssignmentResponse,
   PointScheduleListResponse,
   PointScheduleWeek,
@@ -516,12 +517,20 @@ export function importPoint(token: string, payload: { tipo: 'diario' | 'mensal';
   })
 }
 
+export function importPointSummary(token: string, payload: { tipo: 'extrato_diario' | 'extrato_mensal'; competencia: string; arquivoNome: string; linhas: Record<string, unknown>[] }) {
+  return rpc<{ sucesso: boolean; erro?: string; importacao_id?: string; total_linhas?: number; linhas_encontradas?: number; linhas_nao_encontradas?: number; linhas_com_inconsistencia?: number }>('app_importar_extrato_ponto', { p_token: token, p_tipo: payload.tipo, p_competencia: payload.competencia, p_arquivo_nome: payload.arquivoNome, p_linhas: payload.linhas })
+}
+
 export function listPointImports(token: string) {
   return rpc<{ sucesso: boolean; erro?: string; importacoes: PointImportSummary[] }>('app_listar_importacoes', { p_token: token })
 }
 
 export function applyPointImport(token: string, importacaoId: string) {
   return rpc<{ sucesso: boolean; erro?: string; status?: string; linhas_aplicadas?: number; linhas_inseridas?: number; registros_existentes_preservados?: number; linhas_com_inconsistencia?: number }>('app_aplicar_importacao_ponto', { p_token: token, p_importacao_id: importacaoId, p_confirmar_substituicao: false })
+}
+
+export function applyPointSummaryImport(token: string, importacaoId: string) {
+  return rpc<{ sucesso: boolean; erro?: string; status?: string; linhas_aplicadas?: number }>('app_aplicar_importacao_extrato', { p_token: token, p_importacao_id: importacaoId })
 }
 
 export function reconcilePointImports(token: string, importacaoIds: string[]) {
@@ -534,6 +543,10 @@ export function ignorePointImport(token: string, importacaoId: string) {
 
 export function listImportedPoint(token: string, tipo?: 'diario' | 'mensal', importacaoId?: string) {
   return rpc<{ sucesso: boolean; erro?: string; registros: PointImportRow[] }>('app_listar_ponto_importado', { p_token: token, p_tipo: tipo || null, p_importacao_id: importacaoId || null })
+}
+
+export function listImportedPointSummary(token: string, tipo?: 'extrato_diario' | 'extrato_mensal', importacaoId?: string) {
+  return rpc<{ sucesso: boolean; erro?: string; registros: PointSummaryImportRow[] }>('app_listar_extrato_ponto', { p_token: token, p_tipo: tipo || null, p_importacao_id: importacaoId || null })
 }
 
 export function listAgreements(token: string) {

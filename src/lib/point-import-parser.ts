@@ -24,6 +24,22 @@ export interface PointImportInputRow {
 export interface PointFileParseResult {
   rows: PointImportInputRow[]
   headerFound: boolean
+  kind?: PointFileKind
+  summaryRows?: PointSummaryInputRow[]
+}
+
+export type PointFileKind = 'cartao_diario' | 'cartao_mensal' | 'extrato_diario' | 'extrato_mensal'
+
+export interface PointSummaryInputRow {
+  [key: string]: unknown
+  nome: string
+  total_normais: string
+  total_noturno: string
+  dia_falta: string
+  horas_atraso: string
+  abono: string
+  extra_50: string
+  desconta_dsr: string
 }
 
 interface MatrixOptions {
@@ -137,6 +153,17 @@ const durationHeaderAliases = {
   horasAtraso: ['horas atraso', 'atraso'],
   extra50: ['extra 50%d', 'extra 50% d', 'extra 50%', 'hora extra 50%'],
   extra100: ['extra 100%d', 'extra 100% d', 'extra 100%', 'hora extra 100%'],
+}
+
+const summaryHeaderAliases = {
+  name: ['nome do funcionario', 'nome funcionario', 'funcionario', 'colaborador', 'nome'],
+  totalNormais: ['total normais', 'total normal', 'horas normais'],
+  totalNoturno: ['total noturno', 'horas noturnas'],
+  diaFalta: ['dia falta', 'faltas', 'falta'],
+  horasAtraso: ['horas atraso', 'atraso'],
+  abono: ['abono'],
+  extra50: ['extra 50%d', 'extra 50% d', 'extra 50%', 'hora extra 50%'],
+  descontaDsr: ['desconta dsr', 'dsr'],
 }
 
 function isExcelDurationFormat(format: unknown): boolean {
@@ -269,7 +296,25 @@ export function parsePointDelimited(text: string): PointFileParseResult {
     else if (char !== '\r') cell += char
   }
   if (cell || row.length) { row.push(cell.trim()); rows.push(row) }
-  return pointRowsFromMatrix(rows.filter((item) => item.some(Boolean)))
+  const matrix = rows.filter((item) => item.some(Boolean))
+  const headers = matrix[0]?.map(normalizeHeader) || []
+  const summaryFind = (...names: string[]) => findHeaderIndex(headers, names.map(normalizeHeader))
+  const summaryName = summaryFind(...summaryHeaderAliases.name)
+  const summaryTotal = summaryFind(...summaryHeaderAliases.totalNormais)
+  if (summaryName >= 0 && summaryTotal >= 0 && findHeaderIndex(headers, headerAliases.cpf) < 0) {
+    const get = (cells: string[], column: number) => column < 0 ? '' : textValue(cells[column])
+    const summaryRows = matrix.slice(1).map((cells) => ({
+      nome: get(cells, summaryName), total_normais: get(cells, summaryTotal),
+      total_noturno: get(cells, summaryFind(...summaryHeaderAliases.totalNoturno)),
+      dia_falta: get(cells, summaryFind(...summaryHeaderAliases.diaFalta)),
+      horas_atraso: get(cells, summaryFind(...summaryHeaderAliases.horasAtraso)),
+      abono: get(cells, summaryFind(...summaryHeaderAliases.abono)),
+      extra_50: get(cells, summaryFind(...summaryHeaderAliases.extra50)),
+      desconta_dsr: get(cells, summaryFind(...summaryHeaderAliases.descontaDsr)),
+    })).filter((item) => item.nome)
+    return { rows: [], summaryRows, headerFound: true, kind: 'extrato_mensal' }
+  }
+  return pointRowsFromMatrix(matrix)
 }
 
 export async function pointRowsFromFile(file: File): Promise<PointFileParseResult> {
@@ -326,5 +371,10 @@ export async function pointRowsFromFile(file: File): Promise<PointFileParseResul
     }
     return emptySheetWithHeader || { rows: [], headerFound: false }
   }
-  return parsePointDelimited(await file.text())
+  const parsed = parsePointDelimited(await file.text())
+  const fileName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const monthly = fileName.replace(/[-_]+/g, ' ').includes('mes fechado') || fileName.includes('mensal')
+  if (parsed.summaryRows) parsed.kind = monthly ? 'extrato_mensal' : 'extrato_diario'
+  else if (parsed.rows.length) parsed.kind = monthly ? 'cartao_mensal' : 'cartao_diario'
+  return parsed
 }

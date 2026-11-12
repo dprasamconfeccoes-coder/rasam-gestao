@@ -54,9 +54,12 @@ import {
   decidePointJustification,
   decidePointInconsistency,
   applyPointImport,
+  applyPointSummaryImport,
   importPoint,
+  importPointSummary,
   ignorePointImport,
   listImportedPoint,
+  listImportedPointSummary,
   listPointImports,
   reconcilePointImports,
   dashboard,
@@ -113,13 +116,14 @@ import type {
   SessionUser,
   PointImportRow,
   PointImportSummary,
+  PointSummaryImportRow,
   PointScheduleAssignment,
 } from './lib/types'
 import { getNotificationPermission, requestNotificationPermission, showDashboardNotification, subscribeDashboardRealtime, type DashboardLiveEvent, type DashboardRealtimeStatus } from './lib/dashboard-realtime'
 import { buildPeriodOverviewRows, downloadPeriodOverviewCsv, exportPeriodOverviewPdf, type OverviewReportEnrichment, type OverviewReportRow } from './features/dashboard-executive-report'
 import { EmployeeFichaPanel } from './features/EmployeeFichaPanel'
 import { durationToMinutes, formatDuration, hasDurationValue, periodMinutes } from './lib/point-schedules'
-import { pointRowsFromFile } from './lib/point-import-parser'
+import { pointRowsFromFile, type PointFileKind } from './lib/point-import-parser'
 import {
   EmptyState,
   ErrorState,
@@ -1584,6 +1588,7 @@ function printReport(title: string, columns: string[], rows: string[][], targetW
 
 function PointImportsView({ token }: { token: string }) {
   const [tipo, setTipo] = useState<'diario' | 'mensal'>('mensal')
+  const [detectedKind, setDetectedKind] = useState<PointFileKind | null>(null)
   const [competencia, setCompetencia] = useState(() => {
     const now = new Date()
     return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`
@@ -1594,6 +1599,7 @@ function PointImportsView({ token }: { token: string }) {
   const [reconciliation, setReconciliation] = useState<Awaited<ReturnType<typeof reconcilePointImports>> | null>(null)
   const [reconciling, setReconciling] = useState(false)
   const [rows, setRows] = useState<PointImportRow[]>([])
+  const [summaryRows, setSummaryRows] = useState<PointSummaryImportRow[]>([])
   const [previewPage, setPreviewPage] = useState(0)
   const previewRequestRef = useRef(0)
   const importOperationLockRef = useRef(false)
@@ -1605,9 +1611,11 @@ function PointImportsView({ token }: { token: string }) {
   const [error, setError] = useState(''); const [message, setMessage] = useState('')
   const pending = imports.find((item) => item.id === pendingId)
   const previewPageSize = 100
-  const previewPageCount = Math.max(1, Math.ceil(rows.length / previewPageSize))
+  const previewTotalRows = rows.length || summaryRows.length
+  const previewPageCount = Math.max(1, Math.ceil(previewTotalRows / previewPageSize))
   const visiblePreviewRows = rows.slice(previewPage * previewPageSize, (previewPage + 1) * previewPageSize)
-  const importHasBlockingIssues = Boolean(pending && (pending.linhas_nao_encontradas > 0 || pending.linhas_com_inconsistencia > 0))
+  const visibleSummaryRows = summaryRows.slice(previewPage * previewPageSize, (previewPage + 1) * previewPageSize)
+  const importHasBlockingIssues = Boolean(pending && !pending.tipo.startsWith('extrato_') && (pending.linhas_nao_encontradas > 0 || pending.linhas_com_inconsistencia > 0))
   const competenciaMonth = useMemo(() => {
     const [month, year] = competencia.split('/')
     return month && year ? `${year}-${month}` : ''
@@ -1618,6 +1626,7 @@ function PointImportsView({ token }: { token: string }) {
     setPendingId(null)
     setPreviewLoadingId(null)
     setRows([])
+    setSummaryRows([])
     setPreviewPage(0)
   }
 
@@ -1646,15 +1655,22 @@ function PointImportsView({ token }: { token: string }) {
   async function reload() { const data = await listPointImports(token); if (!data.sucesso) throw new Error(data.erro || 'Falha ao consultar o histórico'); setImports(data.importacoes || []) }
   useEffect(() => { reload().catch((err) => setError(err instanceof Error ? err.message : 'Falha ao consultar o histórico')) }, [token])
 
-  async function loadPreview(importacaoId: string, importType: 'diario' | 'mensal' = tipo): Promise<boolean> {
+  async function loadPreview(importacaoId: string, importType: PointImportSummary['tipo'] = tipo): Promise<boolean> {
     const requestId = previewRequestRef.current + 1
     previewRequestRef.current = requestId
-    setRows([]); setPendingId(importacaoId); setPreviewPage(0); setPreviewLoadingId(importacaoId); setError(''); setMessage('')
+    setRows([]); setSummaryRows([]); setPendingId(importacaoId); setPreviewPage(0); setPreviewLoadingId(importacaoId); setError(''); setMessage('')
     try {
-      const listed = await listImportedPoint(token, importType, importacaoId)
-      if (requestId !== previewRequestRef.current) return false
-      if (!listed.sucesso) throw new Error(listed.erro || 'Falha ao carregar a prévia')
-      setRows(listed.registros || [])
+      if (importType.startsWith('extrato_')) {
+        const listed = await listImportedPointSummary(token, importType as 'extrato_diario' | 'extrato_mensal', importacaoId)
+        if (requestId !== previewRequestRef.current) return false
+        if (!listed.sucesso) throw new Error(listed.erro || 'Falha ao carregar a prévia')
+        setSummaryRows(listed.registros || [])
+      } else {
+        const listed = await listImportedPoint(token, importType as 'diario' | 'mensal', importacaoId)
+        if (requestId !== previewRequestRef.current) return false
+        if (!listed.sucesso) throw new Error(listed.erro || 'Falha ao carregar a prévia')
+        setRows(listed.registros || [])
+      }
       return true
     } catch (cause) {
       if (requestId !== previewRequestRef.current) return false
@@ -1674,9 +1690,13 @@ function PointImportsView({ token }: { token: string }) {
     setLoading(true); setError(''); setMessage(''); setRows([]); setPendingId(null)
     try {
       const parsedFile = await pointRowsFromFile(file)
-      if (!parsedFile.headerFound) throw new Error('Não reconheci o modelo do arquivo. Confirme que uma das planilhas contenha as colunas Dia/Data e CPF do funcionário do exportador de ponto.')
-      if (!parsedFile.rows.length) throw new Error('O cabeçalho foi reconhecido, mas não há linhas de ponto para analisar.')
-      const result = await importPoint(token, { tipo, competencia, arquivoNome: file.name, linhas: parsedFile.rows })
+      if (!parsedFile.headerFound || !parsedFile.kind) throw new Error('Não reconheci este CSV. Use um cartão de ponto detalhado ou um extrato por período exportado pelo sistema.')
+      const isSummary = parsedFile.kind.startsWith('extrato_')
+      const parsedRows = isSummary ? parsedFile.summaryRows || [] : parsedFile.rows
+      if (!parsedRows.length) throw new Error('O cabeçalho foi reconhecido, mas não há linhas para analisar.')
+      const result = isSummary
+        ? await importPointSummary(token, { tipo: parsedFile.kind as 'extrato_diario' | 'extrato_mensal', competencia, arquivoNome: file.name, linhas: parsedRows })
+        : await importPoint(token, { tipo: parsedFile.kind === 'cartao_diario' ? 'diario' : 'mensal', competencia, arquivoNome: file.name, linhas: parsedRows })
       if (!result.sucesso || !result.importacao_id) throw new Error(result.erro || 'Falha ao analisar a importação')
       setFile(null)
       await reload()
@@ -1691,10 +1711,14 @@ function PointImportsView({ token }: { token: string }) {
     previewRequestRef.current += 1
     setActionLoading(true); setError('')
     try {
-      const result = await applyPointImport(token, importId)
+      const result = pending?.tipo.startsWith('extrato_') ? await applyPointSummaryImport(token, importId) : await applyPointImport(token, importId)
       if (!result.sucesso) throw new Error(result.erro || 'Não foi possível aplicar os registros')
       await reload(); await loadPreview(importId)
-      setMessage(`${result.linhas_inseridas || result.linhas_aplicadas || 0} batida(s) nova(s) inserida(s). ${result.registros_existentes_preservados || 0} registro(s) existente(s) foram preservados sem alteração.`)
+      const inserted = 'linhas_inseridas' in result ? result.linhas_inseridas : result.linhas_aplicadas
+      const preserved = 'registros_existentes_preservados' in result ? result.registros_existentes_preservados : 0
+      setMessage(pending?.tipo.startsWith('extrato_')
+        ? `${result.linhas_aplicadas || 0} resumo(s) aplicado(s) para conferência da folha. Nenhuma batida diária foi alterada.`
+        : `${inserted || 0} batida(s) nova(s) inserida(s). ${preserved || 0} registro(s) existente(s) foram preservados sem alteração.`)
     }
     catch (err) { setError(err instanceof Error ? err.message : 'Falha ao aplicar os registros.') } finally { importOperationLockRef.current = false; setActionLoading(false) }
   }
@@ -1750,8 +1774,9 @@ function PointImportsView({ token }: { token: string }) {
             <label>Tipo de ponto<select value={tipo} onChange={(event) => setTipo(event.target.value as 'diario' | 'mensal')} disabled={loading || actionLoading || reportLoading}><option value="mensal">Ponto mensal / fechamento</option><option value="diario">Ponto diário</option></select></label>
             <label>Competência · mês atual por padrão<input type="month" value={competenciaMonth} onChange={(event) => { const [year, month] = event.target.value.split('-'); setCompetencia(year && month ? `${month}/${year}` : '') }} required disabled={loading || actionLoading || reportLoading} /></label>
           </div>
-          <label>Arquivo exportado<input type="file" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => setFile(event.target.files?.[0] || null)} required disabled={loading || actionLoading || reportLoading} /><span className="field-note">Aceita o CSV exato do aplicativo e planilhas Excel. O cruzamento é feito exclusivamente pelo CPF.</span></label>
+          <label>Arquivo exportado<input type="file" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={async (event) => { const selected = event.target.files?.[0] || null; setFile(selected); setDetectedKind(null); if (selected) { const parsed = await pointRowsFromFile(selected); setDetectedKind(parsed.kind || null) } }} required disabled={loading || actionLoading || reportLoading} /><span className="field-note">Reconhece automaticamente cartão diário, cartão mensal e os dois extratos por período.</span></label>
           {file && <div className="selected-file"><FileSpreadsheet size={18} /><div><strong>{file.name}</strong><small>{(file.size / 1024).toFixed(0)} KB · pronto para análise</small></div></div>}
+          {detectedKind && <div className="selected-file"><FileSpreadsheet size={18} /><div><strong>{detectedKind === 'cartao_diario' ? 'Cartão de ponto diário' : detectedKind === 'cartao_mensal' ? 'Cartão de ponto mensal fechado' : detectedKind === 'extrato_diario' ? 'Extrato resumido diário' : 'Extrato resumido mensal fechado'}</strong><small>{detectedKind.startsWith('extrato_') ? 'Resumo para previsão/conferência · não cria batidas diárias' : 'Batidas detalhadas · cruzamento por CPF e data'}</small></div></div>}
           {error && <div className="form-error"><AlertCircle size={16} />{error}</div>}
           {message && <div className="form-success"><Check size={16} />{message}</div>}
           <button className="primary-button" type="submit" disabled={loading || actionLoading || reportLoading}>{loading ? <><RefreshCw className="spin" size={16} /> Analisando arquivo…</> : actionLoading || reportLoading ? <><RefreshCw className="spin" size={16} /> Aguarde a operação atual…</> : <><Upload size={16} /> Analisar e cruzar CPFs</>}</button>
@@ -1776,7 +1801,7 @@ function PointImportsView({ token }: { token: string }) {
       </details>
       <div className="import-reconcile-tools">
         <div className="import-reconcile-heading"><div><strong>Conciliação entre lotes</strong><small>Compare 2–20 importações selecionadas. A conciliação é somente leitura; nenhuma batida é alterada.</small></div><button type="button" className="secondary-button" onClick={() => void runReconciliation()} disabled={reconciling || selectedImportIds.length < 2}>{reconciling ? <RefreshCw size={15} className="spin" /> : <Search size={15} />} Conciliar {selectedImportIds.length || ''}</button></div>
-        <div className="import-reconcile-selection">{imports.map((item) => <label key={item.id}><input type="checkbox" checked={selectedImportIds.includes(item.id)} onChange={(event) => { setSelectedImportIds((current) => event.target.checked ? current.length < 20 ? [...current, item.id] : current : current.filter((id) => id !== item.id)); setReconciliation(null) }} disabled={reconciling || (!selectedImportIds.includes(item.id) && selectedImportIds.length >= 20)} /><span><strong>{item.tipo === 'mensal' ? 'Mensal' : 'Diário'} · {item.competencia}</strong><small>{item.arquivo_nome} · {item.status}</small></span></label>)}</div>
+        <div className="import-reconcile-selection">{imports.map((item) => <label key={item.id}><input type="checkbox" checked={selectedImportIds.includes(item.id)} onChange={(event) => { setSelectedImportIds((current) => event.target.checked ? current.length < 20 ? [...current, item.id] : current : current.filter((id) => id !== item.id)); setReconciliation(null) }} disabled={reconciling || (!selectedImportIds.includes(item.id) && selectedImportIds.length >= 20)} /><span><strong>{item.tipo === 'mensal' ? 'Cartão mensal' : item.tipo === 'diario' ? 'Cartão diário' : item.tipo === 'extrato_mensal' ? 'Extrato mensal' : 'Extrato diário'} · {item.competencia}</strong><small>{item.arquivo_nome} · {item.status}</small></span></label>)}</div>
         {reconciliation && <div className="import-reconcile-results"><strong>{reconciliation.achados?.length || 0} chave(s) com divergência entre lotes ou em relação ao ponto atual</strong>{!reconciliation.achados?.length ? <p>Nenhum conflito encontrado nos lotes selecionados.</p> : <div className="table-wrap"><table><thead><tr><th>Funcionário</th><th>Data</th><th>Tipo de achado</th><th>Valores por lote</th></tr></thead><tbody>{reconciliation.achados.map((finding) => <tr key={`${finding.funcionario_id}-${finding.data}`}><td>{finding.funcionario}</td><td>{formatDate(finding.data)}</td><td>{[finding.divergencia_entre_lotes ? 'Entre lotes' : '', finding.divergencia_registro_atual ? 'Vs. batida atual' : ''].filter(Boolean).join(' · ')}</td><td>{finding.lotes.map((lot, index) => <small className="import-reconcile-value" key={`${String(lot.importacao_id)}-${index}`}>{String(lot.arquivo)} ({String(lot.status_lote)}): {String(lot.entrada_1 || '—')} / {String(lot.saida_1 || '—')} · {String(lot.total_normais || '—')}</small>)}</td></tr>)}</tbody></table></div>}</div>}
       </div>
       <div className="import-history">
@@ -1790,16 +1815,16 @@ function PointImportsView({ token }: { token: string }) {
     </SectionCard>
     {pending ? <div className="point-import-preview-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !actionLoading && !loading && !reportLoading) closePreview() }}>
       <div ref={importPreviewDialogRef} className="point-import-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="point-import-preview-title" tabIndex={-1}>
-        <div className="point-import-preview-heading"><div><span className="eyebrow">{pending.tipo === 'mensal' ? 'Importação mensal' : 'Importação diária'} · {pending.competencia || 'sem competência'}</span><h2 id="point-import-preview-title">Detalhes da importação</h2><p>{pending.arquivo_nome} · {pending.imported_by_name || 'Usuário'} · {formatDate(pending.created_at)}</p></div><button type="button" className="icon-button" onClick={closePreview} disabled={actionLoading || loading} aria-label="Fechar detalhes da importação"><X size={18} /></button></div>
+        <div className="point-import-preview-heading"><div><span className="eyebrow">{pending.tipo === 'mensal' ? 'Cartão mensal' : pending.tipo === 'diario' ? 'Cartão diário' : pending.tipo === 'extrato_mensal' ? 'Extrato mensal' : 'Extrato diário'} · {pending.competencia || 'sem competência'}</span><h2 id="point-import-preview-title">Detalhes da importação</h2><p>{pending.arquivo_nome} · {pending.imported_by_name || 'Usuário'} · {formatDate(pending.created_at)}</p></div><button type="button" className="icon-button" onClick={closePreview} disabled={actionLoading || loading} aria-label="Fechar detalhes da importação"><X size={18} /></button></div>
         <div className="point-import-preview-content">
           <div className="import-summary"><div className="import-stat"><span>Linhas lidas</span><strong>{pending.total_linhas}</strong></div><div className="import-stat valid"><span>Pessoas localizadas</span><strong>{pending.linhas_encontradas}</strong></div><div className="import-stat invalid"><span>CPFs sem vínculo</span><strong>{pending.linhas_nao_encontradas}</strong></div><div className="import-stat invalid"><span>Linhas inconsistentes</span><strong>{pending.linhas_com_inconsistencia}</strong></div></div>
           <div className="point-import-preview-status"><StatusPill value={pending.status === 'aplicada' ? 'Aplicada' : pending.status === 'ignorada' ? 'Ignorada' : importHasBlockingIssues ? 'Pendente · corrigir' : 'Pendente · pronta'} /><span>{importHasBlockingIssues ? 'Há erros impeditivos; nenhum registro deste lote pode ser aplicado.' : pending.status === 'aplicada' ? 'Registros vinculados gravados; batidas existentes foram preservadas.' : pending.status === 'ignorada' ? 'Lote arquivado sem aplicar registros.' : 'Prévia consistente. A aplicação continua dependendo da sua confirmação.'}</span></div>
           {error ? <div className="form-error" role="alert"><AlertCircle size={16} />{error}</div> : null}
           {message ? <div className="form-success" role="status"><Check size={16} />{message}</div> : null}
-          {previewLoadingId === pending.id ? <LoadingState label="Carregando detalhes deste lote…" /> : rows.length ? <>
-            <div className="point-import-rows-heading"><div><strong>Linhas analisadas</strong><small>{rows.length} registro(s) · associação pelo CPF · {previewPage + 1} de {previewPageCount} páginas</small></div><span>Valores recebidos do arquivo</span></div>
-            <div className="table-wrap point-import-preview-table-wrap"><table><thead><tr><th>Data</th><th>Funcionário no arquivo</th><th>CPF</th><th>Entrada</th><th>Almoço</th><th>Retorno</th><th>Saída</th><th>Horas normais</th><th>Extra 50%</th><th>Extra 100%</th><th>Vínculo</th></tr></thead><tbody>{visiblePreviewRows.map((row) => <tr className={!row.encontrado || row.inconsistencia ? 'row-inconsistent' : ''} key={row.id}><td>{formatDate(row.data || '')}</td><td><strong>{row.nome_csv}</strong>{(!row.encontrado || row.inconsistencia) && <small className="table-note">{row.inconsistencia || row.import_validation_errors?.[0] || 'CPF não localizado no cadastro da empresa.'}</small>}</td><td className="mono">{maskCpf(row.cpf_arquivo || row.cpf)}</td><td>{row.entrada_1 || '—'}</td><td>{row.saida_1 || '—'}</td><td>{row.entrada_2 || '—'}</td><td>{row.saida_2 || '—'}</td><td>{formatPointDuration(row.total_normais)}</td><td>{formatPointDuration(row.extra_50)}</td><td>{formatPointDuration(row.extra_100)}</td><td><StatusPill value={row.inconsistencia ? 'Inconsistente' : row.encontrado ? 'Vinculado' : 'Não localizado'} /></td></tr>)}</tbody></table></div>
-            {rows.length > previewPageSize ? <div className="button-row point-import-pagination"><small>Linhas {previewPage * previewPageSize + 1}–{Math.min((previewPage + 1) * previewPageSize, rows.length)} de {rows.length}</small><div className="button-row"><button type="button" className="secondary-button" disabled={previewPage === 0} onClick={() => setPreviewPage((page) => Math.max(0, page - 1))}>Anterior</button><span>Página {previewPage + 1} de {previewPageCount}</span><button type="button" className="secondary-button" disabled={previewPage + 1 >= previewPageCount} onClick={() => setPreviewPage((page) => Math.min(previewPageCount - 1, page + 1))}>Próxima</button></div></div> : null}
+          {previewLoadingId === pending.id ? <LoadingState label="Carregando detalhes deste lote…" /> : previewTotalRows ? <>
+            <div className="point-import-rows-heading"><div><strong>Linhas analisadas</strong><small>{previewTotalRows} registro(s) · {pending.tipo.startsWith('extrato_') ? 'resumo vinculado por nome' : 'associação pelo CPF'} · {previewPage + 1} de {previewPageCount} páginas</small></div><span>Valores recebidos do arquivo</span></div>
+            {pending.tipo.startsWith('extrato_') ? <div className="table-wrap point-import-preview-table-wrap"><table><thead><tr><th>Funcionário</th><th>Horas normais</th><th>Noturno</th><th>Faltas</th><th>Atrasos</th><th>Extra 50%</th><th>DSR</th><th>Vínculo</th></tr></thead><tbody>{visibleSummaryRows.map((row) => <tr className={!row.encontrado || row.inconsistencia ? 'row-inconsistent' : ''} key={row.id}><td><strong>{row.nome_csv}</strong>{row.inconsistencia && <small className="table-note">{row.inconsistencia}</small>}</td><td>{row.total_normais || '—'}</td><td>{row.total_noturno || '—'}</td><td>{row.dia_falta || '—'}</td><td>{row.horas_atraso || '—'}</td><td>{row.extra_50 || '—'}</td><td>{row.desconta_dsr || '—'}</td><td><StatusPill value={row.inconsistencia ? 'Conferir' : row.encontrado ? 'Vinculado' : 'Não localizado'} /></td></tr>)}</tbody></table></div> : <div className="table-wrap point-import-preview-table-wrap"><table><thead><tr><th>Data</th><th>Funcionário no arquivo</th><th>CPF</th><th>Entrada</th><th>Almoço</th><th>Retorno</th><th>Saída</th><th>Horas normais</th><th>Extra 50%</th><th>Extra 100%</th><th>Vínculo</th></tr></thead><tbody>{visiblePreviewRows.map((row) => <tr className={!row.encontrado || row.inconsistencia ? 'row-inconsistent' : ''} key={row.id}><td>{formatDate(row.data || '')}</td><td><strong>{row.nome_csv}</strong>{(!row.encontrado || row.inconsistencia) && <small className="table-note">{row.inconsistencia || row.import_validation_errors?.[0] || 'CPF não localizado no cadastro da empresa.'}</small>}</td><td className="mono">{maskCpf(row.cpf_arquivo || row.cpf)}</td><td>{row.entrada_1 || '—'}</td><td>{row.saida_1 || '—'}</td><td>{row.entrada_2 || '—'}</td><td>{row.saida_2 || '—'}</td><td>{formatPointDuration(row.total_normais)}</td><td>{formatPointDuration(row.extra_50)}</td><td>{formatPointDuration(row.extra_100)}</td><td><StatusPill value={row.inconsistencia ? 'Inconsistente' : row.encontrado ? 'Vinculado' : 'Não localizado'} /></td></tr>)}</tbody></table></div>}
+            {previewTotalRows > previewPageSize ? <div className="button-row point-import-pagination"><small>Linhas {previewPage * previewPageSize + 1}–{Math.min((previewPage + 1) * previewPageSize, previewTotalRows)} de {previewTotalRows}</small><div className="button-row"><button type="button" className="secondary-button" disabled={previewPage === 0} onClick={() => setPreviewPage((page) => Math.max(0, page - 1))}>Anterior</button><span>Página {previewPage + 1} de {previewPageCount}</span><button type="button" className="secondary-button" disabled={previewPage + 1 >= previewPageCount} onClick={() => setPreviewPage((page) => Math.min(previewPageCount - 1, page + 1))}>Próxima</button></div></div> : null}
           </> : <EmptyState title="Nenhuma linha disponível" description="O lote não retornou registros para exibir nesta prévia." />}
           <div className="point-import-preview-actions"><div><strong>{importHasBlockingIssues ? 'Aplicação bloqueada: corrija os erros e analise o arquivo novamente.' : 'Batidas existentes nunca serão substituídas.'}</strong><small>Conflitos com registros já gravados são preservados e informados no resultado da aplicação.</small></div><div className="button-row"><button className="secondary-button" onClick={() => void ignorePending()} disabled={loading || actionLoading || reportLoading || previewLoadingId === pending.id}>{actionLoading ? <RefreshCw className="spin" size={15} /> : null}{pending.status === 'aplicada' ? 'Arquivar alerta' : pending.status === 'ignorada' ? 'Importação ignorada' : 'Ignorar e arquivar'}</button><button className="primary-button" onClick={() => void applyPending()} disabled={loading || actionLoading || reportLoading || previewLoadingId === pending.id || pending.status !== 'pendente' || importHasBlockingIssues}>{actionLoading ? <RefreshCw className="spin" size={15} /> : <Check size={15} />} {pending.status === 'aplicada' ? 'Registros aplicados' : importHasBlockingIssues ? 'Corrija e reimporte' : 'Aplicar sem substituir'}</button></div></div>
         </div>
