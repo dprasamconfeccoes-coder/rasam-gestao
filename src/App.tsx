@@ -159,7 +159,7 @@ const PayrollManagementDashboard = lazy(() => import('./features/PayrollManageme
 
 const managerProfiles: Profile[] = ['gestor', 'administrador', 'admin']
 const adminProfiles: Profile[] = ['administrador', 'admin']
-const financeProfiles: Profile[] = adminProfiles
+const managementProfiles: Profile[] = managerProfiles
 
 function redactOperationalDashboard(data: DashboardResponse): DashboardResponse {
   const isRestrictedDestination = (destination: ModuleKey) => ['ordens', 'producao', 'financeiro', 'dividas', 'acordos'].includes(destination)
@@ -192,13 +192,22 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { failed: bool
 }
 
 const navItems: NavItem[] = [
-  { key: 'dashboard', label: 'Visão financeira', description: 'Resumo do caixa e dos compromissos', icon: LayoutDashboard, group: 'Financeiro', profiles: financeProfiles },
-  { key: 'financeiro', label: 'Financeiro', description: 'Fluxo e compromissos', icon: CircleDollarSign, group: 'Financeiro', profiles: financeProfiles },
-  { key: 'folha', label: 'Folha de pagamento', description: 'Lançamentos e fechamento da folha', icon: Receipt, group: 'Financeiro', profiles: financeProfiles },
-  { key: 'acordos', label: 'Acordos e parcelas', description: 'Pagamentos trabalhistas', icon: Scale, group: 'Financeiro', profiles: financeProfiles },
-  { key: 'dividas', label: 'Dívidas', description: 'Saldos e vencimentos', icon: WalletCards, group: 'Financeiro', profiles: financeProfiles },
-  { key: 'relatorios', label: 'Relatórios financeiros', description: 'Indicadores e exportações financeiras', icon: BarChart3, group: 'Financeiro', profiles: financeProfiles },
-  { key: 'importar_holerite', label: 'Importar holerites', description: 'Documentos e cobertura da folha', icon: FileSpreadsheet, group: 'Financeiro', profiles: financeProfiles },
+  { key: 'dashboard', label: 'Visão geral', description: 'Prioridades administrativas', icon: LayoutDashboard, group: 'Operação', profiles: managementProfiles },
+  { key: 'visao_inteligente', label: 'Visão inteligente', description: 'Consultas locais sobre os registros', icon: Sparkles, group: 'Operação', profiles: managementProfiles },
+  { key: 'funcionarios', label: 'Funcionários', description: 'Gestão da equipe e prontuários', icon: UsersRound, group: 'Operação', profiles: managementProfiles },
+  { key: 'ordens', label: 'Ordens de serviço', description: 'Cadastro de lotes e financeiro', icon: ClipboardList, group: 'Operação', profiles: adminProfiles },
+  { key: 'producao', label: 'Produção', description: 'Lotes e costura', icon: Factory, group: 'Operação', profiles: adminProfiles },
+  { key: 'financeiro', label: 'Financeiro', description: 'Fluxo e compromissos', icon: CircleDollarSign, group: 'Controle', profiles: managementProfiles },
+  { key: 'folha', label: 'Folha de pagamento', description: 'Lançamentos e fechamento da folha', icon: Receipt, group: 'Controle', profiles: managementProfiles },
+  { key: 'acordos', label: 'Acordos e parcelas', description: 'Pagamentos trabalhistas', icon: Scale, group: 'Controle', profiles: managementProfiles },
+  { key: 'dividas', label: 'Dívidas', description: 'Saldos e vencimentos', icon: WalletCards, group: 'Controle', profiles: managementProfiles },
+  { key: 'relatorios', label: 'Relatórios', description: 'Indicadores administrativos e financeiros', icon: BarChart3, group: 'Controle', profiles: managementProfiles },
+  { key: 'importacoes', label: 'Gestão de ponto', description: 'Equipe, importações e jornadas', icon: FileSpreadsheet, group: 'Controle', profiles: managementProfiles },
+  { key: 'importar_holerite', label: 'Gestão de Holerites', description: 'Documentos, cobertura e pendências', icon: Receipt, group: 'Controle', profiles: managementProfiles },
+  { key: 'rh', label: 'Recursos humanos', description: 'Painel e operações de RH', icon: BriefcaseBusiness, group: 'Pessoas', profiles: adminProfiles },
+  { key: 'ferias', label: 'Gestão de férias', description: 'Programação e documentos da equipe', icon: CalendarDays, group: 'Pessoas', profiles: adminProfiles },
+  { key: 'ponto', label: 'Ponto da equipe', description: 'Jornadas e conferência administrativa', icon: Fingerprint, group: 'Pessoas', profiles: managementProfiles },
+  { key: 'documentos', label: 'Documentos internos', description: 'Biblioteca administrativa da empresa', icon: BookOpen, group: 'Pessoas', profiles: adminProfiles },
 ]
 
 function profileLabel(profile: Profile) {
@@ -325,9 +334,9 @@ function LoginScreen({ onLoggedIn }: { onLoggedIn: (response: LoginResponse) => 
         setError(response.erro || 'Não foi possível iniciar a sessão.')
         return
       }
-      if (!financeProfiles.includes(response.perfil)) {
+      if (!managementProfiles.includes(response.perfil)) {
         clearToken()
-        setError('Esta versão está disponível somente para usuários administrativos do financeiro.')
+        setError('O portal do funcionário está desativado. Este acesso é exclusivo para a gestão administrativa.')
         return
       }
       setToken(response.token)
@@ -344,11 +353,11 @@ function LoginScreen({ onLoggedIn }: { onLoggedIn: (response: LoginResponse) => 
       <div className="auth-grid" />
       <section className="auth-panel">
         <div className="brand-lockup"><img className="brand-logo" src={rfLogo} alt="RF — Rafaela Fernandes" /><div><strong>RF</strong><span>Rafaela Fernandes</span></div></div>
-        <div className="auth-copy"><span className="eyebrow">Rafaela Fernandes · gestão financeira</span><h1>Finanças claras.<br /><em>Decisões no tempo certo.</em></h1><p>Caixa, folha, acordos, dívidas e relatórios em um ambiente administrativo protegido.</p></div>
-        <div className="auth-feature"><ShieldCheck size={18} /><span>O acesso é exclusivo para usuários administrativos do financeiro.</span></div>
+        <div className="auth-copy"><span className="eyebrow">Rafaela Fernandes · gestão integrada</span><h1>Gestão clara.<br /><em>Decisões no tempo certo.</em></h1><p>Financeiro, RH, departamento pessoal, fiscal e operação em um ambiente administrativo protegido.</p></div>
+        <div className="auth-feature"><ShieldCheck size={18} /><span>O portal do funcionário está desativado nesta versão.</span></div>
       </section>
       <section className="auth-card">
-        <div className="auth-card-head"><div className="mobile-brand"><img className="brand-logo compact" src={rfLogo} alt="RF — Rafaela Fernandes" /><strong>RF Gestão Financeira</strong></div><span className="eyebrow">Entrar no sistema</span><h2>Acesso administrativo</h2><p>Use seu CPF e sua senha para acessar o financeiro.</p></div>
+        <div className="auth-card-head"><div className="mobile-brand"><img className="brand-logo compact" src={rfLogo} alt="RF — Rafaela Fernandes" /><strong>RF Gestão</strong></div><span className="eyebrow">Entrar no sistema</span><h2>Acesso da gestão</h2><p>Use seu CPF e sua senha para continuar.</p></div>
         <form onSubmit={submit} className="form-stack">
           <label>CPF<input value={cpf} onChange={(event) => setCpf(normalizeCpf(event.target.value))} inputMode="numeric" autoComplete="username" placeholder="CPF com 11 dígitos" maxLength={11} /></label>
           <label>Senha<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="Sua senha" /></label>
@@ -1865,7 +1874,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
       if (event.key === 'Escape') { setHelpOpen(false); return }
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return
       sequence = `${sequence}${event.key.toLowerCase()}`.slice(-2)
-      const shortcuts: Record<string, ModuleKey> = { gd: 'dashboard', gl: 'financeiro', gf: 'folha', ga: 'acordos', gv: 'dividas', gr: 'relatorios', gh: 'importar_holerite' }
+      const shortcuts: Record<string, ModuleKey> = { gd: 'dashboard', gf: 'funcionarios', go: 'ordens', gl: 'financeiro', gr: 'relatorios', gh: 'rh' }
       const destination = shortcuts[sequence]
       if (destination && allowedItems.some((item) => item.key === destination)) { navigate(destination); sequence = '' }
       window.setTimeout(() => { sequence = '' }, 900)
@@ -1874,7 +1883,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     return () => window.removeEventListener('keydown', onShortcut)
   }, [allowedItems, preferenceKey])
   function renderPage() {
-    if (active === 'dashboard') return financeProfiles.includes(user.perfil) ? <FinanceExecutiveDashboard token={token} onNavigateToReports={() => navigate('relatorios')} /> : <><PageHeading eyebrow="Acesso restrito" title="Visão financeira" /><ErrorState message="Esta visão está disponível somente para usuários administrativos do financeiro." /></>
+    if (active === 'dashboard') return managementProfiles.includes(user.perfil) ? <DashboardView token={token} user={user} onNavigate={navigate} /> : <><PageHeading eyebrow="Acesso restrito" title="Visão geral" /><ErrorState message="Esta visão está disponível somente para a gestão administrativa." /></>
     if (active === 'visao_inteligente') return adminProfiles.includes(user.perfil) ? <IntelligentView token={token} /> : <><PageHeading eyebrow="Acesso restrito" title="Visão inteligente" /><ErrorState message="Esta visão está disponível somente para perfis administradores." /></>
     if (active === 'funcionarios') {
       if (user.perfil === 'funcionario') return <EmployeeOwnDossier token={token} />
@@ -1893,7 +1902,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'relatorios') return <FinanceReportsDashboard token={token} isAdmin={adminProfiles.includes(user.perfil)} />
     if (active === 'rh') return <AdminCenter token={token} initialTab="painel" />
     if (active === 'folha') return adminProfiles.includes(user.perfil)
-      ? <PayrollManagementDashboard token={token} />
+      ? <PayrollManagementDashboard token={token} onNavigateToHR={() => navigate('rh')} />
       : <><PageHeading eyebrow="Acesso restrito" title="Folha de pagamento" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
     if (active === 'producao') return adminProfiles.includes(user.perfil)
       ? <FactoryProductionDashboard token={token} />
@@ -1959,7 +1968,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
         <div className="content-wrap"><Suspense fallback={<div className="module-loading-boundary"><LoadingState label="Carregando módulo…" /></div>}>{renderPage()}</Suspense></div>
         <footer className="app-footer"><span>RF Gestão · {new Date().getFullYear()}</span><span>Sessão segura</span></footer>
       </main>
-      {helpOpen && <div className="phase3-help-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHelpOpen(false) }}><section className="phase3-help-dialog" role="dialog" aria-modal="true" aria-labelledby="phase3-help-title"><header><div><span className="eyebrow">Produtividade RF Gestão Financeira</span><h2 id="phase3-help-title">Ajuda e atalhos</h2></div><button className="icon-button" type="button" onClick={() => setHelpOpen(false)} aria-label="Fechar ajuda"><X size={18} /></button></header><p>Use a busca global para localizar registros financeiros reais do seu escopo e os atalhos abaixo para navegar sem retirar as mãos do teclado.</p><div className="phase3-shortcuts"><div><kbd>/</kbd><span>Abrir busca global</span></div><div><kbd>?</kbd><span>Abrir esta ajuda</span></div><div><kbd>G</kbd><kbd>D</kbd><span>Visão financeira</span></div><div><kbd>G</kbd><kbd>L</kbd><span>Financeiro</span></div><div><kbd>G</kbd><kbd>F</kbd><span>Folha de pagamento</span></div><div><kbd>G</kbd><kbd>A</kbd><span>Acordos e parcelas</span></div><div><kbd>G</kbd><kbd>V</kbd><span>Dívidas</span></div><div><kbd>G</kbd><kbd>R</kbd><span>Relatórios</span></div><div><kbd>Esc</kbd><span>Fechar janelas</span></div></div><footer><span>Preferências de menu e último módulo ficam salvas neste dispositivo.</span><button className="primary-button" type="button" onClick={() => setHelpOpen(false)}>Entendi</button></footer></section></div>}
+      {helpOpen && <div className="phase3-help-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHelpOpen(false) }}><section className="phase3-help-dialog" role="dialog" aria-modal="true" aria-labelledby="phase3-help-title"><header><div><span className="eyebrow">Produtividade RF Gestão</span><h2 id="phase3-help-title">Ajuda e atalhos</h2></div><button className="icon-button" type="button" onClick={() => setHelpOpen(false)} aria-label="Fechar ajuda"><X size={18} /></button></header><p>Use a busca global para localizar registros reais do seu escopo e os atalhos abaixo para navegar sem retirar as mãos do teclado.</p><div className="phase3-shortcuts"><div><kbd>/</kbd><span>Abrir busca global</span></div><div><kbd>?</kbd><span>Abrir esta ajuda</span></div><div><kbd>G</kbd><kbd>D</kbd><span>Visão geral</span></div><div><kbd>G</kbd><kbd>F</kbd><span>Funcionários</span></div><div><kbd>G</kbd><kbd>O</kbd><span>Ordens</span></div><div><kbd>G</kbd><kbd>L</kbd><span>Financeiro</span></div><div><kbd>G</kbd><kbd>R</kbd><span>Relatórios</span></div><div><kbd>G</kbd><kbd>H</kbd><span>Recursos humanos</span></div><div><kbd>Esc</kbd><span>Fechar janelas</span></div></div><footer><span>Preferências de menu e último módulo ficam salvas neste dispositivo.</span><button className="primary-button" type="button" onClick={() => setHelpOpen(false)}>Entendi</button></footer></section></div>}
     </div>
   )
 }
