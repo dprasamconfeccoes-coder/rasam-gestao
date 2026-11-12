@@ -2,7 +2,6 @@ export type Profile = 'funcionario' | 'gestor' | 'administrador' | 'admin'
 
 export type ModuleKey =
   | 'dashboard'
-  | 'visao_inteligente'
   | 'funcionarios'
   | 'ordens'
   | 'producao'

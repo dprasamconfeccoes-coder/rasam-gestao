@@ -42,7 +42,6 @@ import {
   Search,
   Settings2,
   ShieldCheck,
-  Sparkles,
   UserRound,
   UsersRound,
   WalletCards,
@@ -154,7 +153,6 @@ const EmployeeVacationPortal = lazy(() => import('./features/EmployeeVacationPor
 const PayslipImportDashboard = lazy(() => import('./features/PayslipImportDashboard').then((module) => ({ default: module.PayslipImportDashboard })))
 const EmployeeManagementDashboard = lazy(() => import('./features/EmployeeManagementDashboard').then((module) => ({ default: module.EmployeeManagementDashboard })))
 const EmployeeOwnDossier = lazy(() => import('./features/EmployeeOwnDossier').then((module) => ({ default: module.EmployeeOwnDossier })))
-const IntelligentView = lazy(() => import('./features/IntelligentView').then((module) => ({ default: module.IntelligentView })))
 const PayrollManagementDashboard = lazy(() => import('./features/PayrollManagementDashboard').then((module) => ({ default: module.PayrollManagementDashboard })))
 
 const managerProfiles: Profile[] = ['gestor', 'administrador', 'admin']
@@ -192,22 +190,21 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { failed: bool
 }
 
 const navItems: NavItem[] = [
-  { key: 'dashboard', label: 'Visão geral', description: 'Prioridades administrativas', icon: LayoutDashboard, group: 'Operação', profiles: managementProfiles },
-  { key: 'visao_inteligente', label: 'Visão inteligente', description: 'Consultas locais sobre os registros', icon: Sparkles, group: 'Operação', profiles: managementProfiles },
-  { key: 'funcionarios', label: 'Funcionários', description: 'Gestão da equipe e prontuários', icon: UsersRound, group: 'Operação', profiles: managementProfiles },
-  { key: 'ordens', label: 'Ordens de serviço', description: 'Cadastro de lotes e financeiro', icon: ClipboardList, group: 'Operação', profiles: adminProfiles },
+  { key: 'dashboard', label: 'Início', description: 'O que exige atenção hoje', icon: LayoutDashboard, group: 'Início', profiles: managementProfiles },
+  { key: 'financeiro', label: 'Caixa e compromissos', description: 'Entradas, saídas e vencimentos', icon: CircleDollarSign, group: 'Dinheiro', profiles: managementProfiles },
+  { key: 'folha', label: 'Folha de pagamento', description: 'Fechamento, benefícios e descontos', icon: Receipt, group: 'Dinheiro', profiles: managementProfiles },
+  { key: 'acordos', label: 'Acordos e parcelas', description: 'Pagamentos trabalhistas', icon: Scale, group: 'Dinheiro', profiles: managementProfiles },
+  { key: 'dividas', label: 'Dívidas', description: 'Saldos e vencimentos', icon: WalletCards, group: 'Dinheiro', profiles: managementProfiles },
+  { key: 'relatorios', label: 'Relatórios e fiscal', description: 'Indicadores e exportações', icon: BarChart3, group: 'Dinheiro', profiles: managementProfiles },
+  { key: 'funcionarios', label: 'Funcionários', description: 'Cadastros e prontuários', icon: UsersRound, group: 'Pessoas', profiles: managementProfiles },
+  { key: 'rh', label: 'RH e departamento pessoal', description: 'Férias, afastamentos e rotinas', icon: BriefcaseBusiness, group: 'Pessoas', profiles: adminProfiles },
+  { key: 'ferias', label: 'Férias', description: 'Programação e documentos da equipe', icon: CalendarDays, group: 'Pessoas', profiles: adminProfiles },
+  { key: 'ponto', label: 'Conferir ponto', description: 'Jornadas e ocorrências da equipe', icon: Fingerprint, group: 'Pessoas', profiles: managementProfiles },
+  { key: 'importacoes', label: 'Importar ponto', description: 'Cargas e escalas de jornada', icon: FileSpreadsheet, group: 'Pessoas', profiles: managementProfiles },
+  { key: 'importar_holerite', label: 'Importar holerites', description: 'Documentos e cobertura da folha', icon: Receipt, group: 'Pessoas', profiles: managementProfiles },
+  { key: 'ordens', label: 'Ordens de serviço', description: 'Cadastro de lotes e prazos', icon: ClipboardList, group: 'Operação', profiles: adminProfiles },
   { key: 'producao', label: 'Produção', description: 'Lotes e costura', icon: Factory, group: 'Operação', profiles: adminProfiles },
-  { key: 'financeiro', label: 'Financeiro', description: 'Fluxo e compromissos', icon: CircleDollarSign, group: 'Controle', profiles: managementProfiles },
-  { key: 'folha', label: 'Folha de pagamento', description: 'Lançamentos e fechamento da folha', icon: Receipt, group: 'Controle', profiles: managementProfiles },
-  { key: 'acordos', label: 'Acordos e parcelas', description: 'Pagamentos trabalhistas', icon: Scale, group: 'Controle', profiles: managementProfiles },
-  { key: 'dividas', label: 'Dívidas', description: 'Saldos e vencimentos', icon: WalletCards, group: 'Controle', profiles: managementProfiles },
-  { key: 'relatorios', label: 'Relatórios', description: 'Indicadores administrativos e financeiros', icon: BarChart3, group: 'Controle', profiles: managementProfiles },
-  { key: 'importacoes', label: 'Gestão de ponto', description: 'Equipe, importações e jornadas', icon: FileSpreadsheet, group: 'Controle', profiles: managementProfiles },
-  { key: 'importar_holerite', label: 'Gestão de Holerites', description: 'Documentos, cobertura e pendências', icon: Receipt, group: 'Controle', profiles: managementProfiles },
-  { key: 'rh', label: 'Recursos humanos', description: 'Painel e operações de RH', icon: BriefcaseBusiness, group: 'Pessoas', profiles: adminProfiles },
-  { key: 'ferias', label: 'Gestão de férias', description: 'Programação e documentos da equipe', icon: CalendarDays, group: 'Pessoas', profiles: adminProfiles },
-  { key: 'ponto', label: 'Ponto da equipe', description: 'Jornadas e conferência administrativa', icon: Fingerprint, group: 'Pessoas', profiles: managementProfiles },
-  { key: 'documentos', label: 'Documentos internos', description: 'Biblioteca administrativa da empresa', icon: BookOpen, group: 'Pessoas', profiles: adminProfiles },
+  { key: 'documentos', label: 'Documentos internos', description: 'Biblioteca administrativa', icon: BookOpen, group: 'Documentos', profiles: adminProfiles },
 ]
 
 function profileLabel(profile: Profile) {
@@ -1884,7 +1881,6 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
   }, [allowedItems, preferenceKey])
   function renderPage() {
     if (active === 'dashboard') return managementProfiles.includes(user.perfil) ? <DashboardView token={token} user={user} onNavigate={navigate} /> : <><PageHeading eyebrow="Acesso restrito" title="Visão geral" /><ErrorState message="Esta visão está disponível somente para a gestão administrativa." /></>
-    if (active === 'visao_inteligente') return adminProfiles.includes(user.perfil) ? <IntelligentView token={token} /> : <><PageHeading eyebrow="Acesso restrito" title="Visão inteligente" /><ErrorState message="Esta visão está disponível somente para perfis administradores." /></>
     if (active === 'funcionarios') {
       if (user.perfil === 'funcionario') return <EmployeeOwnDossier token={token} />
       if (managerProfiles.includes(user.perfil)) return <EmployeeManagementDashboard token={token} profile={user.perfil} />
@@ -1930,7 +1926,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
       <aside id="primary-navigation" className={`sidebar ${mobileMenu ? 'is-open' : ''} ${compactSidebar ? 'is-compact' : ''}`} aria-label="Navegação principal">
         <div className="sidebar-brand">
           <img className="brand-logo" src={rfLogo} alt="RF — Rafaela Fernandes" />
-          <div><strong>RF</strong><span>Rafaela Fernandes</span></div>
+          <div><strong>RF</strong><span>Painel interno</span></div>
           <button className="close-mobile" onClick={() => setMobileMenu(false)} aria-label="Fechar menu"><X size={18} /></button>
           <button className="sidebar-preference-button" type="button" onClick={() => setCompactSidebar((value) => !value)} aria-label={compactSidebar ? 'Expandir menu lateral' : 'Recolher menu lateral'} title={compactSidebar ? 'Expandir menu' : 'Recolher menu'}><ChevronLeft size={16} /></button>
         </div>
