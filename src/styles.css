@@ -1312,3 +1312,10 @@ button, .nav-item, .secondary-button, .primary-button, .icon-button { min-height
 .row-inconsistent td:first-child { box-shadow: inset 4px 0 #b42318; }
 .table-note { color: #991b1b; font-weight: 750; }
 .point-import-preview-table-wrap th { color: #263238; background: #e7ebf0; font-weight: 900; }
+
+.point-import-issues-list { display:grid; gap:8px; padding:12px 14px; border:2px solid #b42318; border-radius:9px; background:#fff7f6; color:#541b16; }
+.point-import-issues-list strong { color:#7a1f18; font-size:11px; }
+.point-import-issues-list ul { display:grid; gap:6px; margin:0; padding-left:18px; }
+.point-import-issues-list li { display:grid; gap:2px; font-size:10px; }
+.point-import-issues-list li b { color:#541b16; font-size:11px; }
+.point-import-issues-list li span, .point-import-issues-list small { color:#7a1f18; font-weight:650; line-height:1.35; }
