@@ -159,6 +159,7 @@ const PayrollManagementDashboard = lazy(() => import('./features/PayrollManageme
 
 const managerProfiles: Profile[] = ['gestor', 'administrador', 'admin']
 const adminProfiles: Profile[] = ['administrador', 'admin']
+const financeProfiles: Profile[] = adminProfiles
 
 function redactOperationalDashboard(data: DashboardResponse): DashboardResponse {
   const isRestrictedDestination = (destination: ModuleKey) => ['ordens', 'producao', 'financeiro', 'dividas', 'acordos'].includes(destination)
@@ -191,27 +192,13 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { failed: bool
 }
 
 const navItems: NavItem[] = [
-  { key: 'dashboard', label: 'Visão geral', description: 'Prioridades administrativas', icon: LayoutDashboard, group: 'Operação', profiles: adminProfiles },
-  { key: 'visao_inteligente', label: 'Visão inteligente', description: 'Consultas locais sobre os registros', icon: Sparkles, group: 'Operação', profiles: adminProfiles },
-  { key: 'funcionarios', label: 'Funcionários', description: 'Gestão da equipe e prontuário próprio', icon: UsersRound, group: 'Operação', profiles: ['funcionario', ...managerProfiles] },
-  { key: 'ordens', label: 'Ordens de serviço', description: 'Cadastro de lotes e financeiro', icon: ClipboardList, group: 'Operação', profiles: adminProfiles },
-  { key: 'producao', label: 'Produção', description: 'Lotes e costura', icon: Factory, group: 'Operação', profiles: adminProfiles },
-  { key: 'financeiro', label: 'Financeiro', description: 'Fluxo e compromissos', icon: CircleDollarSign, group: 'Controle', profiles: adminProfiles },
-  { key: 'folha', label: 'Folha de pagamento', description: 'Simulação CLT, dados fiscais e lançamentos', icon: Receipt, group: 'Controle', profiles: adminProfiles },
-  { key: 'acordos', label: 'Acordos e parcelas', description: 'Pagamentos trabalhistas', icon: Scale, group: 'Controle', profiles: adminProfiles },
-  { key: 'dividas', label: 'Dívidas', description: 'Saldos e vencimentos', icon: WalletCards, group: 'Controle', profiles: adminProfiles },
-  { key: 'relatorios', label: 'Relatórios', description: 'Leituras da operação', icon: BarChart3, group: 'Controle', profiles: managerProfiles },
-  { key: 'importacoes', label: 'Gestão de ponto', description: 'Equipe, importações e jornadas', icon: FileSpreadsheet, group: 'Controle', profiles: managerProfiles },
-  { key: 'importar_holerite', label: 'Gestão de Holerites', description: 'Documentos, cobertura e pendências', icon: Receipt, group: 'Controle', profiles: managerProfiles },
-  { key: 'rh', label: 'Recursos humanos', description: 'Painel e operações de RH', icon: BriefcaseBusiness, group: 'Pessoas', profiles: adminProfiles },
-  { key: 'perfil', label: 'Meu perfil', description: 'Dados cadastrais', icon: UserRound, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
-  { key: 'ponto', label: 'Meu ponto', description: 'Jornada registrada', icon: Fingerprint, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
-  { key: 'ferias', label: 'Férias', description: 'Histórico, saldo e documentos', icon: CalendarDays, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
-  { key: 'holerites', label: 'Holerites', description: 'Comprovantes disponíveis', icon: Receipt, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
-  { key: 'atestados', label: 'Atestados', description: 'Histórico e conferência', icon: HeartPulse, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
-  { key: 'solicitacoes', label: 'Solicitações ao RH', description: 'Acompanhe seus pedidos', icon: FileCheck2, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
-  { key: 'avisos', label: 'Avisos', description: 'Comunicados da empresa', icon: Bell, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
-  { key: 'documentos', label: 'Documentos internos', description: 'Biblioteca compartilhada da empresa', icon: BookOpen, group: 'Minha área', profiles: ['funcionario', 'gestor', 'administrador', 'admin'] },
+  { key: 'dashboard', label: 'Visão financeira', description: 'Resumo do caixa e dos compromissos', icon: LayoutDashboard, group: 'Financeiro', profiles: financeProfiles },
+  { key: 'financeiro', label: 'Financeiro', description: 'Fluxo e compromissos', icon: CircleDollarSign, group: 'Financeiro', profiles: financeProfiles },
+  { key: 'folha', label: 'Folha de pagamento', description: 'Lançamentos e fechamento da folha', icon: Receipt, group: 'Financeiro', profiles: financeProfiles },
+  { key: 'acordos', label: 'Acordos e parcelas', description: 'Pagamentos trabalhistas', icon: Scale, group: 'Financeiro', profiles: financeProfiles },
+  { key: 'dividas', label: 'Dívidas', description: 'Saldos e vencimentos', icon: WalletCards, group: 'Financeiro', profiles: financeProfiles },
+  { key: 'relatorios', label: 'Relatórios financeiros', description: 'Indicadores e exportações financeiras', icon: BarChart3, group: 'Financeiro', profiles: financeProfiles },
+  { key: 'importar_holerite', label: 'Importar holerites', description: 'Documentos e cobertura da folha', icon: FileSpreadsheet, group: 'Financeiro', profiles: financeProfiles },
 ]
 
 function profileLabel(profile: Profile) {
@@ -338,6 +325,11 @@ function LoginScreen({ onLoggedIn }: { onLoggedIn: (response: LoginResponse) => 
         setError(response.erro || 'Não foi possível iniciar a sessão.')
         return
       }
+      if (!financeProfiles.includes(response.perfil)) {
+        clearToken()
+        setError('Esta versão está disponível somente para usuários administrativos do financeiro.')
+        return
+      }
       setToken(response.token)
       onLoggedIn(response)
     } catch (err) {
@@ -352,11 +344,11 @@ function LoginScreen({ onLoggedIn }: { onLoggedIn: (response: LoginResponse) => 
       <div className="auth-grid" />
       <section className="auth-panel">
         <div className="brand-lockup"><img className="brand-logo" src={rfLogo} alt="RF — Rafaela Fernandes" /><div><strong>RF</strong><span>Rafaela Fernandes</span></div></div>
-        <div className="auth-copy"><span className="eyebrow">Rafaela Fernandes · acesso único</span><h1>Operação clara.<br /><em>Decisões no tempo certo.</em></h1><p>Gestão, liderança e portal do funcionário em um só ambiente protegido.</p></div>
-        <div className="auth-feature"><ShieldCheck size={18} /><span>Seu perfil libera somente o que você precisa acessar.</span></div>
+        <div className="auth-copy"><span className="eyebrow">Rafaela Fernandes · gestão financeira</span><h1>Finanças claras.<br /><em>Decisões no tempo certo.</em></h1><p>Caixa, folha, acordos, dívidas e relatórios em um ambiente administrativo protegido.</p></div>
+        <div className="auth-feature"><ShieldCheck size={18} /><span>O acesso é exclusivo para usuários administrativos do financeiro.</span></div>
       </section>
       <section className="auth-card">
-        <div className="auth-card-head"><div className="mobile-brand"><img className="brand-logo compact" src={rfLogo} alt="RF — Rafaela Fernandes" /><strong>RF Gestão</strong></div><span className="eyebrow">Entrar no sistema</span><h2>Acesso da equipe</h2><p>Use seu CPF e sua senha para continuar.</p></div>
+        <div className="auth-card-head"><div className="mobile-brand"><img className="brand-logo compact" src={rfLogo} alt="RF — Rafaela Fernandes" /><strong>RF Gestão Financeira</strong></div><span className="eyebrow">Entrar no sistema</span><h2>Acesso administrativo</h2><p>Use seu CPF e sua senha para acessar o financeiro.</p></div>
         <form onSubmit={submit} className="form-stack">
           <label>CPF<input value={cpf} onChange={(event) => setCpf(normalizeCpf(event.target.value))} inputMode="numeric" autoComplete="username" placeholder="CPF com 11 dígitos" maxLength={11} /></label>
           <label>Senha<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="Sua senha" /></label>
@@ -1873,7 +1865,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
       if (event.key === 'Escape') { setHelpOpen(false); return }
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return
       sequence = `${sequence}${event.key.toLowerCase()}`.slice(-2)
-      const shortcuts: Record<string, ModuleKey> = { gd: 'dashboard', gf: 'funcionarios', go: 'ordens', gl: 'financeiro', gr: 'relatorios', gh: 'rh' }
+      const shortcuts: Record<string, ModuleKey> = { gd: 'dashboard', gl: 'financeiro', gf: 'folha', ga: 'acordos', gv: 'dividas', gr: 'relatorios', gh: 'importar_holerite' }
       const destination = shortcuts[sequence]
       if (destination && allowedItems.some((item) => item.key === destination)) { navigate(destination); sequence = '' }
       window.setTimeout(() => { sequence = '' }, 900)
@@ -1882,7 +1874,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     return () => window.removeEventListener('keydown', onShortcut)
   }, [allowedItems, preferenceKey])
   function renderPage() {
-    if (active === 'dashboard') return adminProfiles.includes(user.perfil) ? <DashboardView token={token} user={user} onNavigate={navigate} /> : <><PageHeading eyebrow="Acesso restrito" title="Visão geral" /><ErrorState message="Esta visão está disponível somente para perfis administradores." /></>
+    if (active === 'dashboard') return financeProfiles.includes(user.perfil) ? <FinanceExecutiveDashboard token={token} onNavigateToReports={() => navigate('relatorios')} /> : <><PageHeading eyebrow="Acesso restrito" title="Visão financeira" /><ErrorState message="Esta visão está disponível somente para usuários administrativos do financeiro." /></>
     if (active === 'visao_inteligente') return adminProfiles.includes(user.perfil) ? <IntelligentView token={token} /> : <><PageHeading eyebrow="Acesso restrito" title="Visão inteligente" /><ErrorState message="Esta visão está disponível somente para perfis administradores." /></>
     if (active === 'funcionarios') {
       if (user.perfil === 'funcionario') return <EmployeeOwnDossier token={token} />
@@ -1901,7 +1893,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
     if (active === 'relatorios') return <FinanceReportsDashboard token={token} isAdmin={adminProfiles.includes(user.perfil)} />
     if (active === 'rh') return <AdminCenter token={token} initialTab="painel" />
     if (active === 'folha') return adminProfiles.includes(user.perfil)
-      ? <PayrollManagementDashboard token={token} onNavigateToHR={() => navigate('rh')} />
+      ? <PayrollManagementDashboard token={token} />
       : <><PageHeading eyebrow="Acesso restrito" title="Folha de pagamento" /><ErrorState message="Esta tela está disponível somente para perfis administradores." /></>
     if (active === 'producao') return adminProfiles.includes(user.perfil)
       ? <FactoryProductionDashboard token={token} />
@@ -1967,7 +1959,7 @@ function Shell({ user, token, onLogout }: { user: SessionUser; token: string; on
         <div className="content-wrap"><Suspense fallback={<div className="module-loading-boundary"><LoadingState label="Carregando módulo…" /></div>}>{renderPage()}</Suspense></div>
         <footer className="app-footer"><span>RF Gestão · {new Date().getFullYear()}</span><span>Sessão segura</span></footer>
       </main>
-      {helpOpen && <div className="phase3-help-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHelpOpen(false) }}><section className="phase3-help-dialog" role="dialog" aria-modal="true" aria-labelledby="phase3-help-title"><header><div><span className="eyebrow">Produtividade RF Gestão</span><h2 id="phase3-help-title">Ajuda e atalhos</h2></div><button className="icon-button" type="button" onClick={() => setHelpOpen(false)} aria-label="Fechar ajuda"><X size={18} /></button></header><p>Use a busca global para localizar registros reais do seu escopo e os atalhos abaixo para navegar sem retirar as mãos do teclado.</p><div className="phase3-shortcuts"><div><kbd>/</kbd><span>Abrir busca global</span></div><div><kbd>?</kbd><span>Abrir esta ajuda</span></div><div><kbd>G</kbd><kbd>D</kbd><span>Visão geral</span></div><div><kbd>G</kbd><kbd>F</kbd><span>Funcionários</span></div><div><kbd>G</kbd><kbd>O</kbd><span>Ordens</span></div><div><kbd>G</kbd><kbd>L</kbd><span>Financeiro</span></div><div><kbd>G</kbd><kbd>R</kbd><span>Relatórios</span></div><div><kbd>Esc</kbd><span>Fechar janelas</span></div></div><footer><span>Preferências de menu e último módulo ficam salvas neste dispositivo.</span><button className="primary-button" type="button" onClick={() => setHelpOpen(false)}>Entendi</button></footer></section></div>}
+      {helpOpen && <div className="phase3-help-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHelpOpen(false) }}><section className="phase3-help-dialog" role="dialog" aria-modal="true" aria-labelledby="phase3-help-title"><header><div><span className="eyebrow">Produtividade RF Gestão Financeira</span><h2 id="phase3-help-title">Ajuda e atalhos</h2></div><button className="icon-button" type="button" onClick={() => setHelpOpen(false)} aria-label="Fechar ajuda"><X size={18} /></button></header><p>Use a busca global para localizar registros financeiros reais do seu escopo e os atalhos abaixo para navegar sem retirar as mãos do teclado.</p><div className="phase3-shortcuts"><div><kbd>/</kbd><span>Abrir busca global</span></div><div><kbd>?</kbd><span>Abrir esta ajuda</span></div><div><kbd>G</kbd><kbd>D</kbd><span>Visão financeira</span></div><div><kbd>G</kbd><kbd>L</kbd><span>Financeiro</span></div><div><kbd>G</kbd><kbd>F</kbd><span>Folha de pagamento</span></div><div><kbd>G</kbd><kbd>A</kbd><span>Acordos e parcelas</span></div><div><kbd>G</kbd><kbd>V</kbd><span>Dívidas</span></div><div><kbd>G</kbd><kbd>R</kbd><span>Relatórios</span></div><div><kbd>Esc</kbd><span>Fechar janelas</span></div></div><footer><span>Preferências de menu e último módulo ficam salvas neste dispositivo.</span><button className="primary-button" type="button" onClick={() => setHelpOpen(false)}>Entendi</button></footer></section></div>}
     </div>
   )
 }
