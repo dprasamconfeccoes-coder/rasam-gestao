@@ -60,6 +60,12 @@ function textValue(value: unknown): string {
   return String(value).replace(/\u00a0/g, ' ').trim()
 }
 
+function pointTimeValue(value: unknown): string {
+  const text = textValue(value)
+  if (/^(folga|f[eé]rias|falta|dsr|descanso|[-—])$/i.test(text)) return ''
+  return text
+}
+
 function normalizeHeader(value: unknown): string {
   return textValue(value)
     .normalize('NFD')
@@ -235,10 +241,10 @@ export function pointRowsFromMatrix(matrix: unknown[][], options: MatrixOptions 
       nome: get(cells, columns.name),
       data: normalizePointDate(columns.date < 0 ? '' : cells[columns.date], options.excelDate1904),
       previsto: get(cells, columns.previsto),
-      entrada_1: get(cells, columns.entrada1),
-      saida_1: get(cells, columns.saida1),
-      entrada_2: get(cells, columns.entrada2),
-      saida_2: get(cells, columns.saida2),
+      entrada_1: pointTimeValue(cells[columns.entrada1]),
+      saida_1: pointTimeValue(cells[columns.saida1]),
+      entrada_2: pointTimeValue(cells[columns.entrada2]),
+      saida_2: pointTimeValue(cells[columns.saida2]),
       total_normais: get(cells, columns.totalNormais),
       total_noturno: get(cells, columns.totalNoturno),
       dia_falta: get(cells, columns.diaFalta),

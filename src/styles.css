@@ -1297,3 +1297,18 @@ button, .nav-item, .secondary-button, .primary-button, .icon-button { min-height
   .phase3-help-dialog footer { align-items:flex-start; flex-direction:column; }
   .phase3-help-dialog footer .primary-button { width:100%; }
 }
+
+/* Importação de ponto: estados com contraste alto para leitura imediata. */
+.point-import-preview-status.is-blocking { border: 2px solid #b42318; background: #fff1f0; color: #7a1f18; }
+.point-import-preview-status.is-blocking > span:last-child { color: #7a1f18; font-weight: 700; }
+.point-import-preview-status.is-applied { border: 2px solid #137333; background: #e9f7ee; }
+.point-import-preview-status.is-applied > span:last-child { color: #14532d; font-weight: 700; }
+.point-import-preview-status.is-pending { border: 2px solid #9a6700; background: #fff8db; }
+.point-import-preview-status.is-pending > span:last-child { color: #6b4e00; font-weight: 700; }
+.import-stat span { color: #4b5563; font-weight: 900; }
+.import-stat.invalid { background: #fff1f0; }
+.import-stat.invalid strong { color: #b42318; font-weight: 900; }
+.row-inconsistent td { color: #7a1f18; background: #fff1f0; border-bottom-color: #f0b7b2; font-weight: 650; }
+.row-inconsistent td:first-child { box-shadow: inset 4px 0 #b42318; }
+.table-note { color: #991b1b; font-weight: 750; }
+.point-import-preview-table-wrap th { color: #263238; background: #e7ebf0; font-weight: 900; }
