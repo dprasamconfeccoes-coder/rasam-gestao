@@ -315,7 +315,7 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
         {formError && <div ref={formErrorRef} className="work-order-form-error" role="alert" tabIndex={-1}>{formError}</div>}
         <div className="work-order-form-grid">
           <div className="work-order-client-field">
-            <label htmlFor="work-order-client-search">Cliente</label>
+            <label htmlFor="work-order-client-search">Cliente *</label>
             <input id="work-order-client-search" required maxLength={180} autoComplete="off" value={form.cliente} onChange={(event) => { setForm((current) => ({ ...current, cliente: event.target.value })); setSelectedClient(null) }} placeholder="Digite para pesquisar clientes" />
             {clientSearchLoading && <small className="work-order-client-hint">Pesquisando clientes…</small>}
             {clientSearchError && <small className="work-order-client-error">{clientSearchError}</small>}
@@ -325,8 +325,8 @@ export function WorkOrdersDashboard({ token, onGoToProduction }: { token: string
           </div>
           <label>Fornecedor *<input required maxLength={180} value={form.fornecedor} onChange={(event) => setForm({ ...form, fornecedor: event.target.value })} placeholder="Nome do fornecedor" /></label>
           <label>Referência / modelo *<input required maxLength={120} value={form.referencia} onChange={(event) => setForm({ ...form, referencia: event.target.value })} placeholder="Código ou referência do produto" /></label>
-          <label>Produto / descrição<input required maxLength={500} value={form.descricao} onChange={(event) => setForm({ ...form, descricao: event.target.value })} placeholder="Ex.: Calça masculina · lote de inverno" /></label>
-          <label>Prazo previsto<input required type="date" value={form.prazo} onChange={(event) => setForm({ ...form, prazo: event.target.value })} /></label>
+          <label>Produto / descrição *<input required maxLength={500} value={form.descricao} onChange={(event) => setForm({ ...form, descricao: event.target.value })} placeholder="Ex.: Calça masculina · lote de inverno" /></label>
+          <label>Prazo previsto *<input required type="date" value={form.prazo} onChange={(event) => setForm({ ...form, prazo: event.target.value })} /></label>
           <label>Prioridade<select value={form.prioridade} onChange={(event) => setForm({ ...form, prioridade: event.target.value })}><option value="baixa">Baixa</option><option value="normal">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option></select></label>
           <label>Valor único por peça do lote *<input required type="text" inputMode="decimal" value={form.valor_unitario} onChange={(event) => setForm({ ...form, valor_unitario: event.target.value })} placeholder="R$ 0,00" /><small>Este mesmo valor será aplicado a todos os tamanhos.</small></label>
           <div className="work-order-number-hint"><ClipboardList size={17} /><span><strong>Identificação automática</strong><small>Uma numeração única será reservada pelo sistema.</small></span></div>
