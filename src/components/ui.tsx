@@ -6,9 +6,7 @@ export function PageHeading({ eyebrow, title, description, action }: { eyebrow?:
   return (
     <div className="page-heading">
       <div>
-        {eyebrow ? <span className="eyebrow">{eyebrow}</span> : null}
         <h1>{title}</h1>
-        {description && <p>{description}</p>}
       </div>
       {action && <div className="heading-action">{action}</div>}
     </div>

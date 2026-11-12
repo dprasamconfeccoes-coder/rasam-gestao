@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarDays, CheckCircle2, Download, FileText, History, LockKeyhole, Plane, Search, WalletCards } from 'lucide-react'
-import { getVacationDocumentUrl, listEmployees, listVacationPortal } from '../lib/api'
-import type { EmployeeRow, VacationPortalRow } from '../lib/types'
+import { getVacationDocumentUrl, listVacationPortal } from '../lib/api'
+import type { VacationPortalRow } from '../lib/types'
 import { EmptyState, ErrorState, LoadingState, MetricCard, PageHeading, SectionCard, StatusPill, formatDate } from '../components/ui'
 
 type Props = { token: string; isAdministrative: boolean }
@@ -27,17 +27,15 @@ function VacationAvatar({ name, url }: { name: string; url?: string | null }) {
 
 export function EmployeeVacationPortal({ token, isAdministrative }: Props) {
   const [rows, setRows] = useState<VacationPortalRow[]>([])
-  const [employees, setEmployees] = useState<EmployeeRow[]>([])
-  const [employeeId, setEmployeeId] = useState('')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [opening, setOpening] = useState('')
 
-  async function load(selectedId = '') {
+  async function load() {
     setLoading(true); setError('')
     try {
-      const result = await listVacationPortal(token, isAdministrative ? (selectedId || null) : null)
+      const result = await listVacationPortal(token, null)
       if (!result.sucesso) throw new Error(result.erro || 'Não foi possível consultar suas férias.')
       setRows(result.ferias || [])
     } catch (err) { setError(err instanceof Error ? err.message : 'Não foi possível consultar suas férias.') }
@@ -45,11 +43,9 @@ export function EmployeeVacationPortal({ token, isAdministrative }: Props) {
   }
 
   useEffect(() => {
-    if (isAdministrative) listEmployees(token).then((result) => setEmployees(Array.isArray(result) ? result : [])).catch(() => undefined)
     void load()
   }, [token, isAdministrative])
 
-  const selectedEmployee = useMemo(() => employees.find((item) => item.id === employeeId), [employees, employeeId])
   const filteredRows = useMemo(() => {
     const term = search.trim().toLowerCase()
     if (!term) return rows
@@ -72,8 +68,8 @@ export function EmployeeVacationPortal({ token, isAdministrative }: Props) {
   }
 
   return <div className="vacation-portal-page">
-    <PageHeading eyebrow="Minha área · pessoas" title="Férias" description={isAdministrative ? 'Consulta consolidada dos períodos aquisitivos e documentos de férias da empresa.' : 'Acompanhe seus períodos aquisitivos, saldo disponível e documentos publicados pelo RH.'} action={isAdministrative ? <select className="vacation-portal-employee-select" value={employeeId} onChange={(event) => { setEmployeeId(event.target.value); void load(event.target.value) }}><option value="">Toda a empresa</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.nome}</option>)}</select> : undefined} />
-    {isAdministrative && <div className="vacation-portal-toolbar"><label className="search-box"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filtrar por nome, CPF ou cargo" /></label><span>{selectedEmployee ? `Visualizando ${selectedEmployee.nome}` : 'Visão geral da empresa'}</span></div>}
+    <PageHeading title="Férias" />
+    {isAdministrative && <div className="vacation-portal-toolbar"><label className="search-box"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filtrar por nome, CPF ou cargo" /></label><span>{filteredRows.length} período(s) encontrado(s)</span></div>}
     {error && <div className="form-error vacation-portal-error"><LockKeyhole size={16} />{error}</div>}
     {loading ? <LoadingState label="Consultando histórico de férias…" /> : <>
       <div className="metric-grid vacation-portal-metrics"><MetricCard label="Saldo disponível" value={days(summary.available)} detail="Dias que ainda podem ser programados" tone="green" /><MetricCard label="Dias usufruídos" value={days(summary.used)} detail="Histórico consolidado" tone="blue" /><MetricCard label="Agendados" value={days(summary.scheduled)} detail="Períodos futuros" tone="gold" /><MetricCard label="Períodos" value={summary.periods} detail="Períodos aquisitivos localizados" tone="pink" /></div>
