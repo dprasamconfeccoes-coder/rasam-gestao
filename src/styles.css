@@ -1319,3 +1319,19 @@ button, .nav-item, .secondary-button, .primary-button, .icon-button { min-height
 .point-import-issues-list li { display:grid; gap:2px; font-size:10px; }
 .point-import-issues-list li b { color:#541b16; font-size:11px; }
 .point-import-issues-list li span, .point-import-issues-list small { color:#7a1f18; font-weight:650; line-height:1.35; }
+
+/* Diário de ponto: leitura administrativa com data e dia da semana. */
+.point-day-trigger { display: grid; gap: 3px; min-width: 82px; border-bottom: 0; text-align: left; }
+.point-day-trigger strong { color: var(--text); font-size: 10px; font-weight: 800; }
+.point-day-trigger small { color: var(--muted); font-size: 9px; font-weight: 650; text-transform: capitalize; }
+.point-review-actions { display: flex; align-items: center; justify-content: space-between; gap: 7px; min-width: 0; }
+.point-unjustified-label { min-width: 0; color: #8d3d49; font-size: 9px; font-weight: 800; line-height: 1.25; white-space: normal; }
+.point-review-action-button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 30px; padding: 6px 8px; color: #71304f; border-color: rgba(163,63,112,.32); background: #fff7fb; font-size: 9px; white-space: nowrap; }
+.point-review-action-button:hover { color: #fff; background: #a33f70; border-color: #a33f70; }
+.point-review-dialog { width: min(560px, 100%); }
+.point-review-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+@media (max-width: 760px) {
+  .point-review-actions { align-items: stretch; flex-direction: column; }
+  .point-review-action-button { width: 100%; }
+  .point-unjustified-label { text-align: left; }
+}
